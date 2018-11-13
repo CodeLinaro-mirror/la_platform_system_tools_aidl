@@ -131,8 +131,7 @@ ArgList::ArgList(const std::vector<std::string>& arg_list) {
 ArgList::ArgList(std::vector<std::unique_ptr<AstNode>> arg_list)
     : arguments_(std::move(arg_list)) {}
 
-ArgList::ArgList(ArgList&& arg_list)
-    : arguments_(std::move(arg_list.arguments_)) {}
+ArgList::ArgList(ArgList&& arg_list) noexcept : arguments_(std::move(arg_list.arguments_)) {}
 
 void ArgList::Write(CodeWriter* to) const {
   to->Write("(");
@@ -437,9 +436,8 @@ void CppNamespace::Write(CodeWriter* to) const {
 }
 
 Document::Document(const std::vector<std::string>& include_list,
-                   unique_ptr<CppNamespace> a_namespace)
-    : include_list_(include_list),
-      namespace_(std::move(a_namespace)) {}
+                   std::vector<unique_ptr<Declaration>> declarations)
+    : include_list_(include_list), declarations_(std::move(declarations)) {}
 
 void Document::Write(CodeWriter* to) const {
   for (const auto& include : include_list_) {
@@ -447,14 +445,14 @@ void Document::Write(CodeWriter* to) const {
   }
   to->Write("\n");
 
-  namespace_->Write(to);
+  for (const auto& declaration : declarations_) {
+    declaration->Write(to);
+  }
 }
 
-CppHeader::CppHeader(const std::string& include_guard,
-                     const std::vector<std::string>& include_list,
-                     unique_ptr<CppNamespace> a_namespace)
-    : Document(include_list, std::move(a_namespace)),
-      include_guard_(include_guard) {}
+CppHeader::CppHeader(const std::string& include_guard, const std::vector<std::string>& include_list,
+                     std::vector<std::unique_ptr<Declaration>> declarations)
+    : Document(include_list, std::move(declarations)), include_guard_(include_guard) {}
 
 void CppHeader::Write(CodeWriter* to) const {
   to->Write("#ifndef %s\n", include_guard_.c_str());
@@ -467,8 +465,8 @@ void CppHeader::Write(CodeWriter* to) const {
 }
 
 CppSource::CppSource(const std::vector<std::string>& include_list,
-                     unique_ptr<CppNamespace> a_namespace)
-    : Document(include_list, std::move(a_namespace)) {}
+                     std::vector<std::unique_ptr<Declaration>> declarations)
+    : Document(include_list, std::move(declarations)) {}
 
 }  // namespace cpp
 }  // namespace aidl
