@@ -35,7 +35,6 @@
 using android::base::Join;
 using android::base::StringPrintf;
 
-using std::pair;
 using std::string;
 using std::unique_ptr;
 using std::vector;
@@ -314,7 +313,6 @@ class ProxyClass : public Class {
   virtual ~ProxyClass();
 
   Variable* mRemote;
-  bool mOneWay;
 };
 
 ProxyClass::ProxyClass(const JavaTypeNamespace* types, const Type* type,
@@ -324,8 +322,6 @@ ProxyClass::ProxyClass(const JavaTypeNamespace* types, const Type* type,
   this->what = Class::CLASS;
   this->type = type;
   this->interfaces.push_back(interfaceType);
-
-  mOneWay = interfaceType->OneWay();
 
   // IBinder mRemote
   mRemote = new Variable(types->IBinderType(), "mRemote");
@@ -767,7 +763,7 @@ static std::unique_ptr<Method> generate_proxy_method(
 static void generate_methods(const AidlInterface& iface, const AidlMethod& method, Class* interface,
                              StubClass* stubClass, ProxyClass* proxyClass, int index,
                              JavaTypeNamespace* types, const Options& options) {
-  const bool oneway = proxyClass->mOneWay || method.IsOneway();
+  const bool oneway = method.IsOneway();
 
   // == the TRANSACT_ constant =============================================
   string transactCodeName = "TRANSACTION_";
@@ -814,7 +810,9 @@ static void generate_methods(const AidlInterface& iface, const AidlMethod& metho
     if (method.GetName() == kGetInterfaceVersion && options.Version() > 0) {
       Case* c = new Case(transactCodeName);
       std::ostringstream code;
-      code << "reply.writeInt(" << kGetInterfaceVersion << "());\n"
+      code << "data.enforceInterface(descriptor);\n"
+           << "reply.writeNoException();\n"
+           << "reply.writeInt(" << kGetInterfaceVersion << "());\n"
            << "return true;\n";
       c->statements->Add(new LiteralStatement(code.str()));
       stubClass->transact_switch->cases.push_back(c);
@@ -839,6 +837,7 @@ static void generate_methods(const AidlInterface& iface, const AidlMethod& metho
            << "    android.os.Parcel data = android.os.Parcel.obtain();\n"
            << "    android.os.Parcel reply = android.os.Parcel.obtain();\n"
            << "    try {\n"
+           << "      data.writeInterfaceToken(DESCRIPTOR);\n"
            << "      mRemote.transact(Stub." << transactCodeName << ", "
            << "data, reply, 0);\n"
            << "      mCachedVersion = reply.readInt();\n"
