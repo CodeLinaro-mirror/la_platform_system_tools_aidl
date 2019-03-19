@@ -631,10 +631,14 @@ func aidlInterfaceHook(mctx android.LoadHookContext, i *aidlInterface) {
 	}
 
 	if i.shouldGenerateNdkBackend() {
-		libs = append(libs, addCppLibrary(mctx, i, currentVersion, langNdk))
-		for _, version := range i.properties.Versions {
-			addCppLibrary(mctx, i, version, langNdk)
+		// TODO(b/119771576): inherit properties and export 'is vendor' computation from cc.go
+		if !proptools.Bool(i.properties.Vendor_available) {
+			libs = append(libs, addCppLibrary(mctx, i, currentVersion, langNdk))
+			for _, version := range i.properties.Versions {
+				addCppLibrary(mctx, i, version, langNdk)
+			}
 		}
+		// TODO(b/121157555): combine with '-ndk' variant
 		libs = append(libs, addCppLibrary(mctx, i, currentVersion, langNdkPlatform))
 		for _, version := range i.properties.Versions {
 			addCppLibrary(mctx, i, version, langNdkPlatform)
@@ -693,6 +697,7 @@ func addCppLibrary(mctx android.LoadHookContext, i *aidlInterface, version strin
 	}
 
 	importExportDependencies := wrap("", i.properties.Imports, "-"+lang)
+	var libJSONCppDependency []string
 	var sdkVersion *string
 	var stl *string
 	var cpp_std *string
@@ -700,7 +705,8 @@ func addCppLibrary(mctx android.LoadHookContext, i *aidlInterface, version strin
 	if lang == langCpp {
 		importExportDependencies = append(importExportDependencies, "libbinder", "libutils")
 		if genLog {
-			importExportDependencies = append(importExportDependencies, "libjsoncpp", "libbase")
+			libJSONCppDependency = []string{"libjsoncpp"}
+			importExportDependencies = append(importExportDependencies, "libbase")
 		}
 		sdkVersion = nil
 		stl = nil
@@ -723,6 +729,8 @@ func addCppLibrary(mctx android.LoadHookContext, i *aidlInterface, version strin
 		Generated_sources:         cppGeneratedSources,
 		Generated_headers:         cppGeneratedSources,
 		Export_generated_headers:  cppGeneratedSources,
+		Static:                    staticLib{Whole_static_libs: libJSONCppDependency},
+		Shared:                    sharedLib{Shared_libs: libJSONCppDependency, Export_shared_lib_headers: libJSONCppDependency},
 		Shared_libs:               importExportDependencies,
 		Export_shared_lib_headers: importExportDependencies,
 		Sdk_version:               sdkVersion,
