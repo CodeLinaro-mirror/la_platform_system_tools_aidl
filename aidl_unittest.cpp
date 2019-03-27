@@ -56,7 +56,7 @@ R"(place/for/output/p/IFoo.java : \
 )";
 
 const char kExpectedParcelableDepFileContents[] =
-R"( : \
+    R"(place/for/output/p/Foo.java : \
   p/Foo.aidl
 
 p/Foo.aidl :
@@ -65,7 +65,6 @@ p/Foo.aidl :
 const char kExepectedJavaParcelableOutputContests[] =
     R"(/*
  * This file is auto-generated.  DO NOT MODIFY.
- * Original file: Rect.aidl
  */
 @android.annotation.SystemApi
 public class Rect implements android.os.Parcelable
