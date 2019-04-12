@@ -72,7 +72,7 @@ class StubClass : public Class {
  public:
   StubClass(const Type* type, const InterfaceType* interfaceType, JavaTypeNamespace* types,
             const Options& options);
-  virtual ~StubClass() = default;
+  ~StubClass() override = default;
 
   Variable* transact_code;
   Variable* transact_data;
@@ -274,8 +274,8 @@ void StubClass::make_as_interface(const InterfaceType* interfaceType,
   // IInterface iin = obj.queryLocalInterface(DESCRIPTOR)
   MethodCall* queryLocalInterface = new MethodCall(obj, "queryLocalInterface");
   queryLocalInterface->arguments.push_back(new LiteralExpression("DESCRIPTOR"));
-  IInterfaceType* iinType = new IInterfaceType(types);
-  Variable* iin = new Variable(iinType->JavaType(), "iin");
+  IInterfaceType iinType(types);
+  Variable* iin = new Variable(iinType.JavaType(), "iin");
   VariableDeclaration* iinVd = new VariableDeclaration(iin, queryLocalInterface);
   m->statements->Add(iinVd);
 
@@ -307,7 +307,7 @@ class ProxyClass : public Class {
  public:
   ProxyClass(const JavaTypeNamespace* types, const Type* type, const InterfaceType* interfaceType,
              const Options& options);
-  virtual ~ProxyClass();
+  ~ProxyClass() override;
 
   Variable* mRemote;
 };
