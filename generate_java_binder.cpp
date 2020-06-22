@@ -118,7 +118,15 @@ StubClass::StubClass(const AidlInterface* interfaceType, const Options& options)
   // descriptor
   auto descriptor = std::make_shared<Field>(
       STATIC | FINAL | PRIVATE, std::make_shared<Variable>("java.lang.String", "DESCRIPTOR"));
-  descriptor->value = "\"" + interfaceType->GetCanonicalName() + "\"";
+  if (options.IsStructured()) {
+    // mangle the interface name at build time and demangle it at runtime, to avoid
+    // being renamed by jarjar. See b/153843174
+    std::string name = interfaceType->GetCanonicalName();
+    std::replace(name.begin(), name.end(), '.', '$');
+    descriptor->value = "\"" + name + "\".replace('$', '.')";
+  } else {
+    descriptor->value = "\"" + interfaceType->GetCanonicalName() + "\"";
+  }
   this->elements.push_back(descriptor);
 
   // ctor
@@ -874,7 +882,7 @@ static void generate_methods(const AidlInterface& iface, const AidlMethod& metho
            << "public synchronized String " << kGetInterfaceHash << "()"
            << " throws "
            << "android.os.RemoteException {\n"
-           << "  if (mCachedHash == \"-1\") {\n"
+           << "  if (\"-1\".equals(mCachedHash)) {\n"
            << "    android.os.Parcel data = android.os.Parcel.obtain();\n"
            << "    android.os.Parcel reply = android.os.Parcel.obtain();\n"
            << "    try {\n"
@@ -1123,7 +1131,13 @@ std::unique_ptr<Class> generate_binder_interface_class(const AidlInterface* ifac
   const string i_name = iface->GetCanonicalName();
   stub->elements.emplace_back(std::make_shared<LiteralClassElement>(
       StringPrintf("public static boolean setDefaultImpl(%s impl) {\n"
-                   "  if (Stub.Proxy.sDefaultImpl == null && impl != null) {\n"
+                   "  // Only one user of this interface can use this function\n"
+                   "  // at a time. This is a heuristic to detect if two different\n"
+                   "  // users in the same process use this function.\n"
+                   "  if (Stub.Proxy.sDefaultImpl != null) {\n"
+                   "    throw new IllegalStateException(\"setDefaultImpl() called twice\");\n"
+                   "  }\n"
+                   "  if (impl != null) {\n"
                    "    Stub.Proxy.sDefaultImpl = impl;\n"
                    "    return true;\n"
                    "  }\n"

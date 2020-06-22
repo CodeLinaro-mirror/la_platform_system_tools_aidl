@@ -34,12 +34,35 @@ using std::set;
 using std::string;
 using std::vector;
 
+static set<AidlAnnotation> get_strict_annotations(const AidlAnnotatable& node) {
+  // This must be symmetrical (if you can add something, you must be able to
+  // remove it). The reason is that we have no way of knowing which interface a
+  // server serves and which interface a client serves (e.g. a callback
+  // interface). Note that this is being overly lenient. It makes sense for
+  // newer code to start accepting nullable things. However, here, we don't know
+  // if the client of an interface or the server of an interface is newer.
+  //
+  // Here are two examples to demonstrate this:
+  // - a new implementation might change so that it no longer returns null
+  // values (remove @nullable)
+  // - a new implementation might start accepting null values (add @nullable)
+  static const set<std::string> kIgnoreAnnotations{
+      "nullable",
+  };
+  set<AidlAnnotation> annotations;
+  for (const AidlAnnotation& annotation : node.GetAnnotations()) {
+    if (kIgnoreAnnotations.find(annotation.GetName()) == kIgnoreAnnotations.end()) {
+      annotations.insert(annotation);
+    }
+  }
+  return annotations;
+}
+
 static bool have_compatible_annotations(const AidlAnnotatable& older,
                                         const AidlAnnotatable& newer) {
-  set<AidlAnnotation> olderAnnotations(older.GetAnnotations().begin(),
-                                       older.GetAnnotations().end());
-  set<AidlAnnotation> newerAnnotations(newer.GetAnnotations().begin(),
-                                       newer.GetAnnotations().end());
+  set<AidlAnnotation> olderAnnotations = get_strict_annotations(older);
+  set<AidlAnnotation> newerAnnotations = get_strict_annotations(newer);
+
   if (olderAnnotations != newerAnnotations) {
     const string from = older.ToString().empty() ? "(empty)" : older.ToString();
     const string to = newer.ToString().empty() ? "(empty)" : newer.ToString();
@@ -159,15 +182,6 @@ static bool are_compatible_parcelables(const AidlStructuredParcelable& older,
     const auto& new_field = new_fields.at(i);
     compatible &= are_compatible_types(old_field->GetType(), new_field->GetType());
 
-    // Note: unlike method argument names, field name change is an incompatible
-    // change, otherwise, we can't detect
-    // parcelable Point {int x; int y;} -> parcelable Point {int y; int x;}
-    if (old_field->GetName() != new_field->GetName()) {
-      AIDL_ERROR(newer) << "Renamed field: " << old_field->GetName() << " to "
-                        << new_field->GetName() << ".";
-      compatible = false;
-    }
-
     const string old_value = old_field->ValueString(AidlConstantValueDecorator);
     const string new_value = new_field->ValueString(AidlConstantValueDecorator);
     if (old_value != new_value) {
@@ -175,6 +189,23 @@ static bool are_compatible_parcelables(const AidlStructuredParcelable& older,
       compatible = false;
     }
   }
+
+  // Reordering of fields is an incompatible change.
+  for (size_t i = 0; i < new_fields.size(); i++) {
+    const auto& new_field = new_fields.at(i);
+    auto found = std::find_if(old_fields.begin(), old_fields.end(), [&new_field](const auto& f) {
+      return new_field->GetName() == f->GetName();
+    });
+    if (found != old_fields.end()) {
+      size_t old_index = std::distance(old_fields.begin(), found);
+      if (old_index != i) {
+        AIDL_ERROR(new_field) << "Reordered " << new_field->GetName() << " from " << old_index
+                              << " to " << i << ".";
+        compatible = false;
+      }
+    }
+  }
+
   return compatible;
 }
 
