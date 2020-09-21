@@ -86,7 +86,7 @@ class AidlLocation {
 };
 
 #define AIDL_LOCATION_HERE \
-  AidlLocation { __FILE__, {__LINE__, 0}, {__LINE__, 0}, AidlLocation::Source::INTERNAL }
+  (AidlLocation{__FILE__, {__LINE__, 0}, {__LINE__, 0}, AidlLocation::Source::INTERNAL})
 
 std::ostream& operator<<(std::ostream& os, const AidlLocation& l);
 
@@ -166,6 +166,10 @@ class AidlAnnotation : public AidlNode {
     UTF8_IN_CPP,
     JAVA_PASSTHROUGH,
     JAVA_DEBUG,
+    JAVA_ONLY_IMMUTABLE,
+    FIXED_SIZE,
+    DESCRIPTOR,
+    RUST_DERIVE,
   };
   static std::string TypeToString(Type type);
 
@@ -229,14 +233,18 @@ class AidlAnnotatable : public AidlNode {
   bool IsNullable() const;
   bool IsUtf8InCpp() const;
   bool IsVintfStability() const;
+  bool IsJavaOnlyImmutable() const;
+  bool IsFixedSize() const;
   bool IsStableApiParcelable(Options::Language lang) const;
   bool IsHide() const;
   bool IsJavaDebug() const;
+  std::string GetDescriptor() const;
 
   void DumpAnnotations(CodeWriter* writer) const;
 
   const AidlAnnotation* UnsupportedAppUsage() const;
   const AidlAnnotation* JavaPassthrough() const;
+  const AidlAnnotation* RustDerive() const;
   const AidlTypeSpecifier* BackingType(const AidlTypenames& typenames) const;
   std::string ToString() const;
 
@@ -747,7 +755,8 @@ class AidlStructuredParcelable : public AidlParcelable {
  public:
   AidlStructuredParcelable(const AidlLocation& location, const std::string& name,
                            const std::string& package, const std::string& comments,
-                           std::vector<std::unique_ptr<AidlVariableDeclaration>>* variables);
+                           std::vector<std::unique_ptr<AidlVariableDeclaration>>* variables,
+                           std::vector<std::string>* type_params);
   virtual ~AidlStructuredParcelable() = default;
 
   // non-copyable, non-movable
@@ -867,6 +876,8 @@ class AidlInterface final : public AidlDefinedType {
   bool CheckValid(const AidlTypenames& typenames) const override;
   bool LanguageSpecificCheckValid(const AidlTypenames& typenames,
                                   Options::Language lang) const override;
+
+  std::string GetDescriptor() const;
 
  private:
   std::vector<std::unique_ptr<AidlMethod>> methods_;

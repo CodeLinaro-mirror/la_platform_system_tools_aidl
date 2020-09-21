@@ -920,14 +920,14 @@ static void generate_interface_descriptors(const Options& options, const AidlInt
   }
   auto descriptor = std::make_shared<Field>(
       STATIC | FINAL | PUBLIC, std::make_shared<Variable>("java.lang.String", "DESCRIPTOR"));
+  std::string name = iface->GetDescriptor();
   if (options.IsStructured()) {
     // mangle the interface name at build time and demangle it at runtime, to avoid
     // being renamed by jarjar. See b/153843174
-    std::string name = iface->GetCanonicalName();
     std::replace(name.begin(), name.end(), '.', '$');
     descriptor->value = "\"" + name + "\".replace('$', '.')";
   } else {
-    descriptor->value = "\"" + iface->GetCanonicalName() + "\"";
+    descriptor->value = "\"" + name + "\"";
   }
   classToAddDescriptor->elements.push_back(descriptor);
 }
@@ -945,7 +945,7 @@ static void generate_interface_descriptors(const Options& options, const AidlInt
 static void compute_outline_methods(const AidlInterface* iface,
                                     const std::shared_ptr<StubClass> stub, size_t outline_threshold,
                                     size_t non_outline_count) {
-  CHECK_LE(non_outline_count, outline_threshold);
+  AIDL_FATAL_IF(non_outline_count > outline_threshold, iface);
   // We'll outline (create sub methods) if there are more than min_methods
   // cases.
   stub->transact_outline = iface->GetMethods().size() > outline_threshold;
@@ -1096,6 +1096,10 @@ std::unique_ptr<Class> generate_binder_interface_class(const AidlInterface* ifac
       auto code = StringPrintf("%s\n", comment.c_str());
       interface->elements.push_back(std::make_shared<LiteralClassElement>(code));
     }
+    for (const std::string& annotation : generate_java_annotations(constant->GetType())) {
+      auto code = StringPrintf("%s\n", annotation.c_str());
+      interface->elements.push_back(std::make_shared<LiteralClassElement>(code));
+    }
     switch (value.GetType()) {
       case AidlConstantValue::Type::STRING: {
         generate_string_constant(interface.get(), constant->GetName(),
@@ -1104,13 +1108,15 @@ std::unique_ptr<Class> generate_binder_interface_class(const AidlInterface* ifac
       }
       case AidlConstantValue::Type::BOOLEAN:  // fall-through
       case AidlConstantValue::Type::INT8:     // fall-through
-      case AidlConstantValue::Type::INT32: {
+      case AidlConstantValue::Type::INT32:    // fall-through
+      // Type promotion may cause this. Value should be small enough to fit in int32.
+      case AidlConstantValue::Type::INT64: {
         generate_int_constant(interface.get(), constant->GetName(),
                               constant->ValueString(ConstantValueDecorator));
         break;
       }
       default: {
-        LOG(FATAL) << "Unrecognized constant type: " << static_cast<int>(value.GetType());
+        AIDL_FATAL(value) << "Unrecognized constant type: " << static_cast<int>(value.GetType());
       }
     }
   }
