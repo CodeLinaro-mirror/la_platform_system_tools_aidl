@@ -142,12 +142,12 @@ func _testAidl(t *testing.T, bp string, customizers ...testCustomizer) (*android
 	ctx.RegisterModuleType("java_library_static", java.LibraryStaticFactory)
 	ctx.RegisterModuleType("java_library", java.LibraryFactory)
 	ctx.RegisterModuleType("java_system_modules", java.SystemModulesFactory)
-	ctx.RegisterModuleType("ndk_library", cc.NdkLibraryFactory)
 
 	ctx.PreArchMutators(android.RegisterDefaultsPreArchMutators)
 	ctx.PostDepsMutators(android.RegisterOverridePostDepsMutators)
 	ctx.PostDepsMutators(func(ctx android.RegisterMutatorsContext) {
 		ctx.BottomUp("checkUnstableModule", checkUnstableModuleMutator).Parallel()
+		ctx.BottomUp("checkDuplicatedVersions", checkDuplicatedVersions).Parallel()
 	})
 	ctx.Register(config)
 
@@ -209,7 +209,7 @@ func TestVintfWithoutVersionInRelease(t *testing.T) {
 			"IFoo.aidl",
 		],
 	}`
-	expectedError := `module "foo_interface": versions: must be set \(need to be frozen\) when "unstable" is false and PLATFORM_VERSION_CODENAME is REL`
+	expectedError := `module "foo_interface": versions: must be set \(need to be frozen\) when "unstable" is false, PLATFORM_VERSION_CODENAME is REL, and "owner" property is missing.`
 	testAidlError(t, expectedError, vintfWithoutVersionBp, setReleaseEnv())
 
 	ctx, _ := testAidl(t, vintfWithoutVersionBp)
@@ -282,7 +282,7 @@ func TestNonVersionedModuleUsageInRelease(t *testing.T) {
 		libs: ["foo-java"],
 	}`
 
-	expectedError := `"foo_interface": versions: must be set \(need to be frozen\) when "unstable" is false and PLATFORM_VERSION_CODENAME is REL.`
+	expectedError := `"foo_interface": versions: must be set \(need to be frozen\) when "unstable" is false, PLATFORM_VERSION_CODENAME is REL, and "owner" property is missing.`
 	testAidlError(t, expectedError, nonVersionedModuleUsageInJavaBp, setReleaseEnv())
 	testAidl(t, nonVersionedModuleUsageInJavaBp)
 
@@ -575,4 +575,32 @@ func TestImports(t *testing.T) {
 	if !strings.Contains(libFlags, libBar) {
 		t.Errorf("%q is not found in %q", libBar, libFlags)
 	}
+}
+
+func TestDuplicatedVersions(t *testing.T) {
+	// foo depends on myiface-ndk (v2) via direct dep and also on
+	// myiface-V1-ndk via indirect dep. This should be prohibited.
+	testAidlError(t, `multiple versions of aidl_interface myiface \(backend:ndk\) are used`, `
+		aidl_interface {
+			name: "myiface",
+			srcs: ["IFoo.aidl"],
+			versions: ["1", "2"],
+		}
+
+		cc_library {
+			name: "foo",
+			shared_libs: ["myiface-ndk", "bar"],
+		}
+
+		cc_library {
+			name: "bar",
+			shared_libs: ["myiface-V1-ndk"],
+		}
+
+	`, withFiles(map[string][]byte{
+		"aidl_api/myiface/1/myiface.1.aidl": nil,
+		"aidl_api/myiface/1/.hash":          nil,
+		"aidl_api/myiface/2/myiface.2.aidl": nil,
+		"aidl_api/myiface/2/.hash":          nil,
+	}))
 }

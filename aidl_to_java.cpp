@@ -85,6 +85,7 @@ const string& JavaNameOf(const AidlTypeSpecifier& aidl, const AidlTypenames& typ
       {"FileDescriptor", "java.io.FileDescriptor"},
       {"CharSequence", "java.lang.CharSequence"},
       {"ParcelFileDescriptor", "android.os.ParcelFileDescriptor"},
+      {"ParcelableHolder", "android.os.ParcelableHolder"},
   };
 
   // map from primitive types to the corresponding boxing types
@@ -364,6 +365,10 @@ bool WriteToParcelFor(const CodeGeneratorContext& c) {
          c.writer.Dedent();
          c.writer << "}\n";
        }},
+      {"ParcelableHolder",
+       [](const CodeGeneratorContext& c) {
+         c.writer << c.parcel << ".writeTypedObject(" << c.var << ", 0);\n";
+       }},
   };
   const string type_name = AidlBackingTypeName(c.type, c.typenames);
   const auto found = method_map.find(type_name);
@@ -592,6 +597,14 @@ bool CreateFromParcelFor(const CodeGeneratorContext& c) {
          c.writer.Dedent();
          c.writer << "}\n";
        }},
+      {"ParcelableHolder",
+       [](const CodeGeneratorContext& c) {
+         c.writer << "if ((0!=" << c.parcel << ".readInt())) {\n";
+         c.writer.Indent();
+         c.writer << c.var << ".readFromParcel(" << c.parcel << ");\n";
+         c.writer.Dedent();
+         c.writer << "}\n";
+       }},
   };
   const auto found = method_map.find(AidlBackingTypeName(c.type, c.typenames));
   if (found != method_map.end()) {
@@ -760,6 +773,50 @@ bool ReadFromParcelFor(const CodeGeneratorContext& c) {
     }
   }
   return true;
+}
+
+void ToStringFor(const CodeGeneratorContext& c) {
+  if (c.type.IsArray()) {
+    // Arrays can be null
+    c.writer << c.var << " == null ? \"null\" : ";
+    c.writer << "java.util.Arrays.toString(" << c.var << ")";
+    return;
+  }
+
+  const std::string name = c.type.GetName();
+
+  if (AidlTypenames::IsPrimitiveTypename(name)) {
+    c.writer << c.var;
+    return;
+  }
+
+  const AidlDefinedType* t = c.typenames.TryGetDefinedType(name);
+  if (t != nullptr && t->AsEnumDeclaration()) {
+    c.writer << c.var;
+    return;
+  }
+
+  // FileDescriptor doesn't have a good toString() impl.
+  if (name == "FileDescriptor") {
+    c.writer << c.var << " == null ? \"null\" : ";
+    c.writer << c.var << ".getInt$()";
+    return;
+  }
+
+  // Rest of the built-in types have reasonable toString() impls.
+  if (AidlTypenames::IsBuiltinTypename(name)) {
+    c.writer << "java.util.Objects.toString(" << c.var << ")";
+    return;
+  }
+
+  // For user-defined types, we also use toString() that we are generating here, but just make sure
+  // that they are actually user-defined types.
+  AIDL_FATAL_IF(t == nullptr, c.type) << "Unknown type";
+  if (t->AsInterface() != nullptr || t->AsParcelable() != nullptr) {
+    c.writer << c.var << ".toString()";
+    return;
+  }
+  CHECK(true) << "Unhandled typename: " << name << endl;
 }
 
 }  // namespace java

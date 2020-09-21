@@ -41,10 +41,22 @@ namespace android {
 namespace aidl {
 
 // The built-in AIDL types..
-static const set<string> kBuiltinTypes = {
-    "void", "boolean", "byte",           "char",         "int",
-    "long", "float",   "double",         "String",       "List",
-    "Map",  "IBinder", "FileDescriptor", "CharSequence", "ParcelFileDescriptor"};
+static const set<string> kBuiltinTypes = {"void",
+                                          "boolean",
+                                          "byte",
+                                          "char",
+                                          "int",
+                                          "long",
+                                          "float",
+                                          "double",
+                                          "String",
+                                          "List",
+                                          "Map",
+                                          "IBinder",
+                                          "FileDescriptor",
+                                          "CharSequence",
+                                          "ParcelFileDescriptor",
+                                          "ParcelableHolder"};
 
 static const set<string> kPrimitiveTypes = {"void", "boolean", "byte",  "char",
                                             "int",  "long",    "float", "double"};
@@ -64,21 +76,30 @@ static const map<string, string> kJavaLikeTypeToAidlType = {
 // in Java and C++. Using these names will eventually cause compilation error,
 // so checking this here is not a must have, but early detection of errors
 // is always better.
-static const set<string> kInvalidNames = {
+static const set<string> kCppOrJavaReservedWord = {
     "break",  "case",   "catch", "char",     "class",  "continue", "default",
     "do",     "double", "else",  "enum",     "false",  "float",    "for",
     "goto",   "if",     "int",   "long",     "new",    "private",  "protected",
     "public", "return", "short", "static",   "switch", "this",     "throw",
     "true",   "try",    "void",  "volatile", "while"};
 
-static bool IsValidName(const string& name) {
-  vector<string> pieces = Split(name, ".");
-  for (const auto& piece : pieces) {
-    if (kInvalidNames.find(piece) != kInvalidNames.end()) {
-      return false;
+static bool HasValidNameComponents(const AidlDefinedType& defined) {
+  bool success = true;
+  vector<string> pieces = Split(defined.GetCanonicalName(), ".");
+  for (const string& piece : pieces) {
+    if (kCppOrJavaReservedWord.find(piece) != kCppOrJavaReservedWord.end()) {
+      AIDL_ERROR(defined) << defined.GetCanonicalName() << " is an invalid name because '" << piece
+                          << "' is a Java or C++ identifier.";
+      success = false;
+    }
+    // not checking kJavaLikeTypeToAidl, since that wouldn't make sense here
+    if (kBuiltinTypes.find(piece) != kBuiltinTypes.end()) {
+      AIDL_ERROR(defined) << defined.GetCanonicalName() << " is an invalid name because '" << piece
+                          << "' is a built-in AIDL type.";
+      success = false;
     }
   }
-  return true;
+  return success;
 }
 
 bool AidlTypenames::IsIgnorableImport(const string& import) const {
@@ -94,16 +115,25 @@ bool AidlTypenames::IsIgnorableImport(const string& import) const {
   return in_ignore_import || defined_type_not_from_preprocessed;
 }
 
-bool AidlTypenames::AddDefinedType(unique_ptr<AidlDefinedType> type) {
-  const string name = type->GetCanonicalName();
-  if (defined_types_.find(name) != defined_types_.end()) {
-    return false;
+bool AidlTypenames::AddDocument(std::unique_ptr<AidlDocument> doc) {
+  for (const auto& type : doc->DefinedTypes()) {
+    if (defined_types_.find(type->GetCanonicalName()) != defined_types_.end()) {
+      return false;
+    }
+    if (!HasValidNameComponents(*type)) {
+      return false;
+    }
   }
-  if (!IsValidName(type->GetPackage()) || !IsValidName(type->GetName())) {
-    return false;
+  documents_.push_back(std::move(doc));
+  for (const auto& type : documents_.back()->DefinedTypes()) {
+    defined_types_.emplace(type->GetCanonicalName(), type.get());
   }
-  defined_types_.emplace(name, std::move(type));
   return true;
+}
+
+const AidlDocument& AidlTypenames::MainDocument() const {
+  CHECK(documents_.size() != 0) << "Main document doesn't exist";
+  return *(documents_[0]);
 }
 
 bool AidlTypenames::AddPreprocessedType(unique_ptr<AidlDefinedType> type) {
@@ -111,7 +141,7 @@ bool AidlTypenames::AddPreprocessedType(unique_ptr<AidlDefinedType> type) {
   if (preprocessed_types_.find(name) != preprocessed_types_.end()) {
     return false;
   }
-  if (!IsValidName(type->GetPackage()) || !IsValidName(type->GetName())) {
+  if (!HasValidNameComponents(*type)) {
     return false;
   }
   preprocessed_types_.insert(make_pair(name, std::move(type)));
@@ -136,7 +166,7 @@ AidlTypenames::DefinedImplResult AidlTypenames::TryGetDefinedTypeImpl(
   // Do the exact match first.
   auto found_def = defined_types_.find(type_name);
   if (found_def != defined_types_.end()) {
-    return DefinedImplResult(found_def->second.get(), false);
+    return DefinedImplResult(found_def->second, false);
   }
 
   auto found_prep = preprocessed_types_.find(type_name);
@@ -148,7 +178,7 @@ AidlTypenames::DefinedImplResult AidlTypenames::TryGetDefinedTypeImpl(
   // types from the preprocessed file.
   for (auto it = defined_types_.begin(); it != defined_types_.end(); it++) {
     if (it->second->GetName() == type_name) {
-      return DefinedImplResult(it->second.get(), false);
+      return DefinedImplResult(it->second, false);
     }
   }
 
@@ -161,19 +191,29 @@ AidlTypenames::DefinedImplResult AidlTypenames::TryGetDefinedTypeImpl(
   return DefinedImplResult(nullptr, false);
 }
 
-pair<string, bool> AidlTypenames::ResolveTypename(const string& type_name) const {
+std::vector<AidlDefinedType*> AidlTypenames::AllDefinedTypes() const {
+  std::vector<AidlDefinedType*> res;
+  for (const auto& d : AllDocuments()) {
+    for (const auto& t : d->DefinedTypes()) {
+      res.push_back(t.get());
+    }
+  }
+  return res;
+}
+
+AidlTypenames::ResolvedTypename AidlTypenames::ResolveTypename(const string& type_name) const {
   if (IsBuiltinTypename(type_name)) {
     auto found = kJavaLikeTypeToAidlType.find(type_name);
     if (found != kJavaLikeTypeToAidlType.end()) {
-      return make_pair(found->second, true);
+      return {found->second, true};
     }
-    return make_pair(type_name, true);
+    return {type_name, true};
   }
   const AidlDefinedType* defined_type = TryGetDefinedType(type_name);
   if (defined_type != nullptr) {
-    return make_pair(defined_type->GetCanonicalName(), true);
+    return {defined_type->GetCanonicalName(), true};
   } else {
-    return make_pair(type_name, false);
+    return {type_name, false};
   }
 }
 
@@ -219,6 +259,7 @@ void AidlTypenames::IterateTypes(const std::function<void(const AidlDefinedType&
 void AidlTypenames::Reset() {
   defined_types_.clear();
   preprocessed_types_.clear();
+  documents_.clear();
 }
 
 }  // namespace aidl

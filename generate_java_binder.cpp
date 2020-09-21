@@ -29,7 +29,6 @@
 #include <utility>
 #include <vector>
 
-#include <android-base/macros.h>
 #include <android-base/stringprintf.h>
 
 using android::base::Join;
@@ -63,8 +62,6 @@ class VariableFactory {
   std::vector<std::shared_ptr<Variable>> vars_;
   std::string base_;
   int index_;
-
-  DISALLOW_COPY_AND_ASSIGN(VariableFactory);
 };
 
 // =================================================
@@ -72,6 +69,12 @@ class StubClass : public Class {
  public:
   StubClass(const AidlInterface* interfaceType, const Options& options);
   ~StubClass() override = default;
+
+  // non-copyable, non-movable
+  StubClass(const StubClass&) = delete;
+  StubClass(StubClass&&) = delete;
+  StubClass& operator=(const StubClass&) = delete;
+  StubClass& operator=(StubClass&&) = delete;
 
   std::shared_ptr<Variable> transact_code;
   std::shared_ptr<Variable> transact_data;
@@ -98,8 +101,6 @@ class StubClass : public Class {
 
   std::shared_ptr<Variable> transact_descriptor;
   const Options& options_;
-
-  DISALLOW_COPY_AND_ASSIGN(StubClass);
 };
 
 StubClass::StubClass(const AidlInterface* interfaceType, const Options& options)
@@ -114,20 +115,6 @@ StubClass::StubClass(const AidlInterface* interfaceType, const Options& options)
   this->type = interfaceType->GetCanonicalName() + ".Stub";
   this->extends = "android.os.Binder";
   this->interfaces.push_back(interfaceType->GetCanonicalName());
-
-  // descriptor
-  auto descriptor = std::make_shared<Field>(
-      STATIC | FINAL | PRIVATE, std::make_shared<Variable>("java.lang.String", "DESCRIPTOR"));
-  if (options.IsStructured()) {
-    // mangle the interface name at build time and demangle it at runtime, to avoid
-    // being renamed by jarjar. See b/153843174
-    std::string name = interfaceType->GetCanonicalName();
-    std::replace(name.begin(), name.end(), '.', '$');
-    descriptor->value = "\"" + name + "\".replace('$', '.')";
-  } else {
-    descriptor->value = "\"" + interfaceType->GetCanonicalName() + "\"";
-  }
-  this->elements.push_back(descriptor);
 
   // ctor
   auto ctor = std::make_shared<Method>();
@@ -420,8 +407,9 @@ static std::shared_ptr<Method> generate_interface_method(const AidlMethod& metho
   decl->annotations = generate_java_annotations(method.GetType());
 
   for (const std::unique_ptr<AidlArgument>& arg : method.GetArguments()) {
-    decl->parameters.push_back(
-        std::make_shared<Variable>(JavaSignatureOf(arg->GetType(), typenames), arg->GetName()));
+    auto var = std::make_shared<Variable>(JavaSignatureOf(arg->GetType(), typenames), arg->GetName());
+    var->annotations = generate_java_annotations(arg->GetType());
+    decl->parameters.push_back(var);
   }
 
   decl->exceptions.push_back("android.os.RemoteException");
@@ -433,10 +421,29 @@ static void generate_stub_code(const AidlInterface& iface, const AidlMethod& met
                                std::shared_ptr<Variable> transact_data,
                                std::shared_ptr<Variable> transact_reply,
                                const AidlTypenames& typenames,
-                               std::shared_ptr<StatementBlock> statements,
+                               std::shared_ptr<StatementBlock> statement_block,
                                std::shared_ptr<StubClass> stubClass, const Options& options) {
-  std::shared_ptr<TryStatement> tryStatement;
-  std::shared_ptr<FinallyStatement> finallyStatement;
+  // try and finally
+  auto tryStatement = std::make_shared<TryStatement>();
+  auto finallyStatement = std::make_shared<FinallyStatement>();
+  auto& statements = statement_block;
+
+  if (options.GenTraces()) {
+    statements->Add(tryStatement);
+    statements->Add(finallyStatement);
+    statements = tryStatement->statements;
+    tryStatement->statements->Add(std::make_shared<MethodCall>(
+        std::make_shared<LiteralExpression>("android.os.Trace"), "traceBegin",
+        std::vector<std::shared_ptr<Expression>>{
+            std::make_shared<LiteralExpression>("android.os.Trace.TRACE_TAG_AIDL"),
+            std::make_shared<StringLiteralExpression>("AIDL::java::" + iface.GetName() +
+                                                      "::" + method.GetName() + "::server")}));
+    finallyStatement->statements->Add(std::make_shared<MethodCall>(
+        std::make_shared<LiteralExpression>("android.os.Trace"), "traceEnd",
+        std::vector<std::shared_ptr<Expression>>{
+            std::make_shared<LiteralExpression>("android.os.Trace.TRACE_TAG_AIDL")}));
+  }
+
   auto realCall = std::make_shared<MethodCall>(THIS_VALUE, method.GetName());
 
   // interface token validation is the very first thing we do
@@ -481,33 +488,9 @@ static void generate_stub_code(const AidlInterface& iface, const AidlMethod& met
     }
   }
 
-  if (options.GenTraces()) {
-    // try and finally, but only when generating trace code
-    tryStatement = std::make_shared<TryStatement>();
-    finallyStatement = std::make_shared<FinallyStatement>();
-
-    tryStatement->statements->Add(std::make_shared<MethodCall>(
-        std::make_shared<LiteralExpression>("android.os.Trace"), "traceBegin",
-        std::vector<std::shared_ptr<Expression>>{
-            std::make_shared<LiteralExpression>("android.os.Trace.TRACE_TAG_AIDL"),
-            std::make_shared<StringLiteralExpression>(iface.GetName() + "::" + method.GetName() +
-                                                      "::server")}));
-
-    finallyStatement->statements->Add(std::make_shared<MethodCall>(
-        std::make_shared<LiteralExpression>("android.os.Trace"), "traceEnd",
-        std::vector<std::shared_ptr<Expression>>{
-            std::make_shared<LiteralExpression>("android.os.Trace.TRACE_TAG_AIDL")}));
-  }
-
   // the real call
   if (method.GetType().GetName() == "void") {
-    if (options.GenTraces()) {
-      statements->Add(tryStatement);
-      tryStatement->statements->Add(realCall);
-      statements->Add(finallyStatement);
-    } else {
-      statements->Add(realCall);
-    }
+    statements->Add(realCall);
 
     if (!oneway) {
       // report that there were no exceptions
@@ -517,14 +500,7 @@ static void generate_stub_code(const AidlInterface& iface, const AidlMethod& met
   } else {
     auto _result =
         std::make_shared<Variable>(JavaSignatureOf(method.GetType(), typenames), "_result");
-    if (options.GenTraces()) {
-      statements->Add(std::make_shared<VariableDeclaration>(_result));
-      statements->Add(tryStatement);
-      tryStatement->statements->Add(std::make_shared<Assignment>(_result, realCall));
-      statements->Add(finallyStatement);
-    } else {
       statements->Add(std::make_shared<VariableDeclaration>(_result, realCall));
-    }
 
     if (!oneway) {
       // report that there were no exceptions
@@ -645,8 +621,8 @@ static std::shared_ptr<Method> generate_proxy_method(
         std::make_shared<LiteralExpression>("android.os.Trace"), "traceBegin",
         std::vector<std::shared_ptr<Expression>>{
             std::make_shared<LiteralExpression>("android.os.Trace.TRACE_TAG_AIDL"),
-            std::make_shared<StringLiteralExpression>(iface.GetName() + "::" + method.GetName() +
-                                                      "::client")}));
+            std::make_shared<StringLiteralExpression>("AIDL::java::" + iface.GetName() +
+                                                      "::" + method.GetName() + "::client")}));
   }
 
   // the interface identifier token: the DESCRIPTOR constant, marshalled as a
@@ -911,7 +887,8 @@ static void generate_methods(const AidlInterface& iface, const AidlMethod& metho
   }
 }
 
-static void generate_interface_descriptors(std::shared_ptr<StubClass> stub,
+static void generate_interface_descriptors(const Options& options, const AidlInterface* iface,
+                                           Class* interface, std::shared_ptr<StubClass> stub,
                                            std::shared_ptr<ProxyClass> proxy) {
   // the interface descriptor transaction handler
   auto c = std::make_shared<Case>("INTERFACE_TRANSACTION");
@@ -930,6 +907,29 @@ static void generate_interface_descriptors(std::shared_ptr<StubClass> stub,
   getDesc->statements->Add(
       std::make_shared<ReturnStatement>(std::make_shared<LiteralExpression>("DESCRIPTOR")));
   proxy->elements.push_back(getDesc);
+
+  // add the DESCRIPTOR field to the interface class
+  Class* classToAddDescriptor = interface;
+  static std::set<std::string> greylist = {
+#include "hiddenapi-greylist"
+  };
+  if (greylist.find(iface->GetCanonicalName()) != greylist.end()) {
+    // For app compatibility, we keep DESCRIPTOR to the stub class for
+    // the interfaces that are in the greylist.
+    classToAddDescriptor = stub.get();
+  }
+  auto descriptor = std::make_shared<Field>(
+      STATIC | FINAL | PUBLIC, std::make_shared<Variable>("java.lang.String", "DESCRIPTOR"));
+  if (options.IsStructured()) {
+    // mangle the interface name at build time and demangle it at runtime, to avoid
+    // being renamed by jarjar. See b/153843174
+    std::string name = iface->GetCanonicalName();
+    std::replace(name.begin(), name.end(), '.', '$');
+    descriptor->value = "\"" + name + "\".replace('$', '.')";
+  } else {
+    descriptor->value = "\"" + iface->GetCanonicalName() + "\"";
+  }
+  classToAddDescriptor->elements.push_back(descriptor);
 }
 
 // Check whether (some) methods in this interface should be "outlined," that
@@ -1086,7 +1086,7 @@ std::unique_ptr<Class> generate_binder_interface_class(const AidlInterface* ifac
   stub->elements.push_back(proxy);
 
   // stub and proxy support for getInterfaceDescriptor()
-  generate_interface_descriptors(stub, proxy);
+  generate_interface_descriptors(options, iface, interface.get(), stub, proxy);
 
   // all the declared constants of the interface
   for (const auto& constant : iface->GetConstantDeclarations()) {
