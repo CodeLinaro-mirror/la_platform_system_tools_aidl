@@ -18,11 +18,13 @@ bootstrap_go_package {
     deps: [
         "blueprint",
         "soong",
+        "soong-apex",
         "soong-android",
         "soong-cc",
         "soong-genrule",
         "soong-phony",
         "soong-java",
+        "soong-rust",
     ],
     srcs: [
         "aidl_interface.go",
@@ -54,6 +56,10 @@ cc_defaults {
 
 java_defaults {
     name: "aidl-java-module-defaults",
+}
+
+rust_defaults {
+    name: "aidl-rust-module-defaults",
 }
 
 // Tests
@@ -167,5 +173,15 @@ aidl_interface {
     versions: [
         "1",
         "2",
+    ],
+}
+
+aidl_interface {
+    name: "test-piece-5",
+    unstable: true,
+    local_include_dir: "tests_3",
+    srcs: [
+        "tests_3/EmptyParcelable.aidl",
+        "tests_3/EmptyInterface.aidl",
     ],
 }

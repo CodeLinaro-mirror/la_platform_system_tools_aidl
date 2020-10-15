@@ -53,7 +53,6 @@ namespace aidl {
 class AidlTypenames final {
  public:
   AidlTypenames() = default;
-  void Reset();
   bool AddDocument(std::unique_ptr<AidlDocument> doc);
   const std::vector<std::unique_ptr<AidlDocument>>& AllDocuments() const { return documents_; }
   const AidlDocument& MainDocument() const;
@@ -69,6 +68,10 @@ class AidlTypenames final {
   };
   ResolvedTypename ResolveTypename(const string& type_name) const;
   bool CanBeOutParameter(const AidlTypeSpecifier& type) const;
+  bool CanBeJavaOnlyImmutable(const AidlTypeSpecifier& type) const;
+  bool CanBeFixedSize(const AidlTypeSpecifier& type) const;
+  static bool IsList(const AidlTypeSpecifier& type);
+
   bool IsIgnorableImport(const string& import) const;
   // Returns the AidlEnumDeclaration of the given type, or nullptr if the type
   // is not an AidlEnumDeclaration;
