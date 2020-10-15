@@ -300,10 +300,6 @@ const AidlAnnotation* AidlAnnotatable::UnsupportedAppUsage() const {
   return GetAnnotation(annotations_, AidlAnnotation::Type::UNSUPPORTED_APP_USAGE);
 }
 
-const AidlAnnotation* AidlAnnotatable::JavaPassthrough() const {
-  return GetAnnotation(annotations_, AidlAnnotation::Type::JAVA_PASSTHROUGH);
-}
-
 const AidlAnnotation* AidlAnnotatable::RustDerive() const {
   return GetAnnotation(annotations_, AidlAnnotation::Type::RUST_DERIVE);
 }
@@ -490,8 +486,8 @@ bool AidlTypeSpecifier::CheckValid(const AidlTypenames& typenames) const {
     const size_t num_params = GetTypeParameters().size();
     if (type_name == "List") {
       if (num_params > 1) {
-        AIDL_ERROR(this) << " List cannot have type parameters more than one, but got "
-                         << "'" << ToString() << "'";
+        AIDL_ERROR(this) << "List can only have one type parameter, but got: '" << ToString()
+                         << "'";
         return false;
       }
     } else if (type_name == "Map") {
@@ -540,6 +536,10 @@ bool AidlTypeSpecifier::CheckValid(const AidlTypenames& typenames) const {
     const auto defined_type = typenames.TryGetDefinedType(GetName());
     if (defined_type != nullptr && defined_type->AsInterface() != nullptr) {
       AIDL_ERROR(this) << "Binder type cannot be an array";
+      return false;
+    }
+    if (GetName() == "ParcelableHolder") {
+      AIDL_ERROR(this) << "Arrays of ParcelableHolder are not supported.";
       return false;
     }
   }
@@ -883,17 +883,18 @@ bool AidlStructuredParcelable::CheckValid(const AidlTypenames& typenames) const 
   }
   std::set<std::string> fieldnames;
   for (const auto& v : GetFields()) {
-    success = success && v->CheckValid(typenames);
+    const bool field_valid = v->CheckValid(typenames);
+    success = success && field_valid;
     bool duplicated;
     if (IsJavaOnlyImmutable()) {
       success = success && typenames.CanBeJavaOnlyImmutable(v->GetType());
       duplicated = !fieldnames.emplace(CapitalizeFirstLetter(*v, v->GetName())).second;
     } else {
       if (IsFixedSize()) {
-        success = success && typenames.CanBeFixedSize(v->GetType());
-        if (!success) {
+        if (field_valid && !typenames.CanBeFixedSize(v->GetType())) {
           AIDL_ERROR(v) << "The @FixedSize parcelable '" << this->GetName() << "' has a "
                         << "non-fixed size field named " << v->GetName() << ".";
+          success = false;
         }
       }
       duplicated = !fieldnames.emplace(v->GetName()).second;
@@ -948,10 +949,6 @@ bool AidlTypeSpecifier::LanguageSpecificCheckValid(const AidlTypenames& typename
   }
   if (this->IsGeneric()) {
     if (this->GetName() == "List") {
-      if (this->GetTypeParameters().size() != 1) {
-        AIDL_ERROR(this) << "List must have only one type parameter.";
-        return false;
-      }
       if (lang == Options::Language::CPP) {
         const string& contained_type = this->GetTypeParameters()[0]->GetName();
         if (!(contained_type == "String" || contained_type == "IBinder")) {
@@ -1108,6 +1105,32 @@ void AidlEnumDeclaration::Dump(CodeWriter* writer) const {
   for (const auto& enumerator : GetEnumerators()) {
     writer->Write("%s = %s,\n", enumerator->GetName().c_str(),
                   enumerator->ValueString(GetBackingType(), AidlConstantValueDecorator).c_str());
+  }
+  writer->Dedent();
+  writer->Write("}\n");
+}
+
+AidlUnionDecl::AidlUnionDecl(const AidlLocation& location, const std::string& name,
+                             const std::string& package, const std::string& comments,
+                             std::vector<std::unique_ptr<AidlVariableDeclaration>>* variables,
+                             std::vector<std::string>* type_params)
+    : AidlParcelable(location, name, package, comments, "" /*cpp_header*/, type_params),
+      variables_(std::move(*variables)) {}
+
+std::set<AidlAnnotation::Type> AidlUnionDecl::GetSupportedAnnotations() const {
+  return {AidlAnnotation::Type::VINTF_STABILITY, AidlAnnotation::Type::HIDE,
+          AidlAnnotation::Type::JAVA_PASSTHROUGH};
+}
+
+void AidlUnionDecl::Dump(CodeWriter* writer) const {
+  DumpHeader(writer);
+  writer->Write("union %s {\n", GetName().c_str());
+  writer->Indent();
+  for (const auto& field : GetFields()) {
+    if (field->GetType().IsHidden()) {
+      AddHideComment(writer);
+    }
+    writer->Write("%s;\n", field->ToString().c_str());
   }
   writer->Dedent();
   writer->Write("}\n");

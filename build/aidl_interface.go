@@ -162,6 +162,7 @@ func init() {
 	android.RegisterModuleType("aidl_interfaces_metadata", aidlInterfacesMetadataSingletonFactory)
 	android.PostDepsMutators(func(ctx android.RegisterMutatorsContext) {
 		ctx.BottomUp("checkUnstableModule", checkUnstableModuleMutator).Parallel()
+		ctx.BottomUp("recordVersions", recordVersions).Parallel()
 		ctx.BottomUp("checkDuplicatedVersions", checkDuplicatedVersions).Parallel()
 	})
 }
@@ -183,7 +184,7 @@ func checkUnstableModuleMutator(mctx android.BottomUpMutatorContext) {
 	})
 }
 
-func checkDuplicatedVersions(mctx android.BottomUpMutatorContext) {
+func recordVersions(mctx android.BottomUpMutatorContext) {
 	switch mctx.Module().(type) {
 	case *java.Library:
 	case *cc.Module:
@@ -204,7 +205,7 @@ func checkDuplicatedVersions(mctx android.BottomUpMutatorContext) {
 			return
 		}
 		depName := mctx.OtherModuleName(dep)
-		// If this module dgpends on one of the aidl interface module, record it
+		// If this module depends on one of the aidl interface module, record it
 		for _, i := range *aidlInterfaces(mctx.Config()) {
 			if android.InList(depName, i.internalModuleNames) {
 				ifaceName := i.ModuleBase.Name()
@@ -238,24 +239,55 @@ func checkDuplicatedVersions(mctx android.BottomUpMutatorContext) {
 	aidlDepsMutex.Lock()
 	aidlDeps(mctx.Config())[mctx.Module()] = list
 	aidlDepsMutex.Unlock()
+}
+
+func checkDuplicatedVersions(mctx android.BottomUpMutatorContext) {
+	switch mctx.Module().(type) {
+	case *java.Library:
+	case *cc.Module:
+	case *rust.Module:
+	default:
+		return
+	}
+
+	aidlDepsMutex.RLock()
+	myAidlDeps := aidlDeps(mctx.Config())[mctx.Module()]
+	aidlDepsMutex.RUnlock()
+	if myAidlDeps == nil || len(myAidlDeps) == 0 {
+		return // This should be the usual case
+	}
+
+	var violators []string
 
 	// Lastly, report an error if there is any duplicated versions of the same interface * lang
 	for _, lang := range []string{langJava, langCpp, langNdk, langNdkPlatform} {
 		// interfaceName -> list of module names for the interface
 		versionsOf := make(map[string][]string)
-		for dep := range myAidlDeps {
+		for _, dep := range myAidlDeps {
 			if !strings.HasSuffix(dep.verLang, lang) {
 				continue
 			}
 			versions := versionsOf[dep.ifaceName]
 			versions = append(versions, dep.ifaceName+dep.verLang)
 			if len(versions) >= 2 {
-				mctx.ModuleErrorf("multiple versions of aidl_interface %s (backend:%s) are used: %v",
-					dep.ifaceName, lang, versions)
+				violators = append(violators, versions...)
 			}
 			versionsOf[dep.ifaceName] = versions
 		}
 	}
+	if violators == nil || len(violators) == 0 {
+		return
+	}
+
+	violators = android.SortedUniqueStrings(violators)
+	mctx.ModuleErrorf("depends on multiple versions of the same aidl_interface: %s", strings.Join(violators, ", "))
+	mctx.WalkDeps(func(child android.Module, parent android.Module) bool {
+		if android.InList(child.Name(), violators) {
+			mctx.ModuleErrorf("Dependency path: %s", mctx.GetPathString(true))
+			return false
+		}
+		return true
+	})
 }
 
 // wrap(p, a, s) = [p + v + s for v in a]
@@ -721,7 +753,7 @@ func (m *aidlApi) checkEquality(ctx android.ModuleContext, oldDump apiDump, newD
 	// If it's not finalized, we let users to update the current version by invoking
 	// `m <name>-update-api`.
 	messageFile := android.PathForSource(ctx, "system/tools/aidl/build/message_check_equality.txt")
-	sdkIsFinal := ctx.Config().DefaultAppTargetSdkInt() != android.FutureApiLevel
+	sdkIsFinal := !ctx.Config().DefaultAppTargetSdk(ctx).IsPreview()
 	if sdkIsFinal {
 		messageFile = android.PathForSource(ctx, "system/tools/aidl/build/message_check_equality_release.txt")
 	}
@@ -906,6 +938,9 @@ type aidlInterfaceProperties struct {
 
 	// Whether the library can be installed on the vendor image.
 	Vendor_available *bool
+
+	// Whether the library can be loaded multiple times into the same process
+	Double_loadable *bool
 
 	// Whether the library can be used on host
 	Host_supported *bool
@@ -1210,7 +1245,7 @@ func aidlInterfaceHook(mctx android.LoadHookContext, i *aidlInterface) {
 
 	versionsForCpp := make([]string, len(i.properties.Versions))
 
-	sdkIsFinal := mctx.Config().DefaultAppTargetSdkInt() != android.FutureApiLevel
+	sdkIsFinal := !mctx.Config().DefaultAppTargetSdk(mctx).IsPreview()
 
 	needToCheckUnstableVersion := sdkIsFinal && i.hasVersion() && i.Owner() == ""
 	copy(versionsForCpp, i.properties.Versions)
@@ -1234,7 +1269,7 @@ func aidlInterfaceHook(mctx android.LoadHookContext, i *aidlInterface) {
 	}
 
 	if i.shouldGenerateNdkBackend() {
-		if !proptools.Bool(i.properties.Vendor_available) {
+		{
 			unstableLib := addCppLibrary(mctx, i, currentVersion, langNdk)
 			if !i.hasVersion() {
 				libs = append(libs, addCppLibrary(mctx, i, unstableVersion, langNdk))
@@ -1247,17 +1282,19 @@ func aidlInterfaceHook(mctx android.LoadHookContext, i *aidlInterface) {
 				libs = append(libs, addCppLibrary(mctx, i, version, langNdk))
 			}
 		}
-		// TODO(b/121157555): combine with '-ndk' variant
-		unstableLib := addCppLibrary(mctx, i, currentVersion, langNdkPlatform)
-		if !i.hasVersion() {
-			libs = append(libs, addCppLibrary(mctx, i, unstableVersion, langNdkPlatform))
-		}
-		if needToCheckUnstableVersion {
-			addUnstableModule(mctx, unstableLib)
-		}
-		libs = append(libs, unstableLib)
-		for _, version := range versionsForCpp {
-			libs = append(libs, addCppLibrary(mctx, i, version, langNdkPlatform))
+		{
+			// TODO(b/121157555): combine with '-ndk' variant
+			unstableLib := addCppLibrary(mctx, i, currentVersion, langNdkPlatform)
+			if !i.hasVersion() {
+				libs = append(libs, addCppLibrary(mctx, i, unstableVersion, langNdkPlatform))
+			}
+			if needToCheckUnstableVersion {
+				addUnstableModule(mctx, unstableLib)
+			}
+			libs = append(libs, unstableLib)
+			for _, version := range versionsForCpp {
+				libs = append(libs, addCppLibrary(mctx, i, version, langNdkPlatform))
+			}
 		}
 	}
 	versionsForJava := i.properties.Versions
@@ -1303,7 +1340,7 @@ func aidlInterfaceHook(mctx android.LoadHookContext, i *aidlInterface) {
 			mctx.ModuleErrorf("unstable:true and stability:%q cannot happen at the same time", i.properties.Stability)
 		}
 	} else {
-		sdkIsFinal := mctx.Config().DefaultAppTargetSdkInt() != android.FutureApiLevel
+		sdkIsFinal := !mctx.Config().DefaultAppTargetSdk(mctx).IsPreview()
 		if sdkIsFinal && !i.hasVersion() && i.Owner() == "" {
 			mctx.PropertyErrorf("versions", "must be set (need to be frozen) when \"unstable\" is false, PLATFORM_VERSION_CODENAME is REL, and \"owner\" property is missing.")
 		}
@@ -1477,11 +1514,23 @@ func addCppLibrary(mctx android.LoadHookContext, i *aidlInterface, versionForMod
 		vendorAvailable = proptools.BoolPtr(false)
 	}
 
+	if lang == langNdk {
+		// TODO(b/121157555): when the NDK variant is its own variant, these wouldn't interact,
+		// but we can't create a vendor version of an NDK variant
+		//
+		// nil (unspecified) is used instead of false so that this can't conflict with
+		// 'vendor: true', for instance.
+		vendorAvailable = nil
+		overrideVndkProperties.Vndk.Enabled = proptools.BoolPtr(false)
+		overrideVndkProperties.Vndk.Support_system_process = proptools.BoolPtr(false)
+	}
+
 	mctx.CreateModule(cc.LibraryFactory, &ccProperties{
 		Name:                      proptools.StringPtr(cppModuleGen),
 		Vendor_available:          vendorAvailable,
 		Host_supported:            hostSupported,
 		Defaults:                  []string{"aidl-cpp-module-defaults"},
+		Double_loadable:           i.properties.Double_loadable,
 		Generated_sources:         []string{cppSourceGen},
 		Generated_headers:         []string{cppSourceGen},
 		Export_generated_headers:  []string{cppSourceGen},
