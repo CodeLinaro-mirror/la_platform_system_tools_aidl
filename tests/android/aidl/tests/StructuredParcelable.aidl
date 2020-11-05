@@ -22,6 +22,7 @@ import android.aidl.tests.LongEnum;
 import android.aidl.tests.ConstantExpressionEnum;
 
 @JavaDebug
+@RustDerive(Clone=true, PartialEq=true)
 parcelable StructuredParcelable {
     int[] shouldContainThreeFs;
     int f;
@@ -123,7 +124,7 @@ parcelable StructuredParcelable {
       (1 << 2) >= 0,
       (4 >> 1) == 2,
       (8 << -1) == 4,
-      (1 << 31 >> 31) == -1,
+      (1 << 30 >> 30) == 1,
       (1 | 16 >> 2) == 5,
       (0x0f ^ 0x33 & 0x99) == 0x1e, // & higher than ^
       (~42 & (1 << 3 | 16 >> 2) ^ 7) == 3,

@@ -18,15 +18,11 @@ package android.aidl.tests;
 
 import android.aidl.tests.ByteEnum;
 import android.aidl.tests.INamedCallback;
-import android.aidl.tests.GenericStructuredParcelable;
 import android.aidl.tests.IntEnum;
 import android.aidl.tests.LongEnum;
-import android.aidl.tests.SimpleParcelable;
 import android.aidl.tests.StructuredParcelable;
 import android.aidl.tests.IOldName;
 import android.aidl.tests.INewName;
-import android.aidl.tests.extension.ExtendableParcelable;
-import android.os.PersistableBundle;
 
 interface ITestService {
   // Test that constants are accessible
@@ -74,11 +70,6 @@ interface ITestService {
   IntEnum RepeatIntEnum(IntEnum token);
   LongEnum RepeatLongEnum(LongEnum token);
 
-  SimpleParcelable RepeatSimpleParcelable(in SimpleParcelable input,
-                                          out SimpleParcelable repeat);
-  GenericStructuredParcelable<int, StructuredParcelable, IntEnum> RepeatGenericParcelable(in GenericStructuredParcelable<int, StructuredParcelable, IntEnum> input, out GenericStructuredParcelable<int, StructuredParcelable, IntEnum> repeat);
-  PersistableBundle RepeatPersistableBundle(in PersistableBundle input);
-
   // Test that arrays work as parameters and return types.
   boolean[]   ReverseBoolean  (in boolean[]   input, out boolean[]   repeated);
   byte[]      ReverseByte     (in byte[]      input, out byte[]      repeated);
@@ -92,11 +83,6 @@ interface ITestService {
   IntEnum[]   ReverseIntEnum  (in IntEnum[]   input, out IntEnum[]   repeated);
   LongEnum[]  ReverseLongEnum (in LongEnum[]  input, out LongEnum[]  repeated);
 
-  SimpleParcelable[]  ReverseSimpleParcelables(in SimpleParcelable[] input,
-                                               out SimpleParcelable[] repeated);
-  PersistableBundle[] ReversePersistableBundles(
-      in PersistableBundle[] input, out PersistableBundle[] repeated);
-
   // Test that clients can send and receive Binders.
   INamedCallback GetOtherTestService(String name);
   boolean VerifyName(INamedCallback service, String name);
@@ -104,12 +90,6 @@ interface ITestService {
   // Test that List<T> types work correctly.
   List<String> ReverseStringList(in List<String> input,
                                  out List<String> repeated);
-  List<IBinder> ReverseNamedCallbackList(in List<IBinder> input,
-                                         out List<IBinder> repeated);
-
-  FileDescriptor RepeatFileDescriptor(in FileDescriptor read);
-  FileDescriptor[] ReverseFileDescriptorArray(in FileDescriptor[] input,
-                                              out FileDescriptor[] repeated);
 
   ParcelFileDescriptor RepeatParcelFileDescriptor(in ParcelFileDescriptor read);
   ParcelFileDescriptor[] ReverseParcelFileDescriptorArray(in ParcelFileDescriptor[] input,
@@ -125,12 +105,10 @@ interface ITestService {
   @nullable LongEnum[] RepeatNullableLongEnumArray(in @nullable LongEnum[] input);
   @nullable String RepeatNullableString(in @nullable String input);
   @nullable List<String> RepeatNullableStringList(in @nullable List<String> input);
-  @nullable SimpleParcelable RepeatNullableParcelable(in @nullable SimpleParcelable input);
+  @nullable StructuredParcelable RepeatNullableParcelable(in @nullable StructuredParcelable input);
 
   void TakesAnIBinder(in IBinder input);
-  void TakesAnIBinderList(in List<IBinder> input);
   void TakesANullableIBinder(in @nullable IBinder input);
-  void TakesANullableIBinderList(in @nullable List<IBinder> input);
 
   // Test utf8 decoding from utf16 wire format
   @utf8InCpp String RepeatUtf8CppString(@utf8InCpp String token);
@@ -153,8 +131,6 @@ interface ITestService {
   // Since this paracelable has clearly defined default values, it would be
   // inefficient to use an IPC to fill it out in practice.
   void FillOutStructuredParcelable(inout StructuredParcelable parcel);
-
-  void RepeatExtendableParcelable(in ExtendableParcelable ep, out ExtendableParcelable ep2);
 
   // All these constant expressions should be equal to 1
   const int A1 = (~(-1)) == 0;
@@ -207,7 +183,7 @@ interface ITestService {
   const int A48 = (1 << 2) >= 0;
   const int A49 = (4 >> 1) == 2;
   const int A50 = (8 << -1) == 4;
-  const int A51 = (1 << 31 >> 31) == -1;
+  const int A51 = (1 << 30 >> 30) == 1;
   const int A52 = (1 | 16 >> 2) == 5;
   const int A53 = (0x0f ^ 0x33 & 0x99) == 0x1e; // & higher than ^
   const int A54 = (~42 & (1 << 3 | 16 >> 2) ^ 7) == 3;
@@ -217,4 +193,7 @@ interface ITestService {
 
   IOldName GetOldNameInterface();
   INewName GetNewNameInterface();
+
+  // Retrieve the ICppJavaTests if the server supports it
+  @nullable IBinder GetCppJavaTests();
 }

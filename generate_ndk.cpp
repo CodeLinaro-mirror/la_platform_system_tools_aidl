@@ -948,6 +948,7 @@ void GenerateParcelHeader(CodeWriter& out, const AidlTypenames& types,
 
   out << "#pragma once\n";
   out << "#include <android/binder_interface_utils.h>\n";
+  out << "#include <android/binder_parcelable_utils.h>\n";
   out << "\n";
 
   GenerateHeaderIncludes(out, types, defined_type);
@@ -957,10 +958,21 @@ void GenerateParcelHeader(CodeWriter& out, const AidlTypenames& types,
   out << "class " << clazz << " {\n";
   out << "public:\n";
   out.Indent();
+  if (defined_type.IsFixedSize()) {
+    out << "typedef std::true_type fixed_size;\n";
+  } else {
+    out << "typedef std::false_type fixed_size;\n";
+  }
   out << "static const char* descriptor;\n";
   out << "\n";
   for (const auto& variable : defined_type.GetFields()) {
     out << NdkNameOf(types, variable->GetType(), StorageMode::STACK) << " " << variable->GetName();
+    if (defined_type.IsFixedSize()) {
+      int alignment = NdkAlignmentOf(types, variable->GetType());
+      if (alignment > 0) {
+        out << " __attribute__((aligned (" << std::to_string(alignment) << ")))";
+      }
+    }
     if (variable->GetDefaultValue()) {
       out << " = " << variable->ValueString(ConstantValueDecorator);
     }
@@ -970,8 +982,8 @@ void GenerateParcelHeader(CodeWriter& out, const AidlTypenames& types,
   out << "binder_status_t readFromParcel(const AParcel* parcel);\n";
   out << "binder_status_t writeToParcel(AParcel* parcel) const;\n";
 
-  out << "static const bool _aidl_is_stable = "
-      << (defined_type.IsVintfStability() ? "true" : "false") << ";\n";
+  out << "static const ::ndk::parcelable_stability_t _aidl_stability = ::ndk::"
+      << (defined_type.IsVintfStability() ? "STABILITY_VINTF" : "STABILITY_LOCAL") << ";\n";
   out.Dedent();
   out << "};\n";
   LeaveNdkNamespace(out, defined_type);

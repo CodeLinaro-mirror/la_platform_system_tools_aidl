@@ -103,9 +103,9 @@ static bool HasValidNameComponents(const AidlDefinedType& defined) {
 }
 
 bool AidlTypenames::IsIgnorableImport(const string& import) const {
-  static set<string> ignore_import = {"android.os.IInterface",   "android.os.IBinder",
-                                      "android.os.Parcelable",   "android.os.Parcel",
-                                      "android.content.Context", "java.lang.String"};
+  static set<string> ignore_import = {
+      "android.os.IInterface",   "android.os.IBinder", "android.os.Parcelable", "android.os.Parcel",
+      "android.content.Context", "java.lang.String",   "java.lang.CharSequence"};
   // these known built-in types don't need to be imported
   const bool in_ignore_import = ignore_import.find(import) != ignore_import.end();
   // an already defined type doesn't need to be imported again unless it is from
@@ -251,9 +251,12 @@ bool AidlTypenames::CanBeFixedSize(const AidlTypeSpecifier& type) const {
   if (IsPrimitiveTypename(name)) {
     return true;
   }
+  if (IsBuiltinTypename(name)) {
+    return false;
+  }
   const AidlDefinedType* t = TryGetDefinedType(type.GetName());
   AIDL_FATAL_IF(t == nullptr, type)
-      << "Failed to look up type. Cannot determine if it can be fixed size.";
+      << "Failed to look up type. Cannot determine if it can be fixed size: " << type.GetName();
 
   if (t->AsEnumDeclaration()) {
     return true;
