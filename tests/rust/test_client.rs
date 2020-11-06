@@ -22,7 +22,7 @@ use aidl_test_interface::aidl::android::aidl::tests::ITestService::{
     self, BpTestService, ITestServiceDefault,
 };
 use aidl_test_interface::aidl::android::aidl::tests::{
-    ByteEnum::ByteEnum, IntEnum::IntEnum, LongEnum::LongEnum, StructuredParcelable,
+    ByteEnum::ByteEnum, IntEnum::IntEnum, LongEnum::LongEnum, StructuredParcelable, Union,
 };
 use aidl_test_interface::binder;
 use aidl_test_versioned_interface::aidl::android::aidl::versioned::tests::IFooInterface::{
@@ -97,6 +97,12 @@ fn test_constants() {
     assert_eq!(ITestService::A55, 1);
     assert_eq!(ITestService::A56, 1);
     assert_eq!(ITestService::A57, 1);
+}
+
+#[test]
+fn test_oneway() {
+    let result = get_test_service().TestOneway();
+    assert_eq!(result, Ok(()));
 }
 
 macro_rules! test_primitive {
@@ -520,6 +526,8 @@ fn test_parcelable() {
         parcelable.addString2,
         "The quick brown fox jumps over the lazy dog."
     );
+
+    assert_eq!(parcelable.u, Some(Union::Union::Ns(vec![1, 2, 3])))
 }
 
 const EXPECTED_ARG_VALUE: i32 = 100;

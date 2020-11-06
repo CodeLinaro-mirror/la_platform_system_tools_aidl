@@ -16,6 +16,7 @@
 
 package android.aidl.tests;
 
+import android.aidl.tests.BackendType;
 import android.aidl.tests.ByteEnum;
 import android.aidl.tests.INamedCallback;
 import android.aidl.tests.IntEnum;
@@ -56,6 +57,8 @@ interface ITestService {
   // "::android::IBinder::FIRST_CALL_TRANSACTION + 0" value and allow
   // methods to be added and removed.
   int UnimplementedMethod(int arg);
+
+  oneway void TestOneway();
 
   // Test that primitives work as parameters and return types.
   boolean RepeatBoolean(boolean token);
@@ -196,4 +199,6 @@ interface ITestService {
 
   // Retrieve the ICppJavaTests if the server supports it
   @nullable IBinder GetCppJavaTests();
+
+  BackendType getBackendType();
 }
