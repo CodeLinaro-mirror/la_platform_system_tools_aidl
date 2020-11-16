@@ -239,6 +239,9 @@ unique_ptr<Declaration> DefineClientTransaction(const AidlTypenames& typenames,
 
   // Declare parcels to hold our query and the response.
   b->AddLiteral(StringPrintf("%s %s", kAndroidParcelLiteral, kDataVarName));
+  if (interface.IsSensitiveData()) {
+    b->AddLiteral(StringPrintf("%s.markSensitive()", kDataVarName));
+  }
   // Even if we're oneway, the transact method still takes a parcel.
   b->AddLiteral(StringPrintf("%s %s", kAndroidParcelLiteral, kReplyVarName));
 
@@ -298,9 +301,11 @@ unique_ptr<Declaration> DefineClientTransaction(const AidlTypenames& typenames,
   vector<string> args = {transaction_code, kDataVarName,
                          StringPrintf("&%s", kReplyVarName)};
 
-  if (method.IsOneway()) {
-    args.push_back("::android::IBinder::FLAG_ONEWAY");
-  }
+  std::vector<std::string> flags;
+  if (method.IsOneway()) flags.push_back("::android::IBinder::FLAG_ONEWAY");
+  if (interface.IsSensitiveData()) flags.push_back("::android::IBinder::FLAG_CLEAR_BUF");
+
+  args.push_back(flags.empty() ? "0" : Join(flags, " | "));
 
   b->AddStatement(new Assignment(
       kAndroidStatusVarName,
@@ -943,34 +948,39 @@ unique_ptr<Document> BuildInterfaceHeader(const AidlTypenames& typenames,
   }
 
   std::vector<std::unique_ptr<Declaration>> string_constants;
+  unique_ptr<Enum> byte_constant_enum{new Enum{"", "int8_t", false}};
   unique_ptr<Enum> int_constant_enum{new Enum{"", "int32_t", false}};
+  unique_ptr<Enum> long_constant_enum{new Enum{"", "int64_t", false}};
   for (const auto& constant : interface.GetConstantDeclarations()) {
+    const AidlTypeSpecifier& type = constant->GetType();
     const AidlConstantValue& value = constant->GetValue();
 
-    switch (value.GetType()) {
-      case AidlConstantValue::Type::STRING: {
-        std::string cppType = CppNameOf(constant->GetType(), typenames);
-        unique_ptr<Declaration> getter(new MethodDecl("const " + cppType + "&", constant->GetName(),
-                                                      {}, MethodDecl::IS_STATIC));
-        string_constants.push_back(std::move(getter));
-        break;
-      }
-      case AidlConstantValue::Type::BOOLEAN:  // fall-through
-      case AidlConstantValue::Type::INT8:     // fall-through
-      case AidlConstantValue::Type::INT32:    // fall-through
-      // Type promotion may cause this. Value should be small enough to fit in int32.
-      case AidlConstantValue::Type::INT64: {
-        int_constant_enum->AddValue(constant->GetName(),
-                                    constant->ValueString(ConstantValueDecorator));
-        break;
-      }
-      default: {
-        AIDL_FATAL(value) << "Unrecognized constant type: " << static_cast<int>(value.GetType());
-      }
+    if (type.ToString() == "String") {
+      std::string cppType = CppNameOf(constant->GetType(), typenames);
+      unique_ptr<Declaration> getter(
+          new MethodDecl("const " + cppType + "&", constant->GetName(), {}, MethodDecl::IS_STATIC));
+      string_constants.push_back(std::move(getter));
+    } else if (type.ToString() == "byte") {
+      byte_constant_enum->AddValue(constant->GetName(),
+                                   constant->ValueString(ConstantValueDecorator));
+    } else if (type.ToString() == "int") {
+      int_constant_enum->AddValue(constant->GetName(),
+                                  constant->ValueString(ConstantValueDecorator));
+    } else if (type.ToString() == "long") {
+      long_constant_enum->AddValue(constant->GetName(),
+                                   constant->ValueString(ConstantValueDecorator));
+    } else {
+      AIDL_FATAL(value) << "Unrecognized constant type: " << type.ToString();
     }
+  }
+  if (byte_constant_enum->HasValues()) {
+    if_class->AddPublic(std::move(byte_constant_enum));
   }
   if (int_constant_enum->HasValues()) {
     if_class->AddPublic(std::move(int_constant_enum));
+  }
+  if (long_constant_enum->HasValues()) {
+    if_class->AddPublic(std::move(long_constant_enum));
   }
   if (!string_constants.empty()) {
     includes.insert(kString16Header);
