@@ -23,8 +23,10 @@
 #include <algorithm>
 #include <map>
 #include <memory>
+#include <optional>
 #include <sstream>
 
+#include <android-base/format.h>
 #include <android-base/stringprintf.h>
 
 #include "aidl_to_java.h"
@@ -36,20 +38,210 @@ using ::android::base::Join;
 using ::android::base::StartsWith;
 using std::string;
 using std::unique_ptr;
+using std::vector;
 
 namespace {
-// join two non-empty strings according to `camelCase` naming.
-inline string camelcase_join(const string& a, const string& b, const AidlNode& context) {
-  AIDL_FATAL_IF(b.size() <= 0 || a.size() <= 0, context) << "Name cannot be empty.";
-  std::string name = a + b;
-  name[a.size()] = static_cast<char>(toupper(name[a.size()]));
-  return name;
-}
+using android::aidl::java::CodeGeneratorContext;
+using android::aidl::java::ConstantValueDecorator;
+
 inline string getter_name(const AidlVariableDeclaration& variable) {
-  return camelcase_join("get", variable.GetName(), variable);
+  return "get" + variable.GetCapitalizedName();
 }
 inline string setter_name(const AidlVariableDeclaration& variable) {
-  return camelcase_join("set", variable.GetName(), variable);
+  return "set" + variable.GetCapitalizedName();
+}
+
+// clang-format off
+const map<string, string> contents_describers {
+  {"FileDescriptor", R"(if (_v instanceof java.io.FileDescriptor) {
+  return android.os.Parcelable.CONTENTS_FILE_DESCRIPTOR;
+})"},
+  {"Parcelable", R"(if (_v instanceof android.os.Parcelable) {
+  return ((android.os.Parcelable) _v).describeContents();
+})"},
+  {"Map", R"(if (_v instanceof java.util.Map) {
+  return describeContents(((java.util.Map) _v).values());
+})"},
+  {"List", R"(if (_v instanceof java.util.Collection) {
+  int _mask = 0;
+  for (Object o : (java.util.Collection) _v) {
+    _mask |= describeContents(o);
+  }
+  return _mask;
+})"},
+  {"Array", R"(Class<?> _clazz = _v.getClass();
+if (_clazz.isArray() && _clazz.getComponentType() == Object.class) {
+  int _mask = 0;
+  for (Object o : (Object[]) _v) {
+    _mask |= describeContents(o);
+  }
+  return _mask;
+})"},
+};
+// clang-format on
+
+void GenerateDescribeContentsHelper(CodeWriter& out, const set<string>& describers) {
+  out << "private int describeContents(Object _v) {\n";
+  out.Indent();
+  out << "if (_v == null) return 0;\n";
+  for (const auto& d : describers) {
+    out << contents_describers.at(d) << "\n";
+  }
+  out << "return 0;\n";
+  out.Dedent();
+  out << "}\n";
+}
+
+// Some types contribute to Parcelable.describeContents().
+// e.g. FileDescriptor, Parcelables, List<Parcelables> ...
+bool CanDescribeContents(const AidlTypeSpecifier& type, const AidlTypenames& types,
+                         set<string>* describers) {
+  if (type.IsArray()) {
+    if (CanDescribeContents(type.ArrayBase(), types, describers)) {
+      describers->insert("Array");
+      return true;
+    }
+    return false;
+  }
+
+  if (type.GetName() == "List") {
+    if (CanDescribeContents(*type.GetTypeParameters()[0], types, describers)) {
+      describers->insert("List");
+      return true;
+    }
+    return false;
+  }
+
+  if (type.GetName() == "Map") {
+    if (CanDescribeContents(*type.GetTypeParameters()[1], types, describers)) {
+      describers->insert("Map");  // Map describer uses List describer
+      describers->insert("List");
+      return true;
+    }
+    return false;
+  }
+
+  if (type.GetName() == "FileDescriptor") {
+    describers->insert("FileDescriptor");
+    return true;
+  }
+
+  if (type.GetName() == "ParcelFileDescriptor" || type.GetName() == "ParcelableHolder" ||
+      types.GetParcelable(type) != nullptr) {
+    describers->insert("Parcelable");
+    return true;
+  }
+
+  return false;
+}
+void GenerateParcelableDescribeContents(CodeWriter& out, const AidlStructuredParcelable& decl,
+                                        const AidlTypenames& types) {
+  set<string> describers;
+
+  out << "@Override\n";
+  out << "public int describeContents() {\n";
+  out.Indent();
+  out << "int _mask = 0;\n";
+  for (const auto& f : decl.GetFields()) {
+    if (CanDescribeContents(f->GetType(), types, &describers)) {
+      out << "_mask |= describeContents(" << f->GetName() << ");\n";
+    }
+  }
+  out << "return _mask;\n";
+  out.Dedent();
+  out << "}\n";
+  if (!describers.empty()) {
+    GenerateDescribeContentsHelper(out, describers);
+  }
+}
+
+void GenerateParcelableDescribeContents(CodeWriter& out, const AidlUnionDecl& decl,
+                                        const AidlTypenames& types) {
+  set<string> describers;
+
+  out << "@Override\n";
+  out << "public int describeContents() {\n";
+  out.Indent();
+  out << "int _mask = 0;\n";
+  out << "switch (getTag()) {\n";
+  for (const auto& f : decl.GetFields()) {
+    if (CanDescribeContents(f->GetType(), types, &describers)) {
+      out << "case " << f->GetName() << ":\n";
+      out.Indent();
+      out << "_mask |= describeContents(" << getter_name(*f) << "());\n";
+      out << "break;\n";
+      out.Dedent();
+    }
+  }
+  out << "}\n";
+  out << "return _mask;\n";
+  out.Dedent();
+  out << "}\n";
+  if (!describers.empty()) {
+    GenerateDescribeContentsHelper(out, describers);
+  }
+}
+
+void GenerateToString(CodeWriter& out, const AidlStructuredParcelable& parcel,
+                      const AidlTypenames& typenames) {
+  out << "@Override\n";
+  out << "public String toString() {\n";
+  out.Indent();
+  out << "java.util.StringJoiner _aidl_sj = new java.util.StringJoiner(";
+  out << "\", \", \"{\", \"}\");\n";
+  for (const auto& field : parcel.GetFields()) {
+    CodeGeneratorContext ctx{
+        .writer = out,
+        .typenames = typenames,
+        .type = field->GetType(),
+        .var = field->GetName(),
+    };
+    out << "_aidl_sj.add(\"" << field->GetName() << ": \" + (";
+    ToStringFor(ctx);
+    out << "));\n";
+  }
+  out << "return \"" << parcel.GetCanonicalName() << "\" + _aidl_sj.toString()  ;\n";
+  out.Dedent();
+  out << "}\n";
+}
+
+void GenerateToString(CodeWriter& out, const AidlUnionDecl& parcel,
+                      const AidlTypenames& typenames) {
+  out << "@Override\n";
+  out << "public String toString() {\n";
+  out.Indent();
+  out << "switch (_tag) {\n";
+  for (const auto& field : parcel.GetFields()) {
+    CodeGeneratorContext ctx{
+        .writer = out,
+        .typenames = typenames,
+        .type = field->GetType(),
+        .var = getter_name(*field) + "()",
+    };
+    out << "case " << field->GetName() << ": return \"" << parcel.GetCanonicalName() << "."
+        << field->GetName() << "(\" + (";
+    ToStringFor(ctx);
+    out << ") + \")\";\n";
+  }
+  out << "}\n";
+  out << "throw new IllegalStateException(\"unknown field: \" + _tag);\n";
+  out.Dedent();
+  out << "}\n";
+}
+
+template <typename ParcelableType>
+void GenerateDerivedMethods(CodeWriter& out, const ParcelableType& parcel,
+                            const AidlTypenames& typenames) {
+  if (auto java_derive = parcel.JavaDerive(); java_derive) {
+    auto synthetic_methods = java_derive->AnnotationParams(ConstantValueDecorator);
+    for (const auto& [method_name, generate] : synthetic_methods) {
+      if (generate == "true") {
+        if (method_name == "toString") {
+          GenerateToString(out, parcel, typenames);
+        }
+      }
+    }
+  }
 }
 }  // namespace
 
@@ -384,39 +576,12 @@ std::unique_ptr<android::aidl::java::Class> generate_parcel_class(
 
   parcel_class->elements.push_back(read_or_create_method);
 
-  if (parcel->IsJavaDebug()) {
-    out.str("");
-    out << "@Override\n";
-    out << "public String toString() {\n";
-    out << "  java.util.StringJoiner _aidl_sj = new java.util.StringJoiner(";
-    out << "\", \", \"{\", \"}\");\n";
-    for (const auto& field : parcel->GetFields()) {
-      std::string code;
-      CodeWriterPtr writer = CodeWriter::ForString(&code);
-      CodeGeneratorContext context{
-          .writer = *(writer.get()),
-          .typenames = typenames,
-          .type = field->GetType(),
-          .parcel = parcel_variable->name,
-          .var = field->GetName(),
-          .is_classloader_created = &is_classloader_created,
-      };
-      ToStringFor(context);
-      writer->Close();
-      out << "  _aidl_sj.add(\"" << field->GetName() << ": \" + (" << code << "));\n";
-    }
-    out << "  return \"" << parcel->GetCanonicalName() << "\" + _aidl_sj.toString()  ;\n";
-    out << "}\n";
-    parcel_class->elements.push_back(std::make_shared<LiteralClassElement>(out.str()));
-  }
+  auto method = CodeWriter::RunWith(GenerateDerivedMethods, *parcel, typenames);
+  parcel_class->elements.push_back(std::make_shared<LiteralClassElement>(method));
 
-  auto describe_contents_method = std::make_shared<Method>();
-  describe_contents_method->modifiers = PUBLIC | OVERRIDE;
-  describe_contents_method->returnType = "int";
-  describe_contents_method->name = "describeContents";
-  describe_contents_method->statements = std::make_shared<StatementBlock>();
-  describe_contents_method->statements->Add(std::make_shared<LiteralStatement>("return 0;\n"));
-  parcel_class->elements.push_back(describe_contents_method);
+  auto describe_contents_method =
+      CodeWriter::RunWith(GenerateParcelableDescribeContents, *parcel, typenames);
+  parcel_class->elements.push_back(std::make_shared<LiteralClassElement>(describe_contents_method));
 
   return parcel_class;
 }
@@ -451,8 +616,6 @@ void generate_union(CodeWriter& out, const AidlUnionDecl* decl, const AidlTypena
   const string tag_type = "int";
   const AidlTypeSpecifier tag_type_specifier(AIDL_LOCATION_HERE, tag_type, false /* isArray */,
                                              nullptr /* type_params */, "");
-  const string tag_name = "_tag";
-  const string value_name = "_value";
   const string clazz = decl->GetName();
 
   out << "/*\n";
@@ -470,86 +633,112 @@ void generate_union(CodeWriter& out, const AidlUnionDecl* decl, const AidlTypena
   out.Indent();
 
   size_t tag_index = 0;
-  out << "// tags union fields\n";
+  out << "// tags for union fields\n";
   for (const auto& variable : decl->GetFields()) {
-    auto raw_type = variable->GetType().ToString();
+    auto signature = variable->Signature() + ";";
     out << "public final static " + tag_type + " " + variable->GetName() + " = " +
-               std::to_string(tag_index++) + ";  // " + raw_type + "\n";
+               std::to_string(tag_index++) + ";  // " + signature + "\n";
   }
   out << "\n";
 
-  out << "private " + tag_type + " " + tag_name + ";\n";
-  out << "private Object " + value_name + ";\n";
+  const auto final_opt = decl->IsJavaOnlyImmutable() ? "final " : "";
+  out << "private " << final_opt << tag_type + " _tag;\n";
+  out << "private " << final_opt << "Object _value;\n";
   out << "\n";
 
+  AIDL_FATAL_IF(decl->GetFields().empty(), *decl) << "Union '" << clazz << "' is empty.";
   const auto& first_field = decl->GetFields()[0];
-  // ctor()
+  const auto& first_type = JavaSignatureOf(first_field->GetType(), typenames);
+  const auto& first_value = first_field->ValueString(ConstantValueDecorator);
+
+  // default ctor() inits with first member's default value
   out << "public " + clazz + "() {\n";
-  out << "  this(" + first_field->GetName() + ", " +
-             first_field->ValueString(ConstantValueDecorator) + ");\n";
-  out << "}\n";
-  // ctor(Parcel)
-  out << "private " + clazz + "(android.os.Parcel _aidl_parcel) {\n";
-  out << "  readFromParcel(_aidl_parcel);\n";
-  out << "}\n";
-  // ctor(tag, value)
-  out << "private " + clazz + "(" + tag_type + " tag, Object value) {\n";
-  out << "  _set(tag, value);\n";
-  out << "}\n";
-  out << "\n";
+  out.Indent();
+  out << first_type + " _value = " << (first_value.empty() ? "null" : first_value) << ";\n";
+  out << "this._tag = " << first_field->GetName() << ";\n";
+  out << "this._value = _value;\n";
+  out.Dedent();
+  out << "}\n\n";
+
+  if (!decl->IsJavaOnlyImmutable()) {
+    // private ctor(Parcel)
+    out << "private " + clazz + "(android.os.Parcel _aidl_parcel) {\n";
+    out << "  readFromParcel(_aidl_parcel);\n";
+    out << "}\n\n";
+  }
+
+  // private ctor(tag, value)
+  out << "private " + clazz + "(" + tag_type + " _tag, Object _value) {\n";
+  out.Indent();
+  out << "this._tag = _tag;\n";
+  out << "this._value = _value;\n";
+  out.Dedent();
+  out << "}\n\n";
 
   // getTag()
   out << "public " + tag_type + " " + "getTag() {\n";
-  out << "  return " + tag_name + ";\n";
-  out << "}\n";
-  out << "\n";
+  out.Indent();
+  out << "return _tag;\n";
+  out.Dedent();
+  out << "}\n\n";
 
-  // value ctor, getter, setter for each field
+  // value ctor, getter, setter(for mutable) for each field
   for (const auto& variable : decl->GetFields()) {
     auto var_name = variable->GetName();
     auto var_type = JavaSignatureOf(variable->GetType(), typenames);
-    auto raw_type = variable->GetType().ToString();
 
-    out << "// " + raw_type + " " + var_name + "\n";
+    out << "// " + variable->Signature() + ";\n";
     // value ctor
     out << variable->GetType().GetComments() + "\n";
-    out << "public static " + clazz + " " + var_name + "(" + var_type + " " + value_name + ") {\n";
-    out << "  return new " + clazz + "(" + var_name + ", " + value_name + ");\n";
-    out << "}\n";
+    out << "public static " + clazz + " " + var_name + "(" + var_type + " _value) {\n";
+    out.Indent();
+    out << "return new " + clazz + "(" + var_name + ", _value);\n";
+    out.Dedent();
+    out << "}\n\n";
+
     // getter
     if (variable->GetType().IsGeneric()) {
       out << "@SuppressWarnings(\"unchecked\")\n";
     }
     out << "public " + var_type + " " + getter_name(*variable) + "() {\n";
-    out << "  _assertTag(" + var_name + ");\n";
-    out << "  return (" + var_type + ") " + value_name + ";\n";
-    out << "}\n";
+    out.Indent();
+    out << "_assertTag(" + var_name + ");\n";
+    out << "return (" + var_type + ") _value;\n";
+    out.Dedent();
+    out << "}\n\n";
+
     // setter
-    out << "public void " + setter_name(*variable) + "(" + var_type + " " + value_name + ") {\n";
-    out << "  _set(" + var_name + ", " + value_name + ");\n";
-    out << "}\n";
-    out << "\n";
+    if (!decl->IsJavaOnlyImmutable()) {
+      out << "public void " + setter_name(*variable) + "(" + var_type + " _value) {\n";
+      out.Indent();
+      out << "_set(" + var_name + ", _value);\n";
+      out.Dedent();
+      out << "}\n\n";
+    }
   }
 
   if (decl->IsVintfStability()) {
     out << "@Override\n";
     out << "public final int getStability() {\n";
     out << "  return android.os.Parcelable.PARCELABLE_STABILITY_VINTF;\n";
-    out << "}\n";
-    out << "\n";
+    out << "}\n\n";
   }
 
   out << "public static final android.os.Parcelable.Creator<" << clazz << "> CREATOR = "
       << "new android.os.Parcelable.Creator<" << clazz << ">() {\n";
   out << "  @Override\n";
   out << "  public " << clazz << " createFromParcel(android.os.Parcel _aidl_source) {\n";
-  out << "    return new Union(_aidl_source);\n";  // to avoid unnecessary allocation of "default"
+  if (decl->IsJavaOnlyImmutable()) {
+    out << "    return internalCreateFromParcel(_aidl_source);\n";
+  } else {
+    out << "    return new " + clazz + "(_aidl_source);\n";
+  }
   out << "  }\n";
   out << "  @Override\n";
   out << "  public " << clazz << "[] newArray(int _aidl_size) {\n";
   out << "    return new " << clazz << "[_aidl_size];\n";
   out << "  }\n";
-  out << "};\n";
+  out << "};\n\n";
 
   auto write_to_parcel = [&](const AidlTypeSpecifier& type, std::string name, std::string parcel) {
     string code;
@@ -569,16 +758,19 @@ void generate_union(CodeWriter& out, const AidlUnionDecl* decl, const AidlTypena
 
   out << "@Override\n";
   out << "public final void writeToParcel(android.os.Parcel _aidl_parcel, int _aidl_flag) {\n";
-  out << "  " + write_to_parcel(tag_type_specifier, tag_name, "_aidl_parcel");
-  out << "  switch (" + tag_name + ") {\n";
+  out.Indent();
+  out << write_to_parcel(tag_type_specifier, "_tag", "_aidl_parcel");
+  out << "switch (_tag) {\n";
   for (const auto& variable : decl->GetFields()) {
-    out << "  case " + variable->GetName() + ":\n";
-    out << "    " +
-               write_to_parcel(variable->GetType(), getter_name(*variable) + "()", "_aidl_parcel");
-    out << "    break;\n";
+    out << "case " + variable->GetName() + ":\n";
+    out.Indent();
+    out << write_to_parcel(variable->GetType(), getter_name(*variable) + "()", "_aidl_parcel");
+    out << "break;\n";
+    out.Dedent();
   }
-  out << "  }\n";
   out << "}\n";
+  out.Dedent();
+  out << "}\n\n";
 
   // keep this across different fields in order to create the classloader
   // at most once.
@@ -599,52 +791,70 @@ void generate_union(CodeWriter& out, const AidlUnionDecl* decl, const AidlTypena
     return code;
   };
 
-  // Not override, but as a user-defined parcelable, this method should be public
-  out << "public void readFromParcel(android.os.Parcel _aidl_parcel) {\n";
-  out << "  " + tag_type + " _aidl_tag;\n";
-  out << "  " + read_from_parcel(tag_type_specifier, "_aidl_tag", "_aidl_parcel");
-  out << "  switch (_aidl_tag) {\n";
+  if (decl->IsJavaOnlyImmutable()) {
+    // When it's immutable we don't need readFromParcel, but we can use it from createFromParcel
+    out << "private static " + clazz +
+               " internalCreateFromParcel(android.os.Parcel _aidl_parcel) {\n";
+  } else {
+    // Not override, but as a user-defined parcelable, this method should be public
+    out << "public void readFromParcel(android.os.Parcel _aidl_parcel) {\n";
+  }
+  out.Indent();
+  out << tag_type + " _aidl_tag;\n";
+  out << read_from_parcel(tag_type_specifier, "_aidl_tag", "_aidl_parcel");
+  out << "switch (_aidl_tag) {\n";
   for (const auto& variable : decl->GetFields()) {
     auto var_name = variable->GetName();
     auto var_type = JavaSignatureOf(variable->GetType(), typenames);
-    out << "  case " + var_name + ": {\n";
-    out << "    " + var_type + " _aidl_value;\n";
-    out << "    " + read_from_parcel(variable->GetType(), "_aidl_value", "_aidl_parcel");
-    out << "    _set(_aidl_tag, _aidl_value);\n";
-    out << "    return; }\n";
+    out << "case " + var_name + ": {\n";
+    out.Indent();
+    out << var_type + " _aidl_value;\n";
+    out << read_from_parcel(variable->GetType(), "_aidl_value", "_aidl_parcel");
+    if (decl->IsJavaOnlyImmutable()) {
+      out << "return new " << clazz << "(_aidl_tag, _aidl_value); }\n";
+    } else {
+      out << "_set(_aidl_tag, _aidl_value);\n";
+      out << "return; }\n";
+    }
+    out.Dedent();
   }
-  out << "  }\n";
-  out << "  throw new RuntimeException(\"union: out of range: \" + _aidl_tag);\n";
   out << "}\n";
+  out << "throw new RuntimeException(\"union: out of range: \" + _aidl_tag);\n";
+  out.Dedent();
+  out << "}\n\n";
 
-  out << "@Override\n";
-  out << "public int describeContents() {\n";
-  out << "  return 0;\n";
-  out << "}\n";
+  GenerateParcelableDescribeContents(out, *decl, typenames);
   out << "\n";
+  GenerateDerivedMethods(out, *decl, typenames);
 
   // helper: _assertTag
   out << "private void _assertTag(" + tag_type + " tag) {\n";
   out << "  if (getTag() != tag) {\n";
   out << "    throw new IllegalStateException(\"bad access: \" + _tagString(tag) + \", \" + "
-         "_tagString(tag) + \" is available.\");\n";
+         "_tagString(getTag()) + \" is available.\");\n";
   out << "  }\n";
-  out << "}\n";
+  out << "}\n\n";
+
   // helper: _tagString
-  out << "private String _tagString(" + tag_type + " " + tag_name + ") {\n";
-  out << "  switch (" + tag_name + ") {\n";
+  out << "private String _tagString(" + tag_type + " _tag) {\n";
+  out << "  switch (_tag) {\n";
   for (const auto& variable : decl->GetFields()) {
     auto var_name = variable->GetName();
     out << "  case " + var_name + ": return \"" + var_name + "\";\n";
   }
   out << "  }\n";
-  out << "  throw new IllegalStateException(\"unknown field: \" + " + tag_name + ");\n";
+  out << "  throw new IllegalStateException(\"unknown field: \" + _tag);\n";
   out << "}\n";
-  // helper: _set
-  out << "private void _set(" + tag_type + " tag, Object value) {\n";
-  out << "  this." + tag_name + " = tag;\n";
-  out << "  this." + value_name + " = value;\n";
-  out << "}\n";
+
+  if (!decl->IsJavaOnlyImmutable()) {
+    out << "\n";
+    out << "private void _set(int _tag, Object _value) {\n";
+    out.Indent();
+    out << "this._tag = _tag;\n";
+    out << "this._value = _value;\n";
+    out.Dedent();
+    out << "}\n";
+  }
 
   out.Dedent();
   out << "}\n";

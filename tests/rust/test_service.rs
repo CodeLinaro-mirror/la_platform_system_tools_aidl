@@ -20,8 +20,9 @@ use aidl_test_interface::aidl::android::aidl::tests::ITestService::{
     self, BnTestService, BpTestService,
 };
 use aidl_test_interface::aidl::android::aidl::tests::{
+    BackendType::BackendType,
     ByteEnum::ByteEnum, ConstantExpressionEnum::ConstantExpressionEnum, INamedCallback, INewName,
-    IOldName, IntEnum::IntEnum, LongEnum::LongEnum, StructuredParcelable,
+    IOldName, IntEnum::IntEnum, LongEnum::LongEnum, StructuredParcelable, Union,
 };
 use aidl_test_interface::binder::{self, Interface, ParcelFileDescriptor, SpIBinder};
 use aidl_test_versioned_interface_V1::aidl::android::aidl::versioned::tests::IFooInterface::{
@@ -115,6 +116,11 @@ macro_rules! impl_repeat_nullable {
 impl ITestService::ITestService for TestService {
     impl_repeat! {RepeatByte, i8}
     impl_reverse! {ReverseByte, u8}
+
+    fn TestOneway(&self) -> binder::Result<()> {
+        Err(binder::StatusCode::UNKNOWN_ERROR.into())
+    }
+
     impl_repeat_reverse! {RepeatBoolean, ReverseBoolean, bool}
     impl_repeat_reverse! {RepeatChar, ReverseChar, u16}
     impl_repeat_reverse! {RepeatInt, ReverseInt, i32}
@@ -264,6 +270,8 @@ impl ITestService::ITestService for TestService {
         parcelable.const_exprs_9 = ConstantExpressionEnum::hexInt32_3;
         parcelable.const_exprs_10 = ConstantExpressionEnum::hexInt64_1;
 
+        parcelable.u = Some(Union::Union::Ns(vec![1, 2, 3]));
+
         Ok(())
     }
 
@@ -277,6 +285,10 @@ impl ITestService::ITestService for TestService {
 
     fn GetCppJavaTests(&self) -> binder::Result<Option<SpIBinder>> {
         Ok(None)
+    }
+
+    fn getBackendType(&self) -> binder::Result<BackendType> {
+        Ok(BackendType::RUST)
     }
 }
 
