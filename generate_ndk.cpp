@@ -206,6 +206,11 @@ static void GenerateHeaderIncludes(CodeWriter& out, const AidlTypenames& types,
   out << "#include <android/binder_stability.h>\n";
   out << "#endif  // BINDER_STABILITY_SUPPORT\n";
 
+  if (defined_type.IsSensitiveData()) {
+    out << "#include <android/binder_parcel_platform.h>\n";
+    out << "#include <android/binder_ibinder_platform.h>\n";
+  }
+
   auto headerFilePath = [&types](const AidlTypeSpecifier& typespec) -> std::string {
     const AidlDefinedType* type = types.TryGetDefinedType(typespec.GetName());
     if (type == nullptr) {
@@ -302,48 +307,20 @@ static void GenerateSourceIncludes(CodeWriter& out, const AidlTypenames& types,
   });
 }
 
-static void GenerateConstantDeclarations(CodeWriter& out, const AidlInterface& interface) {
+static void GenerateConstantDeclarations(CodeWriter& out, const AidlTypenames& types,
+                                         const AidlInterface& interface) {
   for (const auto& constant : interface.GetConstantDeclarations()) {
-    const AidlConstantValue& value = constant->GetValue();
-    AIDL_FATAL_IF(value.GetType() == AidlConstantValue::Type::UNARY ||
-                      value.GetType() == AidlConstantValue::Type::BINARY,
-                  value);
-    if (value.GetType() == AidlConstantValue::Type::STRING) {
+    const AidlTypeSpecifier& type = constant->GetType();
+
+    if (type.ToString() == "String") {
       out << "static const char* " << constant->GetName() << ";\n";
+    } else {
+      out << "enum : " << NdkNameOf(types, type, StorageMode::STACK) << " { " << constant->GetName()
+          << " = " << constant->ValueString(ConstantValueDecorator) << " };\n";
     }
-  }
-  out << "\n";
-
-  bool hasIntegralConstant = false;
-  for (const auto& constant : interface.GetConstantDeclarations()) {
-    const AidlConstantValue& value = constant->GetValue();
-    AIDL_FATAL_IF(value.GetType() == AidlConstantValue::Type::UNARY ||
-                      value.GetType() == AidlConstantValue::Type::BINARY,
-                  value);
-    if (value.GetType() == AidlConstantValue::Type::BOOLEAN ||
-        value.GetType() == AidlConstantValue::Type::INT8 ||
-        value.GetType() == AidlConstantValue::Type::INT32) {
-      hasIntegralConstant = true;
-      break;
-    }
-  }
-
-  if (hasIntegralConstant) {
-    out << "enum : int32_t {\n";
-    out.Indent();
-    for (const auto& constant : interface.GetConstantDeclarations()) {
-      const AidlConstantValue& value = constant->GetValue();
-      if (value.GetType() == AidlConstantValue::Type::BOOLEAN ||
-          value.GetType() == AidlConstantValue::Type::INT8 ||
-          value.GetType() == AidlConstantValue::Type::INT32) {
-        out << constant->GetName() << " = " << constant->ValueString(ConstantValueDecorator)
-            << ",\n";
-      }
-    }
-    out.Dedent();
-    out << "};\n";
   }
 }
+
 static void GenerateConstantDefinitions(CodeWriter& out, const AidlInterface& interface) {
   const std::string clazz = ClassName(interface, ClassNames::INTERFACE);
 
@@ -423,6 +400,9 @@ static void GenerateClientMethodDefinition(CodeWriter& out, const AidlTypenames&
   }
 
   out << "_aidl_ret_status = AIBinder_prepareTransaction(asBinder().get(), _aidl_in.getR());\n";
+  if (defined_type.IsSensitiveData()) {
+    out << "AParcel_markSensitive(_aidl_in.get());\n";
+  }
   StatusCheckGoto(out);
 
   for (const auto& arg : method.GetArguments()) {
@@ -445,7 +425,12 @@ static void GenerateClientMethodDefinition(CodeWriter& out, const AidlTypenames&
   out << MethodId(method) << ",\n";
   out << "_aidl_in.getR(),\n";
   out << "_aidl_out.getR(),\n";
-  out << (method.IsOneway() ? "FLAG_ONEWAY" : "0") << "\n";
+
+  std::vector<std::string> flags;
+  if (method.IsOneway()) flags.push_back("FLAG_ONEWAY");
+  if (defined_type.IsSensitiveData()) flags.push_back("FLAG_CLEAR_BUF");
+  out << (flags.empty() ? "0" : base::Join(flags, " | ")) << "\n";
+
   out << "#ifdef BINDER_STABILITY_SUPPORT\n";
   out << "| FLAG_PRIVATE_LOCAL\n";
   out << "#endif  // BINDER_STABILITY_SUPPORT\n";
@@ -926,7 +911,7 @@ void GenerateInterfaceHeader(CodeWriter& out, const AidlTypenames& types,
   out << clazz << "();\n";
   out << "virtual ~" << clazz << "();\n";
   out << "\n";
-  GenerateConstantDeclarations(out, defined_type);
+  GenerateConstantDeclarations(out, types, defined_type);
   if (options.Version() > 0) {
     out << "static const int32_t " << kVersion << " = " << std::to_string(options.Version())
         << ";\n";

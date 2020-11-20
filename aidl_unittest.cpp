@@ -421,7 +421,8 @@ TEST_P(AidlTest, RejectUnsupportedInterfaceAnnotations) {
   const string method = "package a; @nullable interface IFoo { int f(); }";
   const string expected_stderr =
       "ERROR: a/IFoo.aidl:1.21-31: 'nullable' is not a supported annotation for this node. "
-      "It must be one of: Hide, UnsupportedAppUsage, VintfStability, JavaPassthrough, Descriptor\n";
+      "It must be one of: Hide, UnsupportedAppUsage, VintfStability, SensitiveData, "
+      "JavaPassthrough, Descriptor\n";
   CaptureStderr();
   EXPECT_EQ(nullptr, Parse("a/IFoo.aidl", method, typenames_, GetLanguage(), &error));
   EXPECT_EQ(expected_stderr, GetCapturedStderr());
@@ -640,8 +641,8 @@ TEST_F(AidlTest, RejectsJavaDeriveAnnotation) {
     EXPECT_NE(0, ::android::aidl::compile_aidl(java_options, io_delegate_));
     const std::string expected_stderr =
         "ERROR: a/IFoo.aidl:1.23-33: 'JavaDerive' is not a supported annotation for this node. "
-        "It must be one of: Hide, UnsupportedAppUsage, VintfStability, JavaPassthrough, "
-        "Descriptor\n";
+        "It must be one of: Hide, UnsupportedAppUsage, VintfStability, SensitiveData, "
+        "JavaPassthrough, Descriptor\n";
     EXPECT_EQ(expected_stderr, GetCapturedStderr());
   }
 
@@ -951,6 +952,22 @@ TEST_P(AidlTest, FailOnDuplicateConstantNames) {
                       interface IFoo {
                         const String DUPLICATED = "d";
                         const int DUPLICATED = 1;
+                      }
+                   )",
+                           typenames_, GetLanguage(), &error));
+  EXPECT_EQ(expected_stderr, GetCapturedStderr());
+  EXPECT_EQ(AidlError::BAD_TYPE, error);
+}
+
+TEST_P(AidlTest, FailOnTooBigConstant) {
+  AidlError error;
+  const string expected_stderr =
+      "ERROR: p/IFoo.aidl:3.48-52: Invalid type specifier for an int32 literal: byte\n";
+  CaptureStderr();
+  EXPECT_EQ(nullptr, Parse("p/IFoo.aidl",
+                           R"(package p;
+                      interface IFoo {
+                        const byte type2small = 256;
                       }
                    )",
                            typenames_, GetLanguage(), &error));
