@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -1142,12 +1143,28 @@ func (i *aidlInterface) checkStability(mctx android.LoadHookContext) {
 	}
 }
 func (i *aidlInterface) checkVersions(mctx android.LoadHookContext) {
+	versions := make(map[string]bool)
+	intVersions := make([]int, 0, len(i.properties.Versions))
 	for _, ver := range i.properties.Versions {
-		_, err := strconv.Atoi(ver)
+		if _, dup := versions[ver]; dup {
+			mctx.PropertyErrorf("versions", "duplicate found", ver)
+			continue
+		}
+		versions[ver] = true
+		n, err := strconv.Atoi(ver)
 		if err != nil {
 			mctx.PropertyErrorf("versions", "%q is not an integer", ver)
 			continue
 		}
+		if n <= 0 {
+			mctx.PropertyErrorf("versions", "should be > 0, but is %v", ver)
+			continue
+		}
+		intVersions = append(intVersions, n)
+
+	}
+	if !mctx.Failed() && !sort.IntsAreSorted(intVersions) {
+		mctx.PropertyErrorf("versions", "should be sorted, but is %v", i.properties.Versions)
 	}
 }
 func (i *aidlInterface) checkVndkUseVersion(mctx android.LoadHookContext) {
@@ -1517,8 +1534,6 @@ func addCppLibrary(mctx android.LoadHookContext, i *aidlInterface, versionForMod
 
 	importExportDependencies := wrap("", i.properties.Imports, importPostfix)
 	var sharedLibDependency []string
-	var libJSONCppDependency []string
-	var staticLibDependency []string
 	var headerLibs []string
 	var sdkVersion *string
 	var minSdkVersion *string
@@ -1529,9 +1544,6 @@ func addCppLibrary(mctx android.LoadHookContext, i *aidlInterface, versionForMod
 
 	if lang == langCpp {
 		importExportDependencies = append(importExportDependencies, "libbinder", "libutils")
-		if genLog {
-			libJSONCppDependency = []string{"libjsoncpp"}
-		}
 		if genTrace {
 			sharedLibDependency = append(sharedLibDependency, "libcutils")
 		}
@@ -1539,9 +1551,6 @@ func addCppLibrary(mctx android.LoadHookContext, i *aidlInterface, versionForMod
 		minSdkVersion = i.properties.Backend.Cpp.Min_sdk_version
 	} else if lang == langNdk {
 		importExportDependencies = append(importExportDependencies, "libbinder_ndk")
-		if genLog {
-			staticLibDependency = []string{"libjsoncpp_ndk"}
-		}
 		if genTrace {
 			sharedLibDependency = append(sharedLibDependency, "libandroid")
 		}
@@ -1550,9 +1559,6 @@ func addCppLibrary(mctx android.LoadHookContext, i *aidlInterface, versionForMod
 		minSdkVersion = i.properties.Backend.Ndk.Min_sdk_version
 	} else if lang == langNdkPlatform {
 		importExportDependencies = append(importExportDependencies, "libbinder_ndk")
-		if genLog {
-			libJSONCppDependency = []string{"libjsoncpp"}
-		}
 		if genTrace {
 			headerLibs = append(headerLibs, "libandroid_aidltrace")
 			sharedLibDependency = append(sharedLibDependency, "libcutils")
@@ -1566,7 +1572,7 @@ func addCppLibrary(mctx android.LoadHookContext, i *aidlInterface, versionForMod
 
 	vendorAvailable := i.properties.Vendor_available
 	productAvailable := i.properties.Product_available
-	if lang == langCpp && "vintf" == proptools.String(i.properties.Stability) {
+	if lang == langCpp {
 		// Vendor and product modules cannot use the libbinder (cpp) backend of AIDL in a
 		// way that is stable. So, in order to prevent accidental usage of these library by
 		// vendor and product forcibly disabling this version of the library.
@@ -1574,8 +1580,12 @@ func addCppLibrary(mctx android.LoadHookContext, i *aidlInterface, versionForMod
 		// It may be the case in the future that we will want to enable this (if some generic
 		// helper should be used by both libbinder vendor things using /dev/vndbinder as well
 		// as those things using /dev/binder + libbinder_ndk to talk to stable interfaces).
-		vendorAvailable = proptools.BoolPtr(false)
-		productAvailable = proptools.BoolPtr(false)
+		if "vintf" == proptools.String(i.properties.Stability) {
+			vendorAvailable = proptools.BoolPtr(false)
+		}
+		// As libbinder is not available for the product processes, we must not create
+		// product variant for the aidl_interface
+		productAvailable = nil
 	}
 
 	if lang == langNdk {
@@ -1600,9 +1610,6 @@ func addCppLibrary(mctx android.LoadHookContext, i *aidlInterface, versionForMod
 		Generated_sources:         []string{cppSourceGen},
 		Generated_headers:         []string{cppSourceGen},
 		Export_generated_headers:  []string{cppSourceGen},
-		Static:                    staticLib{Whole_static_libs: libJSONCppDependency},
-		Shared:                    sharedLib{Shared_libs: libJSONCppDependency, Export_shared_lib_headers: libJSONCppDependency},
-		Static_libs:               staticLibDependency,
 		Shared_libs:               append(importExportDependencies, sharedLibDependency...),
 		Header_libs:               headerLibs,
 		Export_shared_lib_headers: importExportDependencies,
@@ -1615,6 +1622,10 @@ func addCppLibrary(mctx android.LoadHookContext, i *aidlInterface, versionForMod
 		Min_sdk_version:           minSdkVersion,
 		UseApexNameMacro:          true,
 		Target:                    targetProperties{Darwin: perTargetProperties{Enabled: proptools.BoolPtr(false)}},
+		Tidy:                      proptools.BoolPtr(true),
+		// Do the tidy check only for the generated headers
+		Tidy_flags:            []string{"--header-filter=" + android.PathForOutput(mctx).String() + ".*"},
+		Tidy_checks_as_errors: []string{"*"},
 	}, &i.properties.VndkProperties, &commonProperties.VndkProperties, &overrideVndkProperties)
 
 	return cppModuleGen
@@ -1732,10 +1743,10 @@ func (sp *aidlRustSourceProvider) SourceProviderDeps(ctx rust.DepsContext, deps 
 	return deps
 }
 
-func (sp *aidlRustSourceProvider) AndroidMk(ctx rust.AndroidMkContext, ret *android.AndroidMkData) {
+func (sp *aidlRustSourceProvider) AndroidMk(ctx rust.AndroidMkContext, ret *android.AndroidMkEntries) {
 	ctx.SubAndroidMk(ret, sp.BaseSourceProvider)
-	ret.Extra = append(ret.Extra, func(w io.Writer, outputFile android.Path) {
-		fmt.Fprintln(w, "LOCAL_UNINSTALLABLE_MODULE := true")
+	ret.ExtraEntries = append(ret.ExtraEntries, func(entries *android.AndroidMkEntries) {
+		entries.SetBool("LOCAL_UNINSTALLABLE_MODULE", true)
 	})
 }
 
