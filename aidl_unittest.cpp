@@ -2990,6 +2990,7 @@ const char kUnionExampleExpectedOutputCppHeader[] = R"(#pragma once
 #include <binder/Parcel.h>
 #include <binder/ParcelFileDescriptor.h>
 #include <binder/Status.h>
+#include <cassert>
 #include <codecvt>
 #include <cstdint>
 #include <locale>
@@ -2998,6 +2999,10 @@ const char kUnionExampleExpectedOutputCppHeader[] = R"(#pragma once
 #include <utility>
 #include <variant>
 #include <vector>
+
+#ifndef __BIONIC__
+#define __assert2(a,b,c,d) ((void)0)
+#endif
 
 namespace a {
 
@@ -3037,7 +3042,8 @@ public:
   Foo& operator=(const Foo&) = default;
   Foo& operator=(Foo&&) = default;
 
-  template <typename _Tp, std::enable_if_t<_not_self<_Tp>, int> = 0>
+  template <typename _Tp, typename = std::enable_if_t<_not_self<_Tp>>>
+  // NOLINTNEXTLINE(google-explicit-constructor)
   constexpr Foo(_Tp&& _arg)
       : _value(std::forward<_Tp>(_arg)) {}
 
@@ -3061,13 +3067,13 @@ public:
 
   template <Tag _tag>
   const auto& get() const {
-    if (getTag() != _tag) { abort(); }
+    if (getTag() != _tag) { __assert2(__FILE__, __LINE__, __PRETTY_FUNCTION__, "bad access: a wrong tag"); }
     return std::get<_tag>(_value);
   }
 
   template <Tag _tag>
   auto& get() {
-    if (getTag() != _tag) { abort(); }
+    if (getTag() != _tag) { __assert2(__FILE__, __LINE__, __PRETTY_FUNCTION__, "bad access: a wrong tag"); }
     return std::get<_tag>(_value);
   }
 
@@ -3121,17 +3127,32 @@ namespace a {
   case ns: {
     ::std::vector<int32_t> _aidl_value;
     if ((_aidl_ret_status = _aidl_parcel->readInt32Vector(&_aidl_value)) != ::android::OK) return _aidl_ret_status;
-    set<ns>(std::move(_aidl_value));
+    if constexpr (std::is_trivially_copyable_v<::std::vector<int32_t>>) {
+      set<ns>(_aidl_value);
+    } else {
+      // NOLINTNEXTLINE(performance-move-const-arg)
+      set<ns>(std::move(_aidl_value));
+    }
     return ::android::OK; }
   case e: {
     ::a::ByteEnum _aidl_value;
     if ((_aidl_ret_status = _aidl_parcel->readByte(reinterpret_cast<int8_t *>(&_aidl_value))) != ::android::OK) return _aidl_ret_status;
-    set<e>(std::move(_aidl_value));
+    if constexpr (std::is_trivially_copyable_v<::a::ByteEnum>) {
+      set<e>(_aidl_value);
+    } else {
+      // NOLINTNEXTLINE(performance-move-const-arg)
+      set<e>(std::move(_aidl_value));
+    }
     return ::android::OK; }
   case pfd: {
     ::android::os::ParcelFileDescriptor _aidl_value;
     if ((_aidl_ret_status = _aidl_parcel->readParcelable(&_aidl_value)) != ::android::OK) return _aidl_ret_status;
-    set<pfd>(std::move(_aidl_value));
+    if constexpr (std::is_trivially_copyable_v<::android::os::ParcelFileDescriptor>) {
+      set<pfd>(_aidl_value);
+    } else {
+      // NOLINTNEXTLINE(performance-move-const-arg)
+      set<pfd>(std::move(_aidl_value));
+    }
     return ::android::OK; }
   }
   return ::android::BAD_VALUE;
@@ -3145,7 +3166,7 @@ namespace a {
   case e: return _aidl_parcel->writeByte(static_cast<int8_t>(get<e>()));
   case pfd: return _aidl_parcel->writeParcelable(get<pfd>());
   }
-  abort();
+  __assert2(__FILE__, __LINE__, __PRETTY_FUNCTION__, "can't reach here");
 }
 
 }  // namespace a
@@ -3158,6 +3179,7 @@ const char kUnionExampleExpectedOutputNdkHeader[] = R"(#pragma once
 #include <locale>
 #include <sstream>
 
+#include <cassert>
 #include <type_traits>
 #include <utility>
 #include <variant>
@@ -3170,6 +3192,11 @@ const char kUnionExampleExpectedOutputNdkHeader[] = R"(#pragma once
 #include <android/binder_stability.h>
 #endif  // BINDER_STABILITY_SUPPORT
 #include <aidl/a/ByteEnum.h>
+
+#ifndef __BIONIC__
+#define __assert2(a,b,c,d) ((void)0)
+#endif
+
 namespace aidl {
 namespace a {
 class Foo {
@@ -3192,7 +3219,8 @@ public:
   Foo& operator=(const Foo&) = default;
   Foo& operator=(Foo&&) = default;
 
-  template <typename _Tp, std::enable_if_t<_not_self<_Tp>, int> = 0>
+  template <typename _Tp, typename = std::enable_if_t<_not_self<_Tp>>>
+  // NOLINTNEXTLINE(google-explicit-constructor)
   constexpr Foo(_Tp&& _arg)
       : _value(std::forward<_Tp>(_arg)) {}
 
@@ -3216,13 +3244,13 @@ public:
 
   template <Tag _tag>
   const auto& get() const {
-    if (getTag() != _tag) { abort(); }
+    if (getTag() != _tag) { __assert2(__FILE__, __LINE__, __PRETTY_FUNCTION__, "bad access: a wrong tag"); }
     return std::get<_tag>(_value);
   }
 
   template <Tag _tag>
   auto& get() {
-    if (getTag() != _tag) { abort(); }
+    if (getTag() != _tag) { __assert2(__FILE__, __LINE__, __PRETTY_FUNCTION__, "bad access: a wrong tag"); }
     return std::get<_tag>(_value);
   }
 
@@ -3277,17 +3305,32 @@ binder_status_t Foo::readFromParcel(const AParcel* _parcel) {
   case ns: {
     std::vector<int32_t> _aidl_value;
     if ((_aidl_ret_status = ::ndk::AParcel_readVector(_parcel, &_aidl_value)) != STATUS_OK) return _aidl_ret_status;
-    set<ns>(std::move(_aidl_value));
+    if constexpr (std::is_trivially_copyable_v<std::vector<int32_t>>) {
+      set<ns>(_aidl_value);
+    } else {
+      // NOLINTNEXTLINE(performance-move-const-arg)
+      set<ns>(std::move(_aidl_value));
+    }
     return STATUS_OK; }
   case e: {
     ::aidl::a::ByteEnum _aidl_value;
     if ((_aidl_ret_status = AParcel_readByte(_parcel, reinterpret_cast<int8_t*>(&_aidl_value))) != STATUS_OK) return _aidl_ret_status;
-    set<e>(std::move(_aidl_value));
+    if constexpr (std::is_trivially_copyable_v<::aidl::a::ByteEnum>) {
+      set<e>(_aidl_value);
+    } else {
+      // NOLINTNEXTLINE(performance-move-const-arg)
+      set<e>(std::move(_aidl_value));
+    }
     return STATUS_OK; }
   case pfd: {
     ::ndk::ScopedFileDescriptor _aidl_value;
     if ((_aidl_ret_status = ::ndk::AParcel_readRequiredParcelFileDescriptor(_parcel, &_aidl_value)) != STATUS_OK) return _aidl_ret_status;
-    set<pfd>(std::move(_aidl_value));
+    if constexpr (std::is_trivially_copyable_v<::ndk::ScopedFileDescriptor>) {
+      set<pfd>(_aidl_value);
+    } else {
+      // NOLINTNEXTLINE(performance-move-const-arg)
+      set<pfd>(std::move(_aidl_value));
+    }
     return STATUS_OK; }
   }
   return STATUS_BAD_VALUE;
@@ -3300,7 +3343,7 @@ binder_status_t Foo::writeToParcel(AParcel* _parcel) const {
   case e: return AParcel_writeByte(_parcel, static_cast<int8_t>(get<e>()));
   case pfd: return ::ndk::AParcel_writeRequiredParcelFileDescriptor(_parcel, get<pfd>());
   }
-  abort();
+  __assert2(__FILE__, __LINE__, __PRETTY_FUNCTION__, "can't reach here");
 }
 
 }  // namespace a
@@ -3444,7 +3487,7 @@ public final class Foo implements android.os.Parcelable {
       _set(_aidl_tag, _aidl_value);
       return; }
     }
-    throw new RuntimeException("union: out of range: " + _aidl_tag);
+    throw new IllegalArgumentException("union: unknown tag: " + _aidl_tag);
   }
 
   @Override
