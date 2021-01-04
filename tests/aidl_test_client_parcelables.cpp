@@ -14,39 +14,69 @@
  * limitations under the License.
  */
 
+#include <android/aidl/tests/ParcelableForToString.h>
+#include <android/aidl/tests/extension/MyExt.h>
+#include <android/aidl/tests/extension/MyExt2.h>
+#include <android/aidl/tests/extension/MyExtLike.h>
 #include "aidl_test_client.h"
 
+#include <string>
 #include <vector>
 
 using android::IInterface;
 using android::sp;
 using android::String16;
 using android::aidl::tests::ConstantExpressionEnum;
+using android::aidl::tests::GenericStructuredParcelable;
 using android::aidl::tests::INamedCallback;
 using android::aidl::tests::IntEnum;
 using android::aidl::tests::ITestService;
+using android::aidl::tests::OtherParcelableForToString;
+using android::aidl::tests::ParcelableForToString;
 using android::aidl::tests::SimpleParcelable;
 using android::aidl::tests::StructuredParcelable;
+using android::aidl::tests::Union;
+using android::aidl::tests::extension::ExtendableParcelable;
+using android::aidl::tests::extension::MyExt;
+using android::aidl::tests::extension::MyExt2;
+using android::aidl::tests::extension::MyExtLike;
 using android::binder::Status;
 using android::os::PersistableBundle;
+using std::string;
 using std::vector;
 
 TEST_F(AidlTest, RepeatSimpleParcelable) {
+  if (!cpp_java_tests) GTEST_SKIP() << "Service does not support the CPP/Java-only tests.";
+
   SimpleParcelable input("Booya", 42);
   SimpleParcelable out_param, returned;
-  Status status = service->RepeatSimpleParcelable(input, &out_param, &returned);
+  Status status = cpp_java_tests->RepeatSimpleParcelable(input, &out_param, &returned);
+  ASSERT_TRUE(status.isOk()) << status.toString8();
+  EXPECT_EQ(input, out_param);
+  EXPECT_EQ(input, returned);
+}
+
+TEST_F(AidlTest, RepeatGenericStructureParcelable) {
+  if (!cpp_java_tests) GTEST_SKIP() << "Service does not support the CPP/Java-only tests.";
+
+  GenericStructuredParcelable<int32_t, StructuredParcelable, IntEnum> input, out_param, returned;
+  input.a = 41;
+  input.b = 42;
+  Status status = cpp_java_tests->RepeatGenericParcelable(input, &out_param, &returned);
   ASSERT_TRUE(status.isOk()) << status.toString8();
   EXPECT_EQ(input, out_param);
   EXPECT_EQ(input, returned);
 }
 
 TEST_F(AidlTest, ReverseSimpleParcelable) {
+  if (!cpp_java_tests) GTEST_SKIP() << "Service does not support the CPP/Java-only tests.";
+
   const vector<SimpleParcelable> original{SimpleParcelable("first", 0),
                                           SimpleParcelable("second", 1),
                                           SimpleParcelable("third", 2)};
   vector<SimpleParcelable> repeated;
   vector<SimpleParcelable> reversed;
-  Status status = service->ReverseSimpleParcelables(original, &repeated, &reversed);
+  Status status = cpp_java_tests->ReverseSimpleParcelables(original, &repeated, &reversed);
   ASSERT_TRUE(status.isOk()) << status.toString8();
 
   EXPECT_EQ(repeated, original);
@@ -55,13 +85,17 @@ TEST_F(AidlTest, ReverseSimpleParcelable) {
 }
 
 TEST_F(AidlTest, ConfirmPersistableBundles) {
+  if (!cpp_java_tests) GTEST_SKIP() << "Service does not support the CPP/Java-only tests.";
+
   PersistableBundle empty_bundle, returned;
-  Status status = service->RepeatPersistableBundle(empty_bundle, &returned);
+  Status status = cpp_java_tests->RepeatPersistableBundle(empty_bundle, &returned);
   ASSERT_TRUE(status.isOk()) << status.toString8();
   EXPECT_EQ(empty_bundle, returned);
 }
 
 TEST_F(AidlTest, ConfirmPersistableBundlesNonEmpty) {
+  if (!cpp_java_tests) GTEST_SKIP() << "Service does not support the CPP/Java-only tests.";
+
   PersistableBundle non_empty_bundle, returned;
   non_empty_bundle.putBoolean(String16("test_bool"), false);
   non_empty_bundle.putInt(String16("test_int"), 33);
@@ -81,12 +115,14 @@ TEST_F(AidlTest, ConfirmPersistableBundlesNonEmpty) {
   non_empty_bundle.putPersistableBundle(String16("test_persistable_bundle"),
                                         nested_bundle);
 
-  Status status = service->RepeatPersistableBundle(non_empty_bundle, &returned);
+  Status status = cpp_java_tests->RepeatPersistableBundle(non_empty_bundle, &returned);
   ASSERT_TRUE(status.isOk()) << status.toString8();
   EXPECT_EQ(non_empty_bundle, returned);
 }
 
 TEST_F(AidlTest, ReversePersistableBundles) {
+  if (!cpp_java_tests) GTEST_SKIP() << "Service does not support the CPP/Java-only tests.";
+
   PersistableBundle first;
   PersistableBundle second;
   PersistableBundle third;
@@ -97,13 +133,66 @@ TEST_F(AidlTest, ReversePersistableBundles) {
 
   vector<PersistableBundle> repeated;
   vector<PersistableBundle> reversed;
-  Status status = service->ReversePersistableBundles(original, &repeated, &reversed);
+  Status status = cpp_java_tests->ReversePersistableBundles(original, &repeated, &reversed);
   ASSERT_TRUE(status.isOk()) << status.toString8();
 
   EXPECT_EQ(repeated, original);
 
   std::reverse(reversed.begin(), reversed.end());
   EXPECT_EQ(reversed, original);
+}
+
+TEST_F(AidlTest, ReverseUnion) {
+  if (!cpp_java_tests) GTEST_SKIP() << "Service does not support the CPP/Java-only tests.";
+
+  Union original = Union::make<Union::ns>({1, 2, 3});
+  Union repeated, reversed;
+  Status status = cpp_java_tests->ReverseUnion(original, &repeated, &reversed);
+  ASSERT_TRUE(status.isOk()) << status.toString8();
+
+  EXPECT_EQ(repeated, original);
+
+  std::reverse(reversed.get<Union::ns>().begin(), reversed.get<Union::ns>().end());
+  EXPECT_EQ(reversed, original);
+}
+
+TEST_F(AidlTest, UnionUsage) {
+  // default ctor inits with first member's default value
+  EXPECT_EQ(Union::make<Union::ns>(), Union());
+
+  // make<tag>(...) to create a value for a tag.
+  Union one_two_three = Union::make<Union::ns>({1, 2, 3});
+
+  // getTag() queries the tag of the content
+  EXPECT_EQ(Union::ns, one_two_three.getTag());
+
+  // Ctor(...) works if a target tag has a unique type among fields.
+  EXPECT_EQ(one_two_three, Union(std::vector{1, 2, 3}));
+  EXPECT_EQ(one_two_three, std::vector<int>({1, 2, 3}));
+
+  // Use std::in_place_index<tag> to avoid "move"
+  // Note that make<tag>(...) involves "move" of the content value
+  EXPECT_EQ(Union::make<Union::ns>(3, 0), Union(std::in_place_index<Union::ns>, 3, 0));
+
+  Union one_two = one_two_three;
+  // get<tag> can be used to modify the content
+  one_two.get<Union::ns>().pop_back();
+  EXPECT_EQ(one_two, std::vector<int>({1, 2}));
+  // get<tag> can be lvalue
+  one_two.get<Union::ns>() = std::vector<int>{1, 2};
+  EXPECT_EQ(one_two, std::vector<int>({1, 2}));
+
+  // abort with a bad access
+  EXPECT_DEATH(one_two.get<Union::n>(), "");
+
+  // set<tag>(...) overwrites the content with a new tag
+  one_two_three.set<Union::s>("123");
+  EXPECT_EQ(one_two_three, std::string("123"));
+
+  // Or, you can simply assign a new value.
+  // note that this works only if the target type is unique
+  one_two_three = std::vector<std::string>{"1", "2", "3"};
+  EXPECT_EQ(Union::ss, one_two_three.getTag());
 }
 
 TEST_F(AidlTest, StructuredParcelableEquality) {
@@ -213,4 +302,147 @@ TEST_F(AidlTest, ConfirmStructuredParcelables) {
 
   EXPECT_EQ(parcelable.addString1, "hello world!");
   EXPECT_EQ(parcelable.addString2, "The quick brown fox jumps over the lazy dog.");
+
+  EXPECT_EQ(parcelable.u->get<Union::ns>(), vector<int32_t>({1, 2, 3}));
+}
+
+TEST_F(AidlTest, EmptyParcelableHolder) {
+  using namespace android::aidl::tests::extension;
+  android::Parcel parcel;
+  {
+    ExtendableParcelable ep;
+    ep.writeToParcel(&parcel);
+    auto emptyExt = ep.ext.getParcelable<MyExt>();
+    EXPECT_FALSE(emptyExt);
+  }
+  {
+    parcel.setDataPosition(0);
+    ExtendableParcelable ep;
+    ep.readFromParcel(&parcel);
+    auto emptyExt = ep.ext.getParcelable<MyExt>();
+    EXPECT_FALSE(emptyExt);
+  }
+}
+
+TEST_F(AidlTest, NativeExtednableParcelable) {
+  using namespace android::aidl::tests::extension;
+  MyExt ext;
+  ext.a = 42;
+  ext.b = "EXT";
+
+  MyExt2 ext2;
+  ext2.a = 42;
+  ext2.b.a = 24;
+  ext2.b.b = "INEXT";
+  ext2.c = "EXT2";
+  android::Parcel parcel;
+  {
+    ExtendableParcelable ep;
+    ep.a = 1;
+    ep.b = "a";
+    ep.c = 42L;
+
+    EXPECT_TRUE(ep.ext.setParcelable(ext));
+    EXPECT_TRUE(ep.ext2.setParcelable(ext2));
+
+    auto extLike = ep.ext.getParcelable<MyExtLike>();
+    EXPECT_FALSE(extLike) << "The extension type must be MyExt, so it has to fail even though "
+                             "MyExtLike has the same structure as MyExt.";
+
+    auto actualExt = ep.ext.getParcelable<MyExt>();
+    auto actualExt2 = ep.ext2.getParcelable<MyExt2>();
+
+    EXPECT_TRUE(actualExt);
+    EXPECT_TRUE(actualExt2);
+
+    EXPECT_EQ(ext, *actualExt);
+    EXPECT_EQ(ext2, *actualExt2);
+
+    ep.writeToParcel(&parcel);
+  }
+
+  parcel.setDataPosition(0);
+  {
+    ExtendableParcelable ep;
+    ep.readFromParcel(&parcel);
+
+    auto extLike = ep.ext.getParcelable<MyExtLike>();
+    EXPECT_FALSE(extLike) << "The extension type must be MyExt, so it has to fail even though "
+                             "MyExtLike has the same structure as MyExt.";
+
+    auto actualExt = ep.ext.getParcelable<MyExt>();
+    auto actualExt2 = ep.ext2.getParcelable<MyExt2>();
+
+    auto emptyExt = ep.ext2.getParcelable<MyExt>();
+    EXPECT_FALSE(emptyExt);
+
+    EXPECT_TRUE(actualExt);
+    EXPECT_TRUE(actualExt2);
+
+    EXPECT_EQ(ext, *actualExt);
+    EXPECT_EQ(ext2, *actualExt2);
+  }
+}
+
+TEST_F(AidlTest, ParcelableToString) {
+  ParcelableForToString p;
+  p.intValue = 10;
+  p.intArray = {20, 30};
+  p.longValue = 100L;
+  p.longArray = {200L, 300L};
+  p.doubleValue = 3.14;
+  p.doubleArray = {1.1, 1.2};
+  p.floatValue = 3.14f;
+  p.floatArray = {1.1f, 1.2f};
+  p.byteValue = 3;
+  p.byteArray = {5, 6};
+  p.booleanValue = true;
+  p.booleanArray = {true, false};
+  p.stringValue = String16("this is a string");
+  p.stringArray = {String16("hello"), String16("world")};
+  p.stringList = {String16("alice"), String16("bob")};
+  OtherParcelableForToString op;
+  op.field = String16("other");
+  p.parcelableValue = op;
+  p.parcelableArray = {op, op};
+  p.enumValue = IntEnum::FOO;
+  p.enumArray = {IntEnum::FOO, IntEnum::BAR};
+  // p.nullArray = null;
+  // p.nullList = null;
+  GenericStructuredParcelable<int32_t, StructuredParcelable, IntEnum> gen;
+  gen.a = 1;
+  gen.b = 2;
+  p.parcelableGeneric = gen;
+  p.unionValue = Union(std::vector<std::string>{"union", "value"});
+
+  const string expected =
+      "ParcelableForToString{"
+      "intValue: 10, "
+      "intArray: [20, 30], "
+      "longValue: 100, "
+      "longArray: [200, 300], "
+      "doubleValue: 3.140000, "
+      "doubleArray: [1.100000, 1.200000], "
+      "floatValue: 3.140000, "
+      "floatArray: [1.100000, 1.200000], "
+      "byteValue: 3, "
+      "byteArray: [5, 6], "
+      "booleanValue: true, "
+      "booleanArray: [true, false], "
+      "stringValue: this is a string, "
+      "stringArray: [hello, world], "
+      "stringList: [alice, bob], "
+      "parcelableValue: OtherParcelableForToString{field: other}, "
+      "parcelableArray: ["
+      "OtherParcelableForToString{field: other}, "
+      "OtherParcelableForToString{field: other}], "
+      "enumValue: FOO, "
+      "enumArray: [FOO, BAR], "
+      "nullArray: [], "
+      "nullList: [], "
+      "parcelableGeneric: GenericStructuredParcelable{a: 1, b: 2}, "
+      "unionValue: Union{ss: [union, value]}"
+      "}";
+
+  EXPECT_EQ(expected, p.toString());
 }

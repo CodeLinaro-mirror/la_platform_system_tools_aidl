@@ -20,12 +20,11 @@
 
 #include "aidl_language.h"
 #include "parser.h"
-#include "aidl_language_y-module.h"
+#include "aidl_language_y.h"
 
 #define YY_USER_ACTION yylloc->columns(yyleng);
 %}
 
-%option yylineno
 %option noyywrap
 %option nounput
 %option noinput
@@ -110,7 +109,8 @@ package               { return yy::parser::token::PACKAGE; }
 in                    { return yy::parser::token::IN; }
 out                   { return yy::parser::token::OUT; }
 inout                 { return yy::parser::token::INOUT; }
-cpp_header            { return yy::parser::token::CPP_HEADER; }
+cpp_header            { yylval->token = new AidlToken("cpp_header", extra_text);
+                        return yy::parser::token::CPP_HEADER; }
 const                 { yylval->token = new AidlToken("const", extra_text);
                         return yy::parser::token::CONST; }
 true                  { return yy::parser::token::TRUE_LITERAL; }
@@ -124,6 +124,9 @@ oneway                { yylval->token = new AidlToken("oneway", extra_text);
                       }
 enum                  { yylval->token = new AidlToken("enum", extra_text);
                         return yy::parser::token::ENUM;
+                      }
+union                 { yylval->token = new AidlToken("union", extra_text);
+                        return yy::parser::token::UNION;
                       }
 
     /* scalars */

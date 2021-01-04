@@ -103,9 +103,9 @@ static bool HasValidNameComponents(const AidlDefinedType& defined) {
 }
 
 bool AidlTypenames::IsIgnorableImport(const string& import) const {
-  static set<string> ignore_import = {"android.os.IInterface",   "android.os.IBinder",
-                                      "android.os.Parcelable",   "android.os.Parcel",
-                                      "android.content.Context", "java.lang.String"};
+  static set<string> ignore_import = {
+      "android.os.IInterface",   "android.os.IBinder", "android.os.Parcelable", "android.os.Parcel",
+      "android.content.Context", "java.lang.String",   "java.lang.CharSequence"};
   // these known built-in types don't need to be imported
   const bool in_ignore_import = ignore_import.find(import) != ignore_import.end();
   // an already defined type doesn't need to be imported again unless it is from
@@ -132,7 +132,7 @@ bool AidlTypenames::AddDocument(std::unique_ptr<AidlDocument> doc) {
 }
 
 const AidlDocument& AidlTypenames::MainDocument() const {
-  CHECK(documents_.size() != 0) << "Main document doesn't exist";
+  AIDL_FATAL_IF(documents_.size() == 0, AIDL_LOCATION_HERE) << "Main document doesn't exist";
   return *(documents_[0]);
 }
 
@@ -155,6 +155,16 @@ bool AidlTypenames::IsBuiltinTypename(const string& type_name) {
 
 bool AidlTypenames::IsPrimitiveTypename(const string& type_name) {
   return kPrimitiveTypes.find(type_name) != kPrimitiveTypes.end();
+}
+
+bool AidlTypenames::IsParcelable(const string& type_name) const {
+  if (IsBuiltinTypename(type_name)) {
+    return type_name == "ParcelableHolder" || type_name == "ParcelFileDescriptor";
+  }
+  if (auto defined_type = TryGetDefinedType(type_name); defined_type) {
+    return defined_type->AsParcelable() != nullptr;
+  }
+  return false;
 }
 
 const AidlDefinedType* AidlTypenames::TryGetDefinedType(const string& type_name) const {
@@ -205,28 +215,94 @@ AidlTypenames::ResolvedTypename AidlTypenames::ResolveTypename(const string& typ
   if (IsBuiltinTypename(type_name)) {
     auto found = kJavaLikeTypeToAidlType.find(type_name);
     if (found != kJavaLikeTypeToAidlType.end()) {
-      return {found->second, true};
+      return {found->second, true, nullptr};
     }
-    return {type_name, true};
+    return {type_name, true, nullptr};
   }
   const AidlDefinedType* defined_type = TryGetDefinedType(type_name);
   if (defined_type != nullptr) {
-    return {defined_type->GetCanonicalName(), true};
+    return {defined_type->GetCanonicalName(), true, defined_type};
   } else {
-    return {type_name, false};
+    return {type_name, false, nullptr};
   }
 }
 
-// Only T[], List, Map, ParcelFileDescriptor and Parcelable can be an out parameter.
-bool AidlTypenames::CanBeOutParameter(const AidlTypeSpecifier& type) const {
+// Only immutable Parcelable, primitive type, and String, and List, Map, array of the types can be
+// immutable.
+bool AidlTypenames::CanBeJavaOnlyImmutable(const AidlTypeSpecifier& type) const {
   const string& name = type.GetName();
-  if (IsBuiltinTypename(name) || GetEnumDeclaration(type)) {
-    return type.IsArray() || type.GetName() == "List" || type.GetName() == "Map" ||
-           type.GetName() == "ParcelFileDescriptor";
+  if (type.IsGeneric()) {
+    if (type.GetName() == "List" || type.GetName() == "Map") {
+      const auto& types = type.GetTypeParameters();
+      return std::all_of(types.begin(), types.end(),
+                         [this](const auto& t) { return CanBeJavaOnlyImmutable(*t); });
+    }
+    AIDL_ERROR(type) << "For a generic type, an immutable parcelable can contain only List or Map.";
+    return false;
+  }
+  if (IsPrimitiveTypename(name) || name == "String") {
+    return true;
   }
   const AidlDefinedType* t = TryGetDefinedType(type.GetName());
-  CHECK(t != nullptr) << "Unrecognized type: '" << type.GetName() << "'";
-  return t->AsParcelable() != nullptr;
+  if (t == nullptr) {
+    AIDL_ERROR(type) << "An immutable parcelable can contain only immutable Parcelable, primitive "
+                        "type, and String.";
+    return false;
+  }
+  return t->IsJavaOnlyImmutable();
+}
+
+// Only FixedSize Parcelable, primitive types, and enum types can be FixedSize.
+bool AidlTypenames::CanBeFixedSize(const AidlTypeSpecifier& type) const {
+  const string& name = type.GetName();
+  if (type.IsGeneric() || type.IsArray()) {
+    return false;
+  }
+  if (IsPrimitiveTypename(name)) {
+    return true;
+  }
+  if (IsBuiltinTypename(name)) {
+    return false;
+  }
+  const AidlDefinedType* t = TryGetDefinedType(type.GetName());
+  AIDL_FATAL_IF(t == nullptr, type)
+      << "Failed to look up type. Cannot determine if it can be fixed size: " << type.GetName();
+
+  if (t->AsEnumDeclaration()) {
+    return true;
+  }
+  return t->IsFixedSize();
+}
+
+bool AidlTypenames::IsList(const AidlTypeSpecifier& type) {
+  return type.GetName() == "List";
+}
+
+// Only T[], List, Map, ParcelFileDescriptor and mutable Parcelable can be an out parameter.
+// Returns pair of
+//  - bool: tells if the type can be an out/inout parameter
+//  - string: the aspect of the type which decides whether the type can be "out" or not.
+pair<bool, string> AidlTypenames::CanBeOutParameter(const AidlTypeSpecifier& type) const {
+  const string& name = type.GetName();
+  if (type.IsArray()) return {true, "array"};
+
+  if (IsBuiltinTypename(name)) {
+    if (name == "List" || name == "Map" || name == "ParcelFileDescriptor") {
+      return {true, name};
+    }
+    return {false, name};
+  }
+
+  const AidlDefinedType* t = TryGetDefinedType(name);
+  AIDL_FATAL_IF(t == nullptr, type) << "Unrecognized type: '" << name << "'";
+
+  // An 'out' field is passed as an argument, so it doesn't make sense if it is immutable.
+  if (t->AsParcelable() != nullptr) {
+    if (t->IsJavaOnlyImmutable()) return {false, "@JavaOnlyImmutable"};
+    return {true, "parcelable/union"};
+  }
+
+  return {false, t->GetPreprocessDeclarationName()};
 }
 
 const AidlEnumDeclaration* AidlTypenames::GetEnumDeclaration(const AidlTypeSpecifier& type) const {
@@ -247,6 +323,15 @@ const AidlInterface* AidlTypenames::GetInterface(const AidlTypeSpecifier& type) 
   return nullptr;
 }
 
+const AidlParcelable* AidlTypenames::GetParcelable(const AidlTypeSpecifier& type) const {
+  if (auto defined_type = TryGetDefinedType(type.GetName()); defined_type != nullptr) {
+    if (auto parcelable = defined_type->AsParcelable(); parcelable != nullptr) {
+      return parcelable;
+    }
+  }
+  return nullptr;
+}
+
 void AidlTypenames::IterateTypes(const std::function<void(const AidlDefinedType&)>& body) const {
   for (const auto& kv : defined_types_) {
     body(*kv.second);
@@ -254,12 +339,6 @@ void AidlTypenames::IterateTypes(const std::function<void(const AidlDefinedType&
   for (const auto& kv : preprocessed_types_) {
     body(*kv.second);
   }
-}
-
-void AidlTypenames::Reset() {
-  defined_types_.clear();
-  preprocessed_types_.clear();
-  documents_.clear();
 }
 
 }  // namespace aidl

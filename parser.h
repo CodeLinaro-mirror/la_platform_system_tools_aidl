@@ -19,8 +19,8 @@
 #include "aidl_language.h"
 #include "aidl_typenames.h"
 #include "io_delegate.h"
+#include "logging.h"
 #include "options.h"
-#include <android-base/logging.h>
 
 #include <memory>
 #include <string>
@@ -42,6 +42,11 @@ class AidlToken {
 
   const std::string& GetText() const { return text_; }
   const std::string& GetComments() const { return comments_; }
+
+  template <typename T>
+  void Append(T&& text) {
+    text_ += std::forward<T>(text);
+  }
 
  private:
   std::string text_;
@@ -67,6 +72,15 @@ class Parser {
   const std::string& FileName() const { return filename_; }
   void* Scanner() const { return scanner_; }
 
+  // This restricts the grammar to something more reasonable. One alternative
+  // would be to support multiple sets of type specifiers in our AST, but then a
+  // lot of later code would have to deal with this more complicated type. So,
+  // in order to keep the AST simpler, restricting the grammar here.
+  //
+  // Takes ownership of type_args, modifies type.
+  void SetTypeParameters(AidlTypeSpecifier* type,
+                         std::vector<std::unique_ptr<AidlTypeSpecifier>>* type_args);
+
   void SetPackage(const std::string& package) { package_ = package; }
   const std::string& Package() const { return package_; }
 
@@ -88,7 +102,7 @@ class Parser {
   }
 
   const AidlDocument& ParsedDocument() const {
-    CHECK(!HasError());
+    AIDL_FATAL_IF(HasError(), FileName());
     return *document_;
   }
 

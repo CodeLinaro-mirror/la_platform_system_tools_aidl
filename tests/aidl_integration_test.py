@@ -1,20 +1,21 @@
 #!/usr/bin/env python3
 
 import pipes
+import re
 import subprocess
 import unittest
 
 BITNESS_32 = ("", "32")
 BITNESS_64 = ("64", "64")
 
-JAVA_OUTPUT_READER_FOR_BITNESS = '/data/nativetest%s/aidl_test_sentinel_searcher/aidl_test_sentinel_searcher%s'
+APP_PROCESS_FOR_PRETTY_BITNESS = 'app_process%s'
 NATIVE_TEST_CLIENT_FOR_BITNESS = ' /data/nativetest%s/aidl_test_client/aidl_test_client%s'
 NATIVE_TEST_SERVICE_FOR_BITNESS = ' /data/nativetest%s/aidl_test_service/aidl_test_service%s'
+RUST_TEST_CLIENT_FOR_BITNESS = ' /data/nativetest%s/aidl_test_rust_client/aidl_test_rust_client%s'
+RUST_TEST_SERVICE_FOR_BITNESS = ' /data/nativetest%s/aidl_test_rust_service/aidl_test_rust_service%s'
 
-JAVA_CLIENT_TIMEOUT_SECONDS = 30
-JAVA_LOG_FILE = '/data/data/android.aidl.tests/files/test-client.log'
-JAVA_SUCCESS_SENTINEL = '>>> Java Client Success <<<'
-JAVA_FAILURE_SENTINEL = '>>> Java Client Failure <<<'
+# From AidlTestsJava.java
+INSTRUMENTATION_SUCCESS_PATTERN = r'TEST SUCCESS\n$'
 
 class TestFail(Exception):
     """Raised on test failures."""
@@ -113,44 +114,59 @@ class NativeClient:
     def cleanup(self):
         self.host.run('killall %s' % self.binary, ignore_status=True)
     def run(self):
+        result = self.host.run(self.binary + ' --gtest_color=yes', ignore_status=True)
+        print(result.printable_string())
+        if result.exit_status:
+            raise TestFail(result.stdout)
+
+class JavaClient:
+    def __init__(self, host, bitness):
+        self.name = "java_client_%s" % pretty_bitness(bitness)
+        self.host = host
+        self.bitness = bitness
+    def cleanup(self):
+        self.host.run('killall app_process', ignore_status=True)
+    def run(self):
+        result = self.host.run('CLASSPATH=/data/framework/aidl_test_java.jar '
+                               + APP_PROCESS_FOR_PRETTY_BITNESS % pretty_bitness(self.bitness) +
+                               ' /data/framework android.aidl.tests.AidlJavaTests')
+        print(result.printable_string())
+        if re.search(INSTRUMENTATION_SUCCESS_PATTERN, result.stdout) is None:
+            raise TestFail(result.stdout)
+
+def getprop(host, prop):
+    return host.run('getprop "%s"' % prop).stdout.strip()
+
+class RustClient:
+    def __init__(self, host, bitness):
+        self.name = "%s_bit_rust_client" % pretty_bitness(bitness)
+        self.host = host
+        self.binary = RUST_TEST_CLIENT_FOR_BITNESS % bitness
+    def cleanup(self):
+        self.host.run('killall %s' % self.binary, ignore_status=True)
+    def run(self):
         result = self.host.run(self.binary, ignore_status=True)
         print(result.printable_string())
         if result.exit_status:
             raise TestFail('%s returned status code %d' %
                            (self.binary, result.exit_status))
 
-class JavaClient:
-    def __init__(self, host, native_bitness):
-        self.name = "java_client"
+class RustServer:
+    def __init__(self, host, bitness):
+        self.name = "%s_bit_rust_server" % pretty_bitness(bitness)
         self.host = host
-        self.native_bitness = native_bitness
+        self.binary = RUST_TEST_SERVICE_FOR_BITNESS % bitness
     def cleanup(self):
-        host.run('setenforce 1')
-        self.host.run('rm -f %s' % JAVA_LOG_FILE, ignore_status=True)
-        self.host.run('killall android.aidl.tests', ignore_status=True)
+        self.host.run('killall %s' % self.binary, ignore_status=True)
     def run(self):
-        host.run('setenforce 0') # Java app needs selinux off
-        JAVA_OUTPUT_READER = JAVA_OUTPUT_READER_FOR_BITNESS % self.native_bitness
-        self.host.run('am start -S -a android.intent.action.MAIN '
-                      '-n android.aidl.tests/.TestServiceClient '
-                      '--es sentinel.success "%s" '
-                      '--es sentinel.failure "%s"' %
-                      (JAVA_SUCCESS_SENTINEL, JAVA_FAILURE_SENTINEL))
-        result = self.host.run('%s %d %s "%s" "%s"' %
-                               (JAVA_OUTPUT_READER, JAVA_CLIENT_TIMEOUT_SECONDS,
-                                JAVA_LOG_FILE, JAVA_SUCCESS_SENTINEL,
-                                JAVA_FAILURE_SENTINEL),
-                               ignore_status=True)
-        print(result.printable_string())
-        if result.exit_status:
-            raise TestFail('Java client did not complete successfully.')
+        return self.host.run(self.binary, background=True)
 
 def supported_bitnesses(host):
     bitnesses = []
-    for bitness in [BITNESS_32, BITNESS_64]:
-        native_client = NATIVE_TEST_CLIENT_FOR_BITNESS % bitness
-        if host.run('ls %s' % native_client, ignore_status=True).exit_status == 0:
-            bitnesses += [bitness]
+    if getprop(host, "ro.product.cpu.abilist32") != "":
+        bitnesses += [BITNESS_32]
+    if getprop(host, "ro.product.cpu.abilist64") != "":
+        bitnesses += [BITNESS_64]
     return bitnesses
 
 # tests added dynamically below
@@ -183,9 +199,14 @@ if __name__ == '__main__':
         clients += [NativeClient(host, bitness)]
         servers += [NativeServer(host, bitness)]
 
-    # Java only supports one bitness, but needs to run a native binary
-    # to process its results
-    clients += [JavaClient(host, bitnesses[-1])]
+
+    for bitness in bitnesses:
+        clients += [JavaClient(host, bitness)]
+        # TODO(b/169704480): Java server
+
+    for bitness in bitnesses:
+        clients += [RustClient(host, bitness)]
+        servers += [RustServer(host, bitness)]
 
     for client in clients:
         for server in servers:

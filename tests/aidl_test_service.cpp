@@ -31,13 +31,31 @@
 #include <utils/Errors.h>
 #include <utils/Log.h>
 #include <utils/Looper.h>
+#include <utils/String8.h>
 #include <utils/StrongPointer.h>
 
+#include "android/aidl/tests/BackendType.h"
 #include "android/aidl/tests/BnTestService.h"
 #include "android/aidl/tests/ITestService.h"
 
 #include "android/aidl/tests/BnNamedCallback.h"
 #include "android/aidl/tests/INamedCallback.h"
+
+#include "android/aidl/versioned/tests/BnFooInterface.h"
+#include "android/aidl/versioned/tests/IFooInterface.h"
+
+#include "android/aidl/tests/BnNewName.h"
+#include "android/aidl/tests/BnOldName.h"
+
+#include "android/aidl/tests/BnCppJavaTests.h"
+#include "android/aidl/tests/ICppJavaTests.h"
+
+#include "android/aidl/tests/Union.h"
+#include "android/aidl/tests/extension/MyExt.h"
+#include "android/aidl/tests/extension/MyExt2.h"
+
+#include "android/aidl/loggable/BnLoggableInterface.h"
+#include "android/aidl/loggable/Data.h"
 
 // Used implicitly.
 #undef LOG_TAG
@@ -52,6 +70,7 @@ using android::LooperCallback;
 using android::OK;
 using android::sp;
 using android::String16;
+using android::String8;
 
 // libbinder:
 using android::BnInterface;
@@ -63,14 +82,24 @@ using android::ProcessState;
 using android::binder::Status;
 
 // Generated code:
+using android::aidl::tests::BackendType;
+using android::aidl::tests::BnCppJavaTests;
 using android::aidl::tests::BnNamedCallback;
+using android::aidl::tests::BnNewName;
+using android::aidl::tests::BnOldName;
 using android::aidl::tests::BnTestService;
 using android::aidl::tests::ByteEnum;
 using android::aidl::tests::ConstantExpressionEnum;
+using android::aidl::tests::GenericStructuredParcelable;
+using android::aidl::tests::ICppJavaTests;
 using android::aidl::tests::INamedCallback;
+using android::aidl::tests::INewName;
 using android::aidl::tests::IntEnum;
+using android::aidl::tests::IOldName;
 using android::aidl::tests::LongEnum;
 using android::aidl::tests::SimpleParcelable;
+using android::aidl::tests::StructuredParcelable;
+using android::aidl::tests::Union;
 using android::os::ParcelFileDescriptor;
 using android::os::PersistableBundle;
 
@@ -106,6 +135,152 @@ class NamedCallback : public BnNamedCallback {
   String16 name_;
 };
 
+class OldName : public BnOldName {
+ public:
+  OldName() = default;
+  ~OldName() = default;
+
+  Status RealName(String16* output) override {
+    *output = String16("OldName");
+    return Status::ok();
+  }
+};
+
+class NewName : public BnNewName {
+ public:
+  NewName() = default;
+  ~NewName() = default;
+
+  Status RealName(String16* output) override {
+    *output = String16("NewName");
+    return Status::ok();
+  }
+};
+
+template <typename T>
+Status ReverseArray(const vector<T>& input, vector<T>* repeated, vector<T>* _aidl_return) {
+  ALOGI("Reversing array of length %zu", input.size());
+  *repeated = input;
+  *_aidl_return = input;
+  std::reverse(_aidl_return->begin(), _aidl_return->end());
+  return Status::ok();
+}
+
+template <typename T>
+Status RepeatNullable(const optional<T>& input, optional<T>* _aidl_return) {
+  ALOGI("Repeating nullable value");
+  *_aidl_return = input;
+  return Status::ok();
+}
+
+class CppJavaTests : public BnCppJavaTests {
+ public:
+  CppJavaTests() = default;
+  ~CppJavaTests() = default;
+
+  Status RepeatSimpleParcelable(const SimpleParcelable& input, SimpleParcelable* repeat,
+                                SimpleParcelable* _aidl_return) override {
+    ALOGI("Repeated a SimpleParcelable %s", input.toString().c_str());
+    *repeat = input;
+    *_aidl_return = input;
+    return Status::ok();
+  }
+
+  Status RepeatGenericParcelable(
+      const GenericStructuredParcelable<int32_t, StructuredParcelable, IntEnum>& input,
+      GenericStructuredParcelable<int32_t, StructuredParcelable, IntEnum>* repeat,
+      GenericStructuredParcelable<int32_t, StructuredParcelable, IntEnum>* _aidl_return) {
+    ALOGI("Repeating Generic Parcelable");
+    *repeat = input;
+    *_aidl_return = input;
+    return Status::ok();
+  }
+
+  Status RepeatPersistableBundle(const PersistableBundle& input,
+                                 PersistableBundle* _aidl_return) override {
+    ALOGI("Repeated a PersistableBundle");
+    *_aidl_return = input;
+    return Status::ok();
+  }
+
+  Status ReverseSimpleParcelables(const vector<SimpleParcelable>& input,
+                                  vector<SimpleParcelable>* repeated,
+                                  vector<SimpleParcelable>* _aidl_return) override {
+    return ReverseArray(input, repeated, _aidl_return);
+  }
+  Status ReversePersistableBundles(const vector<PersistableBundle>& input,
+                                   vector<PersistableBundle>* repeated,
+                                   vector<PersistableBundle>* _aidl_return) override {
+    return ReverseArray(input, repeated, _aidl_return);
+  }
+  Status ReverseUnion(const Union& input, Union* repeated, Union* _aidl_return) override {
+    ALOGI("Repeated a Union");
+    *repeated = input;
+    *_aidl_return = input;
+    auto reverse = [](auto& reversible) {
+      std::reverse(std::begin(reversible), std::end(reversible));
+    };
+    switch (input.getTag()) {
+      case Union::ns:  // int[]
+        reverse(_aidl_return->get<Union::ns>());
+        break;
+      case Union::s:  // String
+        reverse(_aidl_return->get<Union::s>());
+        break;
+      case Union::ss:  // List<String>
+        reverse(_aidl_return->get<Union::ss>());
+        break;
+      default:
+        break;
+    }
+    return Status::ok();
+  }
+  Status ReverseNamedCallbackList(const vector<sp<IBinder>>& input, vector<sp<IBinder>>* repeated,
+                                  vector<sp<IBinder>>* _aidl_return) override {
+    return ReverseArray(input, repeated, _aidl_return);
+  }
+
+  Status RepeatFileDescriptor(unique_fd read, unique_fd* _aidl_return) override {
+    ALOGE("Repeating file descriptor");
+    *_aidl_return = unique_fd(dup(read.get()));
+    return Status::ok();
+  }
+
+  Status ReverseFileDescriptorArray(const vector<unique_fd>& input, vector<unique_fd>* repeated,
+                                    vector<unique_fd>* _aidl_return) override {
+    ALOGI("Reversing descriptor array of length %zu", input.size());
+    for (const auto& item : input) {
+      repeated->push_back(unique_fd(dup(item.get())));
+      _aidl_return->push_back(unique_fd(dup(item.get())));
+    }
+    std::reverse(_aidl_return->begin(), _aidl_return->end());
+    return Status::ok();
+  }
+
+  Status TakesAnIBinderList(const vector<sp<IBinder>>& input) override {
+    (void)input;
+    return Status::ok();
+  }
+  Status TakesANullableIBinderList(const optional<vector<sp<IBinder>>>& input) {
+    (void)input;
+    return Status::ok();
+  }
+
+  ::android::binder::Status RepeatExtendableParcelable(
+      const ::android::aidl::tests::extension::ExtendableParcelable& ep,
+      ::android::aidl::tests::extension::ExtendableParcelable* ep2) {
+    ep2->a = ep.a * 2;
+    ep2->b = ep.b + "BAR";
+    auto myExt = ep.ext.getParcelable<android::aidl::tests::extension::MyExt>();
+    ::android::aidl::tests::extension::MyExt retMyExt;
+    retMyExt.a = myExt->a * 2;
+    retMyExt.b = myExt->b + "BAR";
+    ep2->ext.setParcelable(retMyExt);
+
+    return Status::ok();
+  }
+};
+
 class NativeService : public BnTestService {
  public:
   NativeService() {}
@@ -122,6 +297,8 @@ class NativeService : public BnTestService {
     token_str << token;
     ALOGI("Repeating token %s", token_str.str().c_str());
   }
+
+  Status TestOneway() override { return Status::fromStatusT(android::UNKNOWN_ERROR); }
 
   Status RepeatBoolean(bool token, bool* _aidl_return) override {
     LogRepeatedToken(token ? 1 : 0);
@@ -179,39 +356,6 @@ class NativeService : public BnTestService {
     return Status::ok();
   }
 
-  Status RepeatSimpleParcelable(const SimpleParcelable& input,
-                                SimpleParcelable* repeat,
-                                SimpleParcelable* _aidl_return) override {
-    ALOGI("Repeated a SimpleParcelable %s", input.toString().c_str());
-    *repeat = input;
-    *_aidl_return = input;
-    return Status::ok();
-  }
-
-  Status RepeatPersistableBundle(const PersistableBundle& input,
-                                 PersistableBundle* _aidl_return) override {
-    ALOGI("Repeated a PersistableBundle");
-    *_aidl_return = input;
-    return Status::ok();
-  }
-
-  template <typename T>
-  Status ReverseArray(const vector<T>& input, vector<T>* repeated,
-                      vector<T>* _aidl_return) {
-    ALOGI("Reversing array of length %zu", input.size());
-    *repeated = input;
-    *_aidl_return = input;
-    std::reverse(_aidl_return->begin(), _aidl_return->end());
-    return Status::ok();
-  }
-
-  template <typename T>
-  Status RepeatNullable(const optional<T>& input, optional<T>* _aidl_return) {
-    ALOGI("Repeating nullable value");
-    *_aidl_return = input;
-    return Status::ok();
-  }
-
   Status ReverseBoolean(const vector<bool>& input,
                         vector<bool>* repeated,
                         vector<bool>* _aidl_return) override {
@@ -264,18 +408,6 @@ class NativeService : public BnTestService {
                          vector<LongEnum>* _aidl_return) override {
     return ReverseArray(input, repeated, _aidl_return);
   }
-  Status ReverseSimpleParcelables(
-      const vector<SimpleParcelable>& input,
-      vector<SimpleParcelable>* repeated,
-      vector<SimpleParcelable>* _aidl_return) override {
-    return ReverseArray(input, repeated, _aidl_return);
-  }
-  Status ReversePersistableBundles(
-      const vector<PersistableBundle>& input,
-      vector<PersistableBundle>* repeated,
-      vector<PersistableBundle>* _aidl_return) override {
-    return ReverseArray(input, repeated, _aidl_return);
-  }
 
   Status GetOtherTestService(const String16& name,
                              sp<INamedCallback>* returned_service) override {
@@ -304,31 +436,6 @@ class NativeService : public BnTestService {
                            vector<String16>* repeated,
                            vector<String16>* _aidl_return) override {
     return ReverseArray(input, repeated, _aidl_return);
-  }
-
-  Status ReverseNamedCallbackList(const vector<sp<IBinder>>& input,
-                                  vector<sp<IBinder>>* repeated,
-                                  vector<sp<IBinder>>* _aidl_return) override {
-    return ReverseArray(input, repeated, _aidl_return);
-  }
-
-  Status RepeatFileDescriptor(unique_fd read,
-                              unique_fd* _aidl_return) override {
-    ALOGE("Repeating file descriptor");
-    *_aidl_return = unique_fd(dup(read.get()));
-    return Status::ok();
-  }
-
-  Status ReverseFileDescriptorArray(const vector<unique_fd>& input,
-                                    vector<unique_fd>* repeated,
-                                    vector<unique_fd>* _aidl_return) override {
-    ALOGI("Reversing descriptor array of length %zu", input.size());
-    for (const auto& item : input) {
-      repeated->push_back(unique_fd(dup(item.get())));
-      _aidl_return->push_back(unique_fd(dup(item.get())));
-    }
-    std::reverse(_aidl_return->begin(), _aidl_return->end());
-    return Status::ok();
   }
 
   Status RepeatParcelFileDescriptor(const ParcelFileDescriptor& read,
@@ -386,8 +493,8 @@ class NativeService : public BnTestService {
     return RepeatNullable(input, _aidl_return);
   }
 
-  Status RepeatNullableParcelable(const optional<SimpleParcelable>& input,
-                                  optional<SimpleParcelable>* _aidl_return) {
+  Status RepeatNullableParcelable(const optional<StructuredParcelable>& input,
+                                  optional<StructuredParcelable>* _aidl_return) {
     return RepeatNullable(input, _aidl_return);
   }
 
@@ -395,15 +502,7 @@ class NativeService : public BnTestService {
     (void)input;
     return Status::ok();
   }
-  Status TakesAnIBinderList(const vector<sp<IBinder>>& input) override {
-    (void)input;
-    return Status::ok();
-  }
   Status TakesANullableIBinder(const sp<IBinder>& input) {
-    (void)input;
-    return Status::ok();
-  }
-  Status TakesANullableIBinderList(const optional<vector<sp<IBinder>>>& input) {
     (void)input;
     return Status::ok();
   }
@@ -459,8 +558,7 @@ class NativeService : public BnTestService {
     return Status::ok();
   }
 
-  virtual ::android::binder::Status FillOutStructuredParcelable(
-      ::android::aidl::tests::StructuredParcelable* parcelable) {
+  virtual ::android::binder::Status FillOutStructuredParcelable(StructuredParcelable* parcelable) {
     parcelable->shouldBeJerry = "Jerry";
     parcelable->shouldContainThreeFs = {parcelable->f, parcelable->f, parcelable->f};
     parcelable->shouldBeByteBar = ByteEnum::BAR;
@@ -481,6 +579,7 @@ class NativeService : public BnTestService {
     parcelable->const_exprs_9 = ConstantExpressionEnum::hexInt32_3;
     parcelable->const_exprs_10 = ConstantExpressionEnum::hexInt64_1;
 
+    parcelable->u = Union::make<Union::ns>({1, 2, 3});
     return Status::ok();
   }
 
@@ -488,9 +587,29 @@ class NativeService : public BnTestService {
     LOG_ALWAYS_FATAL("UnimplementedMethod shouldn't be called");
   }
 
+  Status GetOldNameInterface(sp<IOldName>* ret) {
+    *ret = new OldName;
+    return Status::ok();
+  }
+
+  Status GetNewNameInterface(sp<INewName>* ret) {
+    *ret = new NewName;
+    return Status::ok();
+  }
+
+  Status GetCppJavaTests(sp<IBinder>* ret) {
+    *ret = new CppJavaTests;
+    return Status::ok();
+  }
+
+  Status getBackendType(BackendType* _aidl_return) override {
+    *_aidl_return = BackendType::CPP;
+    return Status::ok();
+  }
+
   android::status_t onTransact(uint32_t code, const Parcel& data, Parcel* reply,
                                uint32_t flags) override {
-    if (code == ::android::IBinder::FIRST_CALL_TRANSACTION + 53 /* UnimplementedMethod */) {
+    if (code == ::android::IBinder::FIRST_CALL_TRANSACTION + 0 /* UnimplementedMethod */) {
       // pretend that UnimplementedMethod isn't implemented by this service.
       return android::UNKNOWN_TRANSACTION;
     } else {
@@ -500,6 +619,30 @@ class NativeService : public BnTestService {
 
  private:
   map<String16, sp<INamedCallback>> service_map_;
+};
+
+class VersionedService : public android::aidl::versioned::tests::BnFooInterface {
+ public:
+  VersionedService() {}
+  virtual ~VersionedService() = default;
+
+  Status foo() override { return Status::ok(); }
+};
+
+class LoggableInterfaceService : public android::aidl::loggable::BnLoggableInterface {
+ public:
+  LoggableInterfaceService() {}
+  virtual ~LoggableInterfaceService() = default;
+
+  virtual Status LogThis(bool, vector<bool>*, int8_t, vector<uint8_t>*, char16_t, vector<char16_t>*,
+                         int32_t, vector<int32_t>*, int64_t, vector<int64_t>*, float,
+                         vector<float>*, double, vector<double>*, const String16&,
+                         vector<String16>*, vector<String16>*, const android::aidl::loggable::Data&,
+                         const sp<IBinder>&, optional<ParcelFileDescriptor>*,
+                         vector<ParcelFileDescriptor>*, vector<String16>* _aidl_return) override {
+    *_aidl_return = vector<String16>{String16("loggable")};
+    return Status::ok();
+  }
 };
 
 int Run() {
@@ -520,8 +663,28 @@ int Run() {
     return -1;
   }
 
-  defaultServiceManager()->addService(service->getInterfaceDescriptor(),
-                                      service);
+  auto status = defaultServiceManager()->addService(service->getInterfaceDescriptor(), service);
+  if (status != OK) {
+    ALOGE("Failed to add service %s", String8(service->getInterfaceDescriptor()).c_str());
+    return -1;
+  }
+
+  android::sp<VersionedService> versionedService = new VersionedService;
+  status = defaultServiceManager()->addService(versionedService->getInterfaceDescriptor(),
+                                               versionedService);
+  if (status != OK) {
+    ALOGE("Failed to add service %s", String8(versionedService->getInterfaceDescriptor()).c_str());
+    return -1;
+  }
+
+  android::sp<LoggableInterfaceService> loggableInterfaceService = new LoggableInterfaceService;
+  status = defaultServiceManager()->addService(loggableInterfaceService->getInterfaceDescriptor(),
+                                               loggableInterfaceService);
+  if (status != OK) {
+    ALOGE("Failed to add service %s",
+          String8(loggableInterfaceService->getInterfaceDescriptor()).c_str());
+    return -1;
+  }
 
   ALOGI("Entering loop");
   while (true) {
