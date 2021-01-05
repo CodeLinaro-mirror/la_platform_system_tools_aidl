@@ -248,6 +248,20 @@ static bool isValidLiteralChar(char c) {
            c == '\\');   // Disallow backslashes for future proofing.
 }
 
+bool ParseFloating(std::string_view sv, double* parsed) {
+  // float literal should be parsed successfully.
+  android::base::ConsumeSuffix(&sv, "f");
+  return android::base::ParseDouble(std::string(sv).data(), parsed);
+}
+
+bool ParseFloating(std::string_view sv, float* parsed) {
+  // we only care about float literal (with suffix "f").
+  if (!android::base::ConsumeSuffix(&sv, "f")) {
+    return false;
+  }
+  return android::base::ParseFloat(std::string(sv).data(), parsed);
+}
+
 bool AidlUnaryConstExpression::IsCompatibleType(Type type, const string& op) {
   // Verify the unary type here
   switch (type) {
@@ -310,15 +324,6 @@ AidlConstantValue::Type AidlBinaryConstExpression::UsualArithmeticConversion(Typ
 // Returns the promoted integral type where INT32 is the smallest type
 AidlConstantValue::Type AidlBinaryConstExpression::IntegralPromotion(Type in) {
   return (Type::INT32 < in) ? in : Type::INT32;
-}
-
-template <typename T>
-T AidlConstantValue::cast() const {
-  AIDL_FATAL_IF(!is_evaluated_, this);
-
-#define CASE_CAST_T(__type__) return static_cast<T>(static_cast<__type__>(final_value_));
-
-  SWITCH_KIND(final_type_, CASE_CAST_T, SHOULD_NOT_REACH(); return 0;);
 }
 
 AidlConstantValue* AidlConstantValue::Default(const AidlTypeSpecifier& specifier) {
@@ -440,7 +445,11 @@ AidlConstantValue* AidlConstantValue::Integral(const AidlLocation& location, con
 AidlConstantValue* AidlConstantValue::Array(
     const AidlLocation& location, std::unique_ptr<vector<unique_ptr<AidlConstantValue>>> values) {
   AIDL_FATAL_IF(values == nullptr, location);
-  return new AidlConstantValue(location, Type::ARRAY, std::move(values));
+  std::vector<std::string> str_values;
+  for (const auto& v : *values) {
+    str_values.push_back(v->value_);
+  }
+  return new AidlConstantValue(location, Type::ARRAY, std::move(values), Join(str_values, ", "));
 }
 
 AidlConstantValue* AidlConstantValue::String(const AidlLocation& location, const string& value) {
@@ -455,26 +464,6 @@ AidlConstantValue* AidlConstantValue::String(const AidlLocation& location, const
   return new AidlConstantValue(location, Type::STRING, value);
 }
 
-AidlConstantValue* AidlConstantValue::ShallowIntegralCopy(const AidlConstantValue& other) {
-  // TODO(b/141313220) Perform a full copy instead of parsing+unparsing
-  AidlTypeSpecifier type = AidlTypeSpecifier(AIDL_LOCATION_HERE, "long", false, nullptr, "");
-  // TODO(b/142722772) CheckValid() should be called before ValueString()
-  if (!other.CheckValid() || !other.evaluate(type)) {
-    AIDL_ERROR(other) << "Failed to parse expression as integer: " << other.value_;
-    return nullptr;
-  }
-  const std::string& value = other.ValueString(type, AidlConstantValueDecorator);
-  if (value.empty()) {
-    return nullptr;  // error already logged
-  }
-
-  AidlConstantValue* result = Integral(AIDL_LOCATION_HERE, value);
-  if (result == nullptr) {
-    AIDL_FATAL(other) << "Unable to perform ShallowIntegralCopy.";
-  }
-  return result;
-}
-
 string AidlConstantValue::ValueString(const AidlTypeSpecifier& type,
                                       const ConstantValueDecorator& decorator) const {
   if (type.IsGeneric()) {
@@ -484,7 +473,7 @@ string AidlConstantValue::ValueString(const AidlTypeSpecifier& type,
   if (!is_evaluated_) {
     // TODO(b/142722772) CheckValid() should be called before ValueString()
     bool success = CheckValid();
-    success &= evaluate(type);
+    success &= evaluate();
     if (!success) {
       // the detailed error message shall be printed in evaluate
       return "";
@@ -500,7 +489,7 @@ string AidlConstantValue::ValueString(const AidlTypeSpecifier& type,
     const AidlEnumDeclaration* enum_type = defined_type->AsEnumDeclaration();
     if (!enum_type) {
       AIDL_ERROR(this) << "Invalid type (" << defined_type->GetCanonicalName()
-                       << ") for a const value(" << value_ << ")";
+                       << ") for a const value (" << value_ << ")";
       return "";
     }
     if (type_ != Type::REF) {
@@ -576,22 +565,18 @@ string AidlConstantValue::ValueString(const AidlTypeSpecifier& type,
       return decorator(type, "{" + Join(value_strings, ", ") + "}");
     }
     case Type::FLOATING: {
-      std::string_view raw_view(value_.c_str());
-      bool is_float_literal = ConsumeSuffix(&raw_view, "f");
-      std::string stripped_value = std::string(raw_view);
-
       if (type_string == "double") {
         double parsed_value;
-        if (!android::base::ParseDouble(stripped_value, &parsed_value)) {
+        if (!ParseFloating(value_, &parsed_value)) {
           AIDL_ERROR(this) << "Could not parse " << value_;
           err = -1;
           break;
         }
         return decorator(type, std::to_string(parsed_value));
       }
-      if (is_float_literal && type_string == "float") {
+      if (type_string == "float") {
         float parsed_value;
-        if (!android::base::ParseFloat(stripped_value, &parsed_value)) {
+        if (!ParseFloating(value_, &parsed_value)) {
           AIDL_ERROR(this) << "Could not parse " << value_;
           err = -1;
           break;
@@ -621,7 +606,6 @@ bool AidlConstantValue::CheckValid() const {
     case Type::INT8:       // fall-through
     case Type::INT32:      // fall-through
     case Type::INT64:      // fall-through
-    case Type::ARRAY:      // fall-through
     case Type::CHARACTER:  // fall-through
     case Type::STRING:     // fall-through
     case Type::REF:        // fall-through
@@ -629,6 +613,10 @@ bool AidlConstantValue::CheckValid() const {
     case Type::UNARY:      // fall-through
     case Type::BINARY:
       is_valid_ = true;
+      break;
+    case Type::ARRAY:
+      is_valid_ = true;
+      for (const auto& v : values_) is_valid_ &= v->CheckValid();
       break;
     case Type::ERROR:
       return false;
@@ -640,7 +628,7 @@ bool AidlConstantValue::CheckValid() const {
   return true;
 }
 
-bool AidlConstantValue::evaluate(const AidlTypeSpecifier& type) const {
+bool AidlConstantValue::evaluate() const {
   if (is_evaluated_) {
     return is_valid_;
   }
@@ -649,17 +637,12 @@ bool AidlConstantValue::evaluate(const AidlTypeSpecifier& type) const {
 
   switch (type_) {
     case Type::ARRAY: {
-      if (!type.IsArray()) {
-        AIDL_ERROR(this) << "Invalid constant array type: " << type.GetName();
-        err = -1;
-        break;
-      }
       Type array_type = Type::ERROR;
       bool success = true;
       for (const auto& value : values_) {
         success = value->CheckValid();
         if (success) {
-          success = value->evaluate(type.ArrayBase());
+          success = value->evaluate();
           if (!success) {
             AIDL_ERROR(this) << "Invalid array element: " << value->value_;
             break;
@@ -763,91 +746,58 @@ AidlConstantReference::AidlConstantReference(const AidlLocation& location, const
   }
 }
 
-bool AidlConstantReference::CheckValid() const {
-  if (is_evaluated_) return is_valid_;
-
+const AidlConstantValue* AidlConstantReference::Resolve() {
+  if (resolved_) return resolved_;
   if (!GetRefType() || !GetRefType()->GetDefinedType()) {
     // This can happen when "const reference" is used in an unsupported way,
     // but missed in checks there. It works as a safety net.
     AIDL_ERROR(*this) << "Can't resolve the reference (" << value_ << ")";
-    is_valid_ = false;
-    return false;
+    return nullptr;
   }
 
   auto defined_type = GetRefType()->GetDefinedType();
   if (auto enum_decl = defined_type->AsEnumDeclaration(); enum_decl) {
     for (const auto& e : enum_decl->GetEnumerators()) {
       if (e->GetName() == field_name_) {
-        is_valid_ = !e->GetValue() || e->GetValue()->CheckValid();
-        return is_valid_;
+        resolved_ = e->GetValue();
+        return resolved_;
       }
     }
   } else {
     for (const auto& c : defined_type->GetConstantDeclarations()) {
       if (c->GetName() == field_name_) {
-        is_valid_ = c->GetValue().CheckValid();
-        return is_valid_;
+        resolved_ = &c->GetValue();
+        return resolved_;
       }
     }
   }
   AIDL_ERROR(*this) << "Can't find " << field_name_ << " in " << ref_type_->GetName();
-  is_valid_ = false;
-  return false;
+  return nullptr;
 }
 
-bool AidlConstantReference::evaluate(const AidlTypeSpecifier& type) const {
+bool AidlConstantReference::CheckValid() const {
   if (is_evaluated_) return is_valid_;
+  AIDL_FATAL_IF(!resolved_, this) << "Should be resolved first: " << value_;
+  is_valid_ = resolved_->CheckValid();
+  return is_valid_;
+}
+
+bool AidlConstantReference::evaluate() const {
+  if (is_evaluated_) return is_valid_;
+  AIDL_FATAL_IF(!resolved_, this) << "Should be resolved first: " << value_;
   is_evaluated_ = true;
 
-  const AidlDefinedType* view_type = type.GetDefinedType();
-  if (view_type) {
-    auto enum_decl = view_type->AsEnumDeclaration();
-    if (!enum_decl) {
-      AIDL_ERROR(type) << "Can't refer to a constant expression: " << value_;
-      return false;
+  resolved_->evaluate();
+  is_valid_ = resolved_->is_valid_;
+  final_type_ = resolved_->final_type_;
+  if (is_valid_) {
+    if (final_type_ == Type::STRING) {
+      final_string_value_ = resolved_->final_string_value_;
+    } else {
+      final_value_ = resolved_->final_value_;
     }
   }
-
-  auto defined_type = GetRefType()->GetDefinedType();
-  if (auto enum_decl = defined_type->AsEnumDeclaration(); enum_decl) {
-    for (const auto& e : enum_decl->GetEnumerators()) {
-      if (e->GetName() == field_name_) {
-        if (e->GetValue()->evaluate(type)) {
-          is_valid_ = e->GetValue()->is_valid_;
-          if (is_valid_) {
-            final_type_ = e->GetValue()->final_type_;
-            if (final_type_ == Type::STRING) {
-              final_string_value_ = e->GetValue()->final_string_value_;
-            } else {
-              final_value_ = e->GetValue()->final_value_;
-            }
-            return true;
-          }
-        }
-        break;
-      }
-    }
-  } else {
-    for (const auto& c : defined_type->GetConstantDeclarations()) {
-      if (c->GetName() == field_name_) {
-        if (c->GetValue().evaluate(type)) {
-          is_valid_ = c->GetValue().is_valid_;
-          if (is_valid_) {
-            final_type_ = c->GetValue().final_type_;
-            if (final_type_ == Type::STRING) {
-              final_string_value_ = c->GetValue().final_string_value_;
-            } else {
-              final_value_ = c->GetValue().final_value_;
-            }
-            return true;
-          }
-        }
-      }
-    }
-  }
-
-  is_valid_ = false;
-  return false;
+  return is_valid_;
 }
 
 bool AidlUnaryConstExpression::CheckValid() const {
@@ -863,7 +813,7 @@ bool AidlUnaryConstExpression::CheckValid() const {
   return AidlConstantValue::CheckValid();
 }
 
-bool AidlUnaryConstExpression::evaluate(const AidlTypeSpecifier& type) const {
+bool AidlUnaryConstExpression::evaluate() const {
   if (is_evaluated_) {
     return is_valid_;
   }
@@ -873,7 +823,7 @@ bool AidlUnaryConstExpression::evaluate(const AidlTypeSpecifier& type) const {
   if (!unary_->is_evaluated_) {
     // TODO(b/142722772) CheckValid() should be called before ValueString()
     bool success = CheckValid();
-    success &= unary_->evaluate(type);
+    success &= unary_->evaluate();
     if (!success) {
       is_valid_ = false;
       return false;
@@ -900,7 +850,8 @@ bool AidlUnaryConstExpression::evaluate(const AidlTypeSpecifier& type) const {
   }
 
 #define CASE_UNARY(__type__) \
-  return handleUnary(*this, op_, static_cast<__type__>(unary_->final_value_), &final_value_);
+  return is_valid_ =         \
+             handleUnary(*this, op_, static_cast<__type__>(unary_->final_value_), &final_value_);
 
   SWITCH_KIND(final_type_, CASE_UNARY, SHOULD_NOT_REACH(); final_type_ = Type::ERROR;
               is_valid_ = false; return false;)
@@ -933,20 +884,20 @@ bool AidlBinaryConstExpression::CheckValid() const {
   return AidlConstantValue::CheckValid();
 }
 
-bool AidlBinaryConstExpression::evaluate(const AidlTypeSpecifier& type) const {
+bool AidlBinaryConstExpression::evaluate() const {
   if (is_evaluated_) {
     return is_valid_;
   }
   is_evaluated_ = true;
-  AIDL_FATAL_IF(left_val_ == nullptr, type);
-  AIDL_FATAL_IF(right_val_ == nullptr, type);
+  AIDL_FATAL_IF(left_val_ == nullptr, this);
+  AIDL_FATAL_IF(right_val_ == nullptr, this);
 
   // Recursively evaluate the binary expression tree
   if (!left_val_->is_evaluated_ || !right_val_->is_evaluated_) {
     // TODO(b/142722772) CheckValid() should be called before ValueString()
     bool success = CheckValid();
-    success &= left_val_->evaluate(type);
-    success &= right_val_->evaluate(type);
+    success &= left_val_->evaluate();
+    success &= right_val_->evaluate();
     if (!success) {
       is_valid_ = false;
       return false;
@@ -1008,9 +959,10 @@ bool AidlBinaryConstExpression::evaluate(const AidlTypeSpecifier& type) const {
                       ? promoted        // arithmetic or bitflip operators generates promoted type
                       : Type::BOOLEAN;  // comparison operators generates bool
 
-#define CASE_BINARY_COMMON(__type__)                                                    \
-  return handleBinaryCommon(*this, static_cast<__type__>(left_val_->final_value_), op_, \
-                            static_cast<__type__>(right_val_->final_value_), &final_value_);
+#define CASE_BINARY_COMMON(__type__)                                                        \
+  return is_valid_ =                                                                        \
+             handleBinaryCommon(*this, static_cast<__type__>(left_val_->final_value_), op_, \
+                                static_cast<__type__>(right_val_->final_value_), &final_value_);
 
     SWITCH_KIND(promoted, CASE_BINARY_COMMON, SHOULD_NOT_REACH(); final_type_ = Type::ERROR;
                 is_valid_ = false; return false;)
@@ -1030,9 +982,9 @@ bool AidlBinaryConstExpression::evaluate(const AidlTypeSpecifier& type) const {
       numBits = -numBits;
     }
 
-#define CASE_SHIFT(__type__)                                                       \
-  return handleShift(*this, static_cast<__type__>(left_val_->final_value_), newOp, \
-                     static_cast<__type__>(numBits), &final_value_);
+#define CASE_SHIFT(__type__)                                                                   \
+  return is_valid_ = handleShift(*this, static_cast<__type__>(left_val_->final_value_), newOp, \
+                                 static_cast<__type__>(numBits), &final_value_);
 
     SWITCH_KIND(final_type_, CASE_SHIFT, SHOULD_NOT_REACH(); final_type_ = Type::ERROR;
                 is_valid_ = false; return false;)
@@ -1082,10 +1034,12 @@ AidlConstantValue::AidlConstantValue(const AidlLocation& location, Type type,
 }
 
 AidlConstantValue::AidlConstantValue(const AidlLocation& location, Type type,
-                                     std::unique_ptr<vector<unique_ptr<AidlConstantValue>>> values)
+                                     std::unique_ptr<vector<unique_ptr<AidlConstantValue>>> values,
+                                     const std::string& value)
     : AidlNode(location),
       type_(type),
       values_(std::move(*values)),
+      value_(value),
       is_valid_(false),
       is_evaluated_(false),
       final_type_(type) {
