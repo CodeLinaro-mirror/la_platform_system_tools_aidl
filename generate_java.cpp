@@ -229,6 +229,60 @@ void GenerateToString(CodeWriter& out, const AidlUnionDecl& parcel,
   out << "}\n";
 }
 
+void GenerateEqualsAndHashCode(CodeWriter& out, const AidlStructuredParcelable& parcel,
+                      const AidlTypenames&) {
+  out << "@Override\n";
+  out << "public boolean equals(Object other) {\n";
+  out.Indent();
+  out << "if (this == other) return true;\n";
+  out << "if (other == null) return false;\n";
+  out << "if (!(other instanceof " << parcel.GetName() << ")) return false;\n";
+  out << parcel.GetName() << " that = (" << parcel.GetName() << ")other;\n";
+  for (const auto& field : parcel.GetFields()) {
+    out << "if (!java.util.Objects.deepEquals(" << field->GetName() << ", that." << field->GetName()
+        << ")) return false;\n";
+  }
+  out << "return true;\n";
+  out.Dedent();
+  out << "}\n";
+  out << "\n";
+  out << "@Override\n";
+  out << "public int hashCode() {\n";
+  out.Indent();
+  out << "return java.util.Arrays.deepHashCode(java.util.Arrays.asList(";
+  std::vector<std::string> names;
+  for (const auto& field : parcel.GetFields()) {
+    names.push_back(field->GetName());
+  }
+  out << android::base::Join(names, ", ") << ").toArray());\n";
+  out.Dedent();
+  out << "}\n";
+}
+
+void GenerateEqualsAndHashCode(CodeWriter& out, const AidlUnionDecl& decl,
+                                 const AidlTypenames&) {
+  out << "@Override\n";
+  out << "public boolean equals(Object other) {\n";
+  out.Indent();
+  out << "if (this == other) return true;\n";
+  out << "if (other == null) return false;\n";
+  out << "if (!(other instanceof " << decl.GetName() << ")) return false;\n";
+  out << decl.GetName() << " that = (" << decl.GetName() << ")other;\n";
+  out << "if (_tag != that._tag) return false;\n";
+  out << "if (!java.util.Objects.deepEquals(_value, that._value)) return false;\n";
+  out << "return true;\n";
+  out.Dedent();
+  out << "}\n";
+  out << "\n";
+  out << "@Override\n";
+  out << "public int hashCode() {\n";
+  out.Indent();
+  out << "return java.util.Arrays.deepHashCode(java.util.Arrays.asList(_tag, _value).toArray());\n";
+  out.Dedent();
+  out << "}\n";
+  out << "\n";
+}
+
 }  // namespace
 
 namespace android {
@@ -572,6 +626,12 @@ std::unique_ptr<android::aidl::java::Class> generate_parcel_class(
     parcel_class->elements.push_back(std::make_shared<LiteralClassElement>(to_string));
   }
 
+  if (parcel->JavaDerive("equals")) {
+    string to_string;
+    GenerateEqualsAndHashCode(*CodeWriter::ForString(&to_string), *parcel, typenames);
+    parcel_class->elements.push_back(std::make_shared<LiteralClassElement>(to_string));
+  }
+
   string describe_contents;
   GenerateParcelableDescribeContents(*CodeWriter::ForString(&describe_contents), *parcel,
                                      typenames);
@@ -825,6 +885,10 @@ void generate_union(CodeWriter& out, const AidlUnionDecl* decl, const AidlTypena
     GenerateToString(out, *decl, typenames);
   }
 
+  if (decl->JavaDerive("equals")) {
+    GenerateEqualsAndHashCode(out, *decl, typenames);
+  }
+
   // helper: _assertTag
   out << "private void _assertTag(" + tag_type + " tag) {\n";
   out << "  if (getTag() != tag) {\n";
@@ -886,23 +950,9 @@ std::vector<std::string> generate_java_annotations(const AidlAnnotatable& a) {
                         generate_java_unsupportedappusage_parameters(*unsupported_app_usage));
   }
 
-  auto strip_double_quote = [](const AidlTypeSpecifier& type,
-                               const std::string& raw_value) -> std::string {
-    if (!StartsWith(raw_value, "\"") || !EndsWith(raw_value, "\"")) {
-      AIDL_FATAL(type) << "Java passthrough annotation " << raw_value << " is not properly quoted";
-      return "";
-    }
-    return raw_value.substr(1, raw_value.size() - 2);
-  };
-
   for (const auto& annotation : a.GetAnnotations()) {
     if (annotation.GetType() == AidlAnnotation::Type::JAVA_PASSTHROUGH) {
-      for (const auto& name_and_param : annotation.AnnotationParams(strip_double_quote)) {
-        if (name_and_param.first == "annotation") {
-          result.emplace_back(name_and_param.second);
-          break;
-        }
-      }
+      result.emplace_back(annotation.ParamValue<std::string>("annotation").value());
     }
   }
 
