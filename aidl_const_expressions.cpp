@@ -733,9 +733,8 @@ string AidlConstantValue::ToString(Type type) {
   }
 }
 
-AidlConstantReference::AidlConstantReference(const AidlLocation& location, const std::string& value,
-                                             const std::string& comments)
-    : AidlConstantValue(location, Type::REF, value), comments_(comments) {
+AidlConstantReference::AidlConstantReference(const AidlLocation& location, const std::string& value)
+    : AidlConstantValue(location, Type::REF, value) {
   const auto pos = value.find_last_of('.');
   if (pos == string::npos) {
     field_name_ = value;
@@ -746,32 +745,37 @@ AidlConstantReference::AidlConstantReference(const AidlLocation& location, const
   }
 }
 
-const AidlConstantValue* AidlConstantReference::Resolve() {
+const AidlConstantValue* AidlConstantReference::Resolve(const AidlDefinedType* scope) const {
   if (resolved_) return resolved_;
-  if (!GetRefType() || !GetRefType()->GetDefinedType()) {
+
+  const AidlDefinedType* defined_type;
+  if (ref_type_) {
+    defined_type = ref_type_->GetDefinedType();
+  } else {
+    defined_type = scope;
+  }
+
+  if (!defined_type) {
     // This can happen when "const reference" is used in an unsupported way,
     // but missed in checks there. It works as a safety net.
     AIDL_ERROR(*this) << "Can't resolve the reference (" << value_ << ")";
     return nullptr;
   }
 
-  auto defined_type = GetRefType()->GetDefinedType();
   if (auto enum_decl = defined_type->AsEnumDeclaration(); enum_decl) {
     for (const auto& e : enum_decl->GetEnumerators()) {
       if (e->GetName() == field_name_) {
-        resolved_ = e->GetValue();
-        return resolved_;
+        return resolved_ = e->GetValue();
       }
     }
   } else {
     for (const auto& c : defined_type->GetConstantDeclarations()) {
       if (c->GetName() == field_name_) {
-        resolved_ = &c->GetValue();
-        return resolved_;
+        return resolved_ = &c->GetValue();
       }
     }
   }
-  AIDL_ERROR(*this) << "Can't find " << field_name_ << " in " << ref_type_->GetName();
+  AIDL_ERROR(*this) << "Can't find " << field_name_ << " in " << defined_type->GetName();
   return nullptr;
 }
 

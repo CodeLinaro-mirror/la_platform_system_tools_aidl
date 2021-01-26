@@ -55,9 +55,9 @@ string Options::GetUsage() const {
        << myname_ << " --dumpapi --out=DIR INPUT..." << endl
        << "   Dump API signature of AIDL file(s) to DIR." << endl
        << endl
-       << myname_ << " --checkapi OLD_DIR NEW_DIR" << endl
-       << "   Checkes whether API dump NEW_DIR is backwards compatible extension " << endl
-       << "   of the API dump OLD_DIR." << endl
+       << myname_ << " --checkapi[={compatible|equal}] OLD_DIR NEW_DIR" << endl
+       << "   Check whether NEW_DIR API dump is {compatible|equal} extension " << endl
+       << "   of the API dump OLD_DIR. Default: compatible" << endl
 #endif
        << endl;
 
@@ -155,7 +155,7 @@ string Options::GetUsage() const {
   return sstr.str();
 }
 
-const string Options::LanguageToString(Language language) {
+string to_string(Options::Language language) {
   switch (language) {
     case Options::Language::CPP:
       return "cpp";
@@ -215,7 +215,7 @@ Options::Options(int argc, const char* const raw_argv[], Options::Language defau
         {"preprocess", no_argument, 0, 's'},
 #ifndef _WIN32
         {"dumpapi", no_argument, 0, 'u'},
-        {"checkapi", no_argument, 0, 'A'},
+        {"checkapi", optional_argument, 0, 'A'},
 #endif
         {"apimapping", required_argument, 0, 'i'},
         {"include", required_argument, 0, 'I'},
@@ -285,6 +285,16 @@ Options::Options(int argc, const char* const raw_argv[], Options::Language defau
           task_ = Options::Task::CHECK_API;
           // to ensure that all parcelables in the api dumpes are structured
           structured_ = true;
+          if (optarg) {
+            if (strcmp(optarg, "compatible") == 0)
+              check_api_level_ = CheckApiLevel::COMPATIBLE;
+            else if (strcmp(optarg, "equal") == 0)
+              check_api_level_ = CheckApiLevel::EQUAL;
+            else {
+              error_message_ << "Unsupported --checkapi level: '" << optarg << "'" << endl;
+              return;
+            }
+          }
         }
         break;
 #endif
@@ -387,7 +397,7 @@ Options::Options(int argc, const char* const raw_argv[], Options::Language defau
         // when output is omitted and -o option isn't set, the output is by
         // default set to the input file path with .aidl is replaced to .java.
         // If -o option is set, the output path is calculated by
-        // generate_outputFileName which returns "<output_dir>/<package/name>/
+        // GetOutputFilePath which returns "<output_dir>/<package/name>/
         // <typename>.java"
         output_file_ = input_files_.front();
         if (android::base::EndsWith(output_file_, ".aidl")) {
