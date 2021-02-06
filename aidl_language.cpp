@@ -33,6 +33,7 @@
 #include <android-base/strings.h>
 
 #include "aidl_language_y.h"
+#include "comments.h"
 #include "logging.h"
 
 #include "aidl.h"
@@ -44,7 +45,6 @@ int isatty(int  fd)
 }
 #endif
 
-using android::aidl::DiagnosticID;
 using android::aidl::IoDelegate;
 using android::base::Join;
 using android::base::Split;
@@ -68,14 +68,6 @@ bool IsJavaKeyword(const char* str) {
       "while",    "true",   "false",      "null",
   };
   return std::find(kJavaKeywords.begin(), kJavaKeywords.end(), str) != kJavaKeywords.end();
-}
-
-void AddHideComment(CodeWriter* writer) {
-  writer->Write("/* @hide */\n");
-}
-
-inline bool HasHideComment(const std::string& comment) {
-  return std::regex_search(comment, std::regex("@hide\\b"));
 }
 }  // namespace
 
@@ -102,48 +94,60 @@ static const AidlTypeSpecifier kBooleanType{AIDL_LOCATION_HERE, "boolean", false
 
 const std::vector<AidlAnnotation::Schema>& AidlAnnotation::AllSchemas() {
   static const std::vector<Schema> kSchemas{
-      {AidlAnnotation::Type::NULLABLE, "nullable", {}, false},
-      {AidlAnnotation::Type::UTF8_IN_CPP, "utf8InCpp", {}, false},
-      {AidlAnnotation::Type::SENSITIVE_DATA, "SensitiveData", {}, false},
-      {AidlAnnotation::Type::VINTF_STABILITY, "VintfStability", {}, false},
+      {AidlAnnotation::Type::NULLABLE, "nullable", CONTEXT_TYPE_SPECIFIER, {}},
+      {AidlAnnotation::Type::UTF8_IN_CPP, "utf8InCpp", CONTEXT_TYPE_SPECIFIER, {}},
+      {AidlAnnotation::Type::SENSITIVE_DATA, "SensitiveData", CONTEXT_TYPE_INTERFACE, {}},
+      {AidlAnnotation::Type::VINTF_STABILITY, "VintfStability", CONTEXT_TYPE, {}},
       {AidlAnnotation::Type::UNSUPPORTED_APP_USAGE,
        "UnsupportedAppUsage",
+       CONTEXT_TYPE | CONTEXT_MEMBER,
        {{"expectedSignature", kStringType},
         {"implicitMember", kStringType},
         {"maxTargetSdk", kIntType},
         {"publicAlternatives", kStringType},
-        {"trackingBug", kLongType}},
-       false},
-      {AidlAnnotation::Type::JAVA_STABLE_PARCELABLE, "JavaOnlyStableParcelable", {}, false},
-      {AidlAnnotation::Type::HIDE, "Hide", {}, false},
-      {AidlAnnotation::Type::BACKING, "Backing", {{"type", kStringType}}, false, {"type"}},
+        {"trackingBug", kLongType}}},
+      {AidlAnnotation::Type::JAVA_STABLE_PARCELABLE,
+       "JavaOnlyStableParcelable",
+       CONTEXT_TYPE_UNSTRUCTURED_PARCELABLE,
+       {}},
+      {AidlAnnotation::Type::HIDE, "Hide", CONTEXT_TYPE | CONTEXT_MEMBER, {}},
+      {AidlAnnotation::Type::BACKING,
+       "Backing",
+       CONTEXT_TYPE_ENUM,
+       {{"type", kStringType, /* required= */ true}}},
       {AidlAnnotation::Type::JAVA_PASSTHROUGH,
        "JavaPassthrough",
-       {{"annotation", kStringType}},
-       true,
-       {"annotation"}},
+       CONTEXT_ALL,
+       {{"annotation", kStringType, /* required= */ true}},
+       /* repeatable= */ true},
       {AidlAnnotation::Type::JAVA_DERIVE,
        "JavaDerive",
-       {{"toString", kBooleanType}, {"equals", kBooleanType}},
-       false},
-      {AidlAnnotation::Type::JAVA_ONLY_IMMUTABLE, "JavaOnlyImmutable", {}, false},
-      {AidlAnnotation::Type::FIXED_SIZE, "FixedSize", {}, false},
-      {AidlAnnotation::Type::DESCRIPTOR, "Descriptor", {{"value", kStringType}}, false, {"value"}},
+       CONTEXT_TYPE_STRUCTURED_PARCELABLE | CONTEXT_TYPE_UNION,
+       {{"toString", kBooleanType}, {"equals", kBooleanType}}},
+      {AidlAnnotation::Type::JAVA_ONLY_IMMUTABLE,
+       "JavaOnlyImmutable",
+       CONTEXT_TYPE_STRUCTURED_PARCELABLE | CONTEXT_TYPE_UNION |
+           CONTEXT_TYPE_UNSTRUCTURED_PARCELABLE,
+       {}},
+      {AidlAnnotation::Type::FIXED_SIZE, "FixedSize", CONTEXT_TYPE_STRUCTURED_PARCELABLE, {}},
+      {AidlAnnotation::Type::DESCRIPTOR,
+       "Descriptor",
+       CONTEXT_TYPE_INTERFACE,
+       {{"value", kStringType, /* required= */ true}}},
       {AidlAnnotation::Type::RUST_DERIVE,
        "RustDerive",
+       CONTEXT_TYPE_STRUCTURED_PARCELABLE | CONTEXT_TYPE_UNION,
        {{"Copy", kBooleanType},
         {"Clone", kBooleanType},
         {"PartialOrd", kBooleanType},
         {"Ord", kBooleanType},
         {"PartialEq", kBooleanType},
         {"Eq", kBooleanType},
-        {"Hash", kBooleanType}},
-       false},
+        {"Hash", kBooleanType}}},
       {AidlAnnotation::Type::SUPPRESS_WARNINGS,
        "SuppressWarnings",
-       {{"value", kStringArrayType}},
-       false,
-       {"value"}},
+       CONTEXT_TYPE | CONTEXT_MEMBER,
+       {{"value", kStringArrayType, /* required= */ true}}},
   };
   return kSchemas;
 }
@@ -158,7 +162,8 @@ std::string AidlAnnotation::TypeToString(Type type) {
 
 AidlAnnotation* AidlAnnotation::Parse(
     const AidlLocation& location, const string& name,
-    std::map<std::string, std::shared_ptr<AidlConstantValue>>* parameter_list) {
+    std::map<std::string, std::shared_ptr<AidlConstantValue>>* parameter_list,
+    const std::string& comments) {
   const Schema* schema = nullptr;
   for (const Schema& a_schema : AllSchemas()) {
     if (a_schema.name == name) {
@@ -178,50 +183,58 @@ AidlAnnotation* AidlAnnotation::Parse(
     return nullptr;
   }
   if (parameter_list == nullptr) {
-    return new AidlAnnotation(location, *schema, {});
+    return new AidlAnnotation(location, *schema, {}, comments);
   }
 
-  return new AidlAnnotation(location, *schema, std::move(*parameter_list));
+  return new AidlAnnotation(location, *schema, std::move(*parameter_list), comments);
 }
 
 AidlAnnotation::AidlAnnotation(
     const AidlLocation& location, const Schema& schema,
-    std::map<std::string, std::shared_ptr<AidlConstantValue>>&& parameters)
-    : AidlNode(location), schema_(schema), parameters_(std::move(parameters)) {}
+    std::map<std::string, std::shared_ptr<AidlConstantValue>>&& parameters,
+    const std::string& comments)
+    : AidlNode(location),
+      AidlCommentable(comments),
+      schema_(schema),
+      parameters_(std::move(parameters)) {}
 
-struct ConstReferenceFinder : AidlConstantValue::Visitor {
-  AidlConstantReference* found;
-  void Visit(AidlConstantValue&) override {}
-  void Visit(AidlUnaryConstExpression&) override {}
-  void Visit(AidlBinaryConstExpression&) override {}
-  void Visit(AidlConstantReference& ref) override {
+struct ConstReferenceFinder : AidlVisitor {
+  const AidlConstantReference* found;
+  void Visit(const AidlConstantReference& ref) override {
     if (!found) found = &ref;
+  }
+  static const AidlConstantReference* Find(const AidlConstantValue& c) {
+    ConstReferenceFinder finder;
+    VisitTopDown(finder, c);
+    return finder.found;
   }
 };
 
+// Checks if annotation complies with the schema
+// - every parameter is known and has well-typed value.
+// - every required parameter is present.
 bool AidlAnnotation::CheckValid() const {
   for (const auto& name_and_param : parameters_) {
     const std::string& param_name = name_and_param.first;
     const std::shared_ptr<AidlConstantValue>& param = name_and_param.second;
 
-    auto it = schema_.supported_parameters.find(param_name);
-    if (it == schema_.supported_parameters.end()) {
+    const ParamType* param_type = schema_.ParamType(param_name);
+    if (!param_type) {
       std::ostringstream stream;
       stream << "Parameter " << param_name << " not supported ";
       stream << "for annotation " << GetName() << ". ";
       stream << "It must be one of:";
-      for (const auto& kv : schema_.supported_parameters) {
-        stream << " " << kv.first;
+      for (const auto& param : schema_.parameters) {
+        stream << " " << param.name;
       }
       AIDL_ERROR(this) << stream.str();
       return false;
     }
 
-    ConstReferenceFinder finder;
-    param->Accept(finder);
-    if (finder.found) {
-      AIDL_ERROR(finder.found) << "Value must be a constant expression but contains reference to "
-                               << finder.found->GetFieldName() << ".";
+    const auto& found = ConstReferenceFinder::Find(*param);
+    if (found) {
+      AIDL_ERROR(found) << "Value must be a constant expression but contains reference to "
+                        << found->GetFieldName() << ".";
       return false;
     }
 
@@ -231,7 +244,8 @@ bool AidlAnnotation::CheckValid() const {
       return false;
     }
 
-    const std::string param_value = param->ValueString(it->second, AidlConstantValueDecorator);
+    const std::string param_value =
+        param->ValueString(param_type->type, AidlConstantValueDecorator);
     // Assume error on empty string.
     if (param_value == "") {
       AIDL_ERROR(this) << "Invalid value for parameter " << param_name << " on annotation "
@@ -240,13 +254,42 @@ bool AidlAnnotation::CheckValid() const {
     }
   }
   bool success = true;
-  for (const auto& param : schema_.required_parameters) {
-    if (parameters_.count(param) == 0) {
-      AIDL_ERROR(this) << "Missing '" << param << "' on @" << GetName() << ".";
+  for (const auto& param : schema_.parameters) {
+    if (param.required && parameters_.count(param.name) == 0) {
+      AIDL_ERROR(this) << "Missing '" << param.name << "' on @" << GetName() << ".";
       success = false;
     }
   }
   return success;
+}
+
+// Checks if the annotation is applicable to the current context.
+// For example, annotations like @VintfStability, @FixedSize is not applicable to AidlTypeSpecifier
+// nodes.
+bool AidlAnnotation::CheckContext(TargetContext context) const {
+  if (schema_.target_context & static_cast<uint32_t>(context)) {
+    return true;
+  }
+  const static map<TargetContext, string> context_name_map{
+      {CONTEXT_TYPE_INTERFACE, "interface"},
+      {CONTEXT_TYPE_ENUM, "enum"},
+      {CONTEXT_TYPE_STRUCTURED_PARCELABLE, "structured parcelable"},
+      {CONTEXT_TYPE_UNION, "union"},
+      {CONTEXT_TYPE_UNSTRUCTURED_PARCELABLE, "parcelable"},
+      {CONTEXT_CONST, "constant"},
+      {CONTEXT_FIELD, "field"},
+      {CONTEXT_METHOD, "method"},
+      {CONTEXT_TYPE_SPECIFIER, "type"},
+  };
+  vector<string> available;
+  for (const auto& [context, name] : context_name_map) {
+    if (schema_.target_context & context) {
+      available.push_back(name);
+    }
+  }
+  AIDL_ERROR(this) << "@" << GetName() << " is not available. It can annotate {"
+                   << Join(available, ", ") << "}.";
+  return false;
 }
 
 std::map<std::string, std::string> AidlAnnotation::AnnotationParams(
@@ -255,24 +298,9 @@ std::map<std::string, std::string> AidlAnnotation::AnnotationParams(
   for (const auto& name_and_param : parameters_) {
     const std::string& param_name = name_and_param.first;
     const std::shared_ptr<AidlConstantValue>& param = name_and_param.second;
-    if (schema_.supported_parameters.find(param_name) == schema_.supported_parameters.end()) {
-      std::ostringstream stream;
-      stream << "Parameter " << param_name << " not supported ";
-      stream << "for annotation " << GetName() << ". ";
-      stream << "It must be one of:";
-      for (const auto& kv : schema_.supported_parameters) {
-        stream << " " << kv.first;
-      }
-      AIDL_ERROR(this) << stream.str();
-      continue;
-    }
-    if (!param->CheckValid()) {
-      AIDL_ERROR(this) << "Invalid value for parameter " << param_name << " on annotation "
-                       << GetName() << ".";
-      continue;
-    }
-    const auto& type = schema_.supported_parameters.at(param_name);
-    raw_params.emplace(param_name, param->ValueString(type, decorator));
+    const ParamType* param_type = schema_.ParamType(param_name);
+    AIDL_FATAL_IF(!param_type, this);
+    raw_params.emplace(param_name, param->ValueString(param_type->type, decorator));
   }
   return raw_params;
 }
@@ -286,6 +314,13 @@ std::string AidlAnnotation::ToString() const {
       param_strings.emplace_back(name + "=" + value);
     }
     return "@" + GetName() + "(" + Join(param_strings, ", ") + ")";
+  }
+}
+
+void AidlAnnotation::TraverseChildren(std::function<void(const AidlNode&)> traverse) const {
+  for (const auto& [name, value] : parameters_) {
+    (void)name;
+    traverse(*value);
   }
 }
 
@@ -381,21 +416,7 @@ void AidlAnnotatable::DumpAnnotations(CodeWriter* writer) const {
 }
 
 bool AidlAnnotatable::CheckValid(const AidlTypenames&) const {
-  std::set<AidlAnnotation::Type> supported_annotations = GetSupportedAnnotations();
   for (const auto& annotation : GetAnnotations()) {
-    // check if it is allowed for this node
-    if (supported_annotations.find(annotation.GetType()) == supported_annotations.end()) {
-      std::vector<std::string> supported_annot_strings;
-      for (AidlAnnotation::Type type : supported_annotations) {
-        supported_annot_strings.push_back(AidlAnnotation::TypeToString(type));
-      }
-      AIDL_ERROR(this) << "'" << annotation.GetName()
-                       << "' is not a supported annotation for this node. "
-                       << "It must be one of: "
-                       << android::base::Join(supported_annot_strings, ", ");
-      return false;
-    }
-    // CheckValid() only if it is okay to be here
     if (!annotation.CheckValid()) {
       return false;
     }
@@ -428,10 +449,10 @@ AidlTypeSpecifier::AidlTypeSpecifier(const AidlLocation& location, const string&
                                      vector<unique_ptr<AidlTypeSpecifier>>* type_params,
                                      const string& comments)
     : AidlAnnotatable(location),
+      AidlCommentable(comments),
       AidlParameterizable<unique_ptr<AidlTypeSpecifier>>(type_params),
       unresolved_name_(unresolved_name),
       is_array_(is_array),
-      comments_(comments),
       split_name_(Split(unresolved_name, ".")) {}
 
 const AidlTypeSpecifier& AidlTypeSpecifier::ArrayBase() const {
@@ -444,10 +465,6 @@ const AidlTypeSpecifier& AidlTypeSpecifier::ArrayBase() const {
     array_base_->is_array_ = false;
   }
   return *array_base_;
-}
-
-bool AidlTypeSpecifier::IsHidden() const {
-  return HasHideComment(GetComments());
 }
 
 string AidlTypeSpecifier::Signature() const {
@@ -487,18 +504,6 @@ bool AidlTypeSpecifier::Resolve(const AidlTypenames& typenames) {
 
 const AidlDefinedType* AidlTypeSpecifier::GetDefinedType() const {
   return defined_type_;
-}
-
-std::set<AidlAnnotation::Type> AidlTypeSpecifier::GetSupportedAnnotations() const {
-  // TODO(b/151102494) we don't distinguish field-level annotations from other type specifiers.
-  return {
-      AidlAnnotation::Type::NULLABLE,
-      AidlAnnotation::Type::UTF8_IN_CPP,
-      AidlAnnotation::Type::JAVA_PASSTHROUGH,
-      AidlAnnotation::Type::UNSUPPORTED_APP_USAGE,  // field-level annotation
-      AidlAnnotation::Type::HIDE,                   // field-level annotation
-      AidlAnnotation::Type::SUPPRESS_WARNINGS,      // field-level annotation
-  };
 }
 
 bool AidlTypeSpecifier::CheckValid(const AidlTypenames& typenames) const {
@@ -644,7 +649,7 @@ AidlVariableDeclaration::AidlVariableDeclaration(const AidlLocation& location,
 AidlVariableDeclaration::AidlVariableDeclaration(const AidlLocation& location,
                                                  AidlTypeSpecifier* type, const std::string& name,
                                                  AidlConstantValue* default_value)
-    : AidlMember(location),
+    : AidlMember(location, type->GetComments()),
       type_(type),
       name_(name),
       default_user_specified_(true),
@@ -706,6 +711,14 @@ std::string AidlVariableDeclaration::ValueString(const ConstantValueDecorator& d
   }
 }
 
+void AidlVariableDeclaration::TraverseChildren(
+    std::function<void(const AidlNode&)> traverse) const {
+  traverse(GetType());
+  if (IsDefaultUserSpecified()) {
+    traverse(*GetDefaultValue());
+  }
+}
+
 AidlArgument::AidlArgument(const AidlLocation& location, AidlArgument::Direction direction,
                            AidlTypeSpecifier* type, const std::string& name)
     : AidlVariableDeclaration(location, type, name),
@@ -744,12 +757,34 @@ string AidlArgument::ToString() const {
   }
 }
 
-AidlMember::AidlMember(const AidlLocation& location) : AidlNode(location) {}
+bool AidlCommentable::IsHidden() const {
+  return android::aidl::HasHideInComments(GetComments());
+}
+
+bool AidlCommentable::IsDeprecated() const {
+  return android::aidl::FindDeprecated(GetComments()).has_value();
+}
+
+// Dumps comment only if its has  meaningful tags.
+void AidlCommentable::Dump(CodeWriter& out) const {
+  using namespace android::aidl;
+  if (IsHidden()) {
+    out << "/* @hide */\n";
+  }
+  if (auto deprecated = FindDeprecated(GetComments()); deprecated) {
+    out << "/* @deprecated ";
+    if (!deprecated->note.empty()) out << deprecated->note << " ";
+    out << "*/\n";
+  }
+}
+
+AidlMember::AidlMember(const AidlLocation& location, const std::string& comments)
+    : AidlNode(location), AidlCommentable(comments) {}
 
 AidlConstantDeclaration::AidlConstantDeclaration(const AidlLocation& location,
                                                  AidlTypeSpecifier* type, const std::string& name,
                                                  AidlConstantValue* value)
-    : AidlMember(location), type_(type), name_(name), value_(value) {}
+    : AidlMember(location, type->GetComments()), type_(type), name_(name), value_(value) {}
 
 bool AidlConstantDeclaration::CheckValid(const AidlTypenames& typenames) const {
   bool valid = true;
@@ -785,9 +820,8 @@ AidlMethod::AidlMethod(const AidlLocation& location, bool oneway, AidlTypeSpecif
 AidlMethod::AidlMethod(const AidlLocation& location, bool oneway, AidlTypeSpecifier* type,
                        const std::string& name, std::vector<std::unique_ptr<AidlArgument>>* args,
                        const std::string& comments, int id, bool is_user_defined)
-    : AidlMember(location),
+    : AidlMember(location, comments),
       oneway_(oneway),
-      comments_(comments),
       type_(type),
       name_(name),
       arguments_(std::move(*args)),
@@ -799,10 +833,6 @@ AidlMethod::AidlMethod(const AidlLocation& location, bool oneway, AidlTypeSpecif
     if (a->IsIn()) { in_arguments_.push_back(a.get()); }
     if (a->IsOut()) { out_arguments_.push_back(a.get()); }
   }
-}
-
-bool AidlMethod::IsHidden() const {
-  return HasHideComment(GetComments());
 }
 
 string AidlMethod::Signature() const {
@@ -830,8 +860,8 @@ AidlDefinedType::AidlDefinedType(const AidlLocation& location, const std::string
                                  const std::string& comments, const std::string& package,
                                  std::vector<std::unique_ptr<AidlMember>>* members)
     : AidlAnnotatable(location),
+      AidlCommentable(comments),
       name_(name),
-      comments_(comments),
       package_(package),
       split_package_(package.empty() ? std::vector<std::string>()
                                      : android::base::Split(package, ".")) {
@@ -862,10 +892,6 @@ bool AidlDefinedType::CheckValid(const AidlTypenames& typenames) const {
   return true;
 }
 
-bool AidlDefinedType::IsHidden() const {
-  return HasHideComment(GetComments());
-}
-
 std::string AidlDefinedType::GetCanonicalName() const {
   if (package_.empty()) {
     return GetName();
@@ -874,10 +900,23 @@ std::string AidlDefinedType::GetCanonicalName() const {
 }
 
 void AidlDefinedType::DumpHeader(CodeWriter* writer) const {
-  if (this->IsHidden()) {
-    AddHideComment(writer);
-  }
+  AidlCommentable::Dump(*writer);
   DumpAnnotations(writer);
+}
+
+void AidlDefinedType::DumpMembers(CodeWriter& out) const {
+  for (const auto& method : GetMethods()) {
+    method->AidlCommentable::Dump(out);
+    out << method->ToString() << ";\n";
+  }
+  for (const auto& field : GetFields()) {
+    field->AidlCommentable::Dump(out);
+    out << field->ToString() << ";\n";
+  }
+  for (const auto& constdecl : GetConstantDeclarations()) {
+    constdecl->AidlCommentable::Dump(out);
+    out << constdecl->ToString() << ";\n";
+  }
 }
 
 bool AidlDefinedType::CheckValidWithMembers(const AidlTypenames& typenames) const {
@@ -974,12 +1013,6 @@ bool AidlParameterizable<std::string>::CheckValid() const {
   return true;
 }
 
-std::set<AidlAnnotation::Type> AidlParcelable::GetSupportedAnnotations() const {
-  return {AidlAnnotation::Type::VINTF_STABILITY,        AidlAnnotation::Type::UNSUPPORTED_APP_USAGE,
-          AidlAnnotation::Type::JAVA_STABLE_PARCELABLE, AidlAnnotation::Type::HIDE,
-          AidlAnnotation::Type::JAVA_PASSTHROUGH,       AidlAnnotation::Type::JAVA_ONLY_IMMUTABLE};
-}
-
 bool AidlParcelable::CheckValid(const AidlTypenames& typenames) const {
   if (!AidlDefinedType::CheckValid(typenames)) {
     return false;
@@ -1006,34 +1039,9 @@ void AidlStructuredParcelable::Dump(CodeWriter* writer) const {
   DumpHeader(writer);
   writer->Write("parcelable %s {\n", GetName().c_str());
   writer->Indent();
-  for (const auto& field : GetFields()) {
-    if (field->GetType().IsHidden()) {
-      AddHideComment(writer);
-    }
-    writer->Write("%s;\n", field->ToString().c_str());
-  }
-  for (const auto& constdecl : GetConstantDeclarations()) {
-    if (constdecl->GetType().IsHidden()) {
-      AddHideComment(writer);
-    }
-    writer->Write("%s;\n", constdecl->ToString().c_str());
-  }
+  DumpMembers(*writer);
   writer->Dedent();
   writer->Write("}\n");
-}
-
-std::set<AidlAnnotation::Type> AidlStructuredParcelable::GetSupportedAnnotations() const {
-  return {
-      AidlAnnotation::Type::VINTF_STABILITY,
-      AidlAnnotation::Type::UNSUPPORTED_APP_USAGE,
-      AidlAnnotation::Type::HIDE,
-      AidlAnnotation::Type::JAVA_PASSTHROUGH,
-      AidlAnnotation::Type::JAVA_DERIVE,
-      AidlAnnotation::Type::JAVA_ONLY_IMMUTABLE,
-      AidlAnnotation::Type::FIXED_SIZE,
-      AidlAnnotation::Type::RUST_DERIVE,
-      AidlAnnotation::Type::SUPPRESS_WARNINGS,
-  };
 }
 
 bool AidlStructuredParcelable::CheckValid(const AidlTypenames& typenames) const {
@@ -1068,8 +1076,7 @@ bool AidlTypeSpecifier::LanguageSpecificCheckValid(const AidlTypenames& typename
                                                    Options::Language lang) const {
   if ((lang == Options::Language::NDK || lang == Options::Language::RUST) && IsArray() &&
       GetName() == "IBinder") {
-    AIDL_ERROR(this) << "The " << Options::LanguageToString(lang)
-                     << " backend does not support array of IBinder";
+    AIDL_ERROR(this) << "The " << to_string(lang) << " backend does not support array of IBinder";
     return false;
   }
   if (lang == Options::Language::RUST && GetName() == "ParcelableHolder") {
@@ -1080,22 +1087,21 @@ bool AidlTypeSpecifier::LanguageSpecificCheckValid(const AidlTypenames& typename
   if ((lang == Options::Language::NDK || lang == Options::Language::RUST) && IsArray() &&
       IsNullable()) {
     if (GetName() == "ParcelFileDescriptor") {
-      AIDL_ERROR(this) << "The " << Options::LanguageToString(lang)
+      AIDL_ERROR(this) << "The " << to_string(lang)
                        << " backend does not support nullable array of ParcelFileDescriptor";
       return false;
     }
 
     const auto defined_type = typenames.TryGetDefinedType(GetName());
     if (defined_type != nullptr && defined_type->AsParcelable() != nullptr) {
-      AIDL_ERROR(this) << "The " << Options::LanguageToString(lang)
+      AIDL_ERROR(this) << "The " << to_string(lang)
                        << " backend does not support nullable array of parcelable";
       return false;
     }
   }
   if (this->GetName() == "FileDescriptor" &&
       (lang == Options::Language::NDK || lang == Options::Language::RUST)) {
-    AIDL_ERROR(this) << "FileDescriptor isn't supported by the " << Options::LanguageToString(lang)
-                     << " backend.";
+    AIDL_ERROR(this) << "FileDescriptor isn't supported by the " << to_string(lang) << " backend.";
     return false;
   }
   if (this->IsGeneric()) {
@@ -1172,9 +1178,9 @@ bool AidlStructuredParcelable::LanguageSpecificCheckValid(const AidlTypenames& t
 AidlEnumerator::AidlEnumerator(const AidlLocation& location, const std::string& name,
                                AidlConstantValue* value, const std::string& comments)
     : AidlNode(location),
+      AidlCommentable(comments),
       name_(name),
       value_(value),
-      comments_(comments),
       value_user_specified_(value != nullptr) {}
 
 bool AidlEnumerator::CheckValid(const AidlTypeSpecifier& enum_backing_type) const {
@@ -1213,7 +1219,7 @@ AidlEnumDeclaration::AidlEnumDeclaration(const AidlLocation& location, const std
         enumerator->SetValue(
             std::unique_ptr<AidlConstantValue>(AidlConstantValue::Integral(loc, "0")));
       } else {
-        auto prev_value = std::make_unique<AidlConstantReference>(loc, previous->GetName(), "");
+        auto prev_value = std::make_unique<AidlConstantReference>(loc, previous->GetName());
         enumerator->SetValue(std::make_unique<AidlBinaryConstExpression>(
             loc, std::move(prev_value), "+",
             std::unique_ptr<AidlConstantValue>(AidlConstantValue::Integral(loc, "1"))));
@@ -1244,16 +1250,6 @@ bool AidlEnumDeclaration::Autofill(const AidlTypenames& typenames) {
     AIDL_ERROR(this) << "Invalid backing type: " << backing_type_->GetName();
   }
   return true;
-}
-
-std::set<AidlAnnotation::Type> AidlEnumDeclaration::GetSupportedAnnotations() const {
-  return {
-      AidlAnnotation::Type::VINTF_STABILITY,
-      AidlAnnotation::Type::BACKING,
-      AidlAnnotation::Type::HIDE,
-      AidlAnnotation::Type::JAVA_PASSTHROUGH,
-      AidlAnnotation::Type::SUPPRESS_WARNINGS,
-  };
 }
 
 bool AidlEnumDeclaration::CheckValid(const AidlTypenames& typenames) const {
@@ -1294,31 +1290,11 @@ AidlUnionDecl::AidlUnionDecl(const AidlLocation& location, const std::string& na
                              std::vector<std::unique_ptr<AidlMember>>* members)
     : AidlParcelable(location, name, package, comments, "" /*cpp_header*/, type_params, members) {}
 
-std::set<AidlAnnotation::Type> AidlUnionDecl::GetSupportedAnnotations() const {
-  return {
-      AidlAnnotation::Type::VINTF_STABILITY,     AidlAnnotation::Type::HIDE,
-      AidlAnnotation::Type::JAVA_PASSTHROUGH,    AidlAnnotation::Type::JAVA_DERIVE,
-      AidlAnnotation::Type::JAVA_ONLY_IMMUTABLE, AidlAnnotation::Type::RUST_DERIVE,
-      AidlAnnotation::Type::SUPPRESS_WARNINGS,
-  };
-}
-
 void AidlUnionDecl::Dump(CodeWriter* writer) const {
   DumpHeader(writer);
   writer->Write("union %s {\n", GetName().c_str());
   writer->Indent();
-  for (const auto& field : GetFields()) {
-    if (field->GetType().IsHidden()) {
-      AddHideComment(writer);
-    }
-    writer->Write("%s;\n", field->ToString().c_str());
-  }
-  for (const auto& constdecl : GetConstantDeclarations()) {
-    if (constdecl->GetType().IsHidden()) {
-      AddHideComment(writer);
-    }
-    writer->Write("%s;\n", constdecl->ToString().c_str());
-  }
+  DumpMembers(*writer);
   writer->Dedent();
   writer->Write("}\n");
 }
@@ -1419,29 +1395,9 @@ void AidlInterface::Dump(CodeWriter* writer) const {
   DumpHeader(writer);
   writer->Write("interface %s {\n", GetName().c_str());
   writer->Indent();
-  for (const auto& method : GetMethods()) {
-    if (method->IsHidden()) {
-      AddHideComment(writer);
-    }
-    writer->Write("%s;\n", method->ToString().c_str());
-  }
-  for (const auto& constdecl : GetConstantDeclarations()) {
-    if (constdecl->GetType().IsHidden()) {
-      AddHideComment(writer);
-    }
-    writer->Write("%s;\n", constdecl->ToString().c_str());
-  }
+  DumpMembers(*writer);
   writer->Dedent();
   writer->Write("}\n");
-}
-
-std::set<AidlAnnotation::Type> AidlInterface::GetSupportedAnnotations() const {
-  return {
-      AidlAnnotation::Type::SENSITIVE_DATA,        AidlAnnotation::Type::VINTF_STABILITY,
-      AidlAnnotation::Type::UNSUPPORTED_APP_USAGE, AidlAnnotation::Type::HIDE,
-      AidlAnnotation::Type::JAVA_PASSTHROUGH,      AidlAnnotation::Type::DESCRIPTOR,
-      AidlAnnotation::Type::SUPPRESS_WARNINGS,
-  };
 }
 
 bool AidlInterface::CheckValid(const AidlTypenames& typenames) const {
@@ -1555,8 +1511,9 @@ std::string AidlInterface::GetDescriptor() const {
   return GetCanonicalName();
 }
 
-AidlImport::AidlImport(const AidlLocation& location, const std::string& needed_class)
-    : AidlNode(location), needed_class_(needed_class) {}
+AidlImport::AidlImport(const AidlLocation& location, const std::string& needed_class,
+                       const std::string& comments)
+    : AidlNode(location), AidlCommentable(comments), needed_class_(needed_class) {}
 
 // Resolves unresolved type name to fully qualified typename to import
 // case #1: SimpleName --> import p.SimpleName
