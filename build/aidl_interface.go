@@ -190,8 +190,17 @@ func recordVersions(mctx android.BottomUpMutatorContext) {
 	case *java.Library:
 	case *cc.Module:
 	case *rust.Module:
+	case *aidlGenRule:
 	default:
 		return
+	}
+
+	isAidlModule := false // whether this module is from an AIDL interface
+	for _, i := range *aidlInterfaces(mctx.Config()) {
+		if android.InList(mctx.ModuleName(), i.internalModuleNames) {
+			isAidlModule = true
+			break
+		}
 	}
 
 	// First, gather all the AIDL interfaces modules that are directly or indirectly
@@ -202,16 +211,24 @@ func recordVersions(mctx android.BottomUpMutatorContext) {
 		case *java.Library:
 		case *cc.Module:
 		case *rust.Module:
+		case *aidlGenRule:
+			// Dependencies to the source module is tracked only when it's from a client
+			// module, i.e. not from an AIDL-generated stub library
+			if isAidlModule {
+				return
+			}
 		default:
 			return
 		}
 		depName := mctx.OtherModuleName(dep)
+		isSource := strings.HasSuffix(depName, "-source")
+		depName = strings.TrimSuffix(depName, "-source")
 		// If this module depends on one of the aidl interface module, record it
 		for _, i := range *aidlInterfaces(mctx.Config()) {
 			if android.InList(depName, i.internalModuleNames) {
 				ifaceName := i.ModuleBase.Name()
 				verLang := depName[len(ifaceName):]
-				myAidlDeps[DepInfo{ifaceName, verLang}] = true
+				myAidlDeps[DepInfo{ifaceName, verLang, isSource}] = true
 				break
 			}
 		}
@@ -247,6 +264,7 @@ func checkDuplicatedVersions(mctx android.BottomUpMutatorContext) {
 	case *java.Library:
 	case *cc.Module:
 	case *rust.Module:
+	case *aidlGenRule:
 	default:
 		return
 	}
@@ -258,37 +276,40 @@ func checkDuplicatedVersions(mctx android.BottomUpMutatorContext) {
 		return // This should be the usual case
 	}
 
-	var violators []string
-
 	// Lastly, report an error if there is any duplicated versions of the same interface * lang
 	for _, lang := range []string{langJava, langCpp, langNdk, langNdkPlatform} {
-		// interfaceName -> list of module names for the interface
-		versionsOf := make(map[string][]string)
+		// interfaceName -> verLang -> list of module names
+		versionsOf := make(map[string]map[string][]string)
 		for _, dep := range myAidlDeps {
 			if !strings.HasSuffix(dep.verLang, lang) {
 				continue
 			}
 			versions := versionsOf[dep.ifaceName]
-			versions = append(versions, dep.ifaceName+dep.verLang)
-			if len(versions) >= 2 {
-				violators = append(violators, versions...)
+			if versions == nil {
+				versions = make(map[string][]string)
+				versionsOf[dep.ifaceName] = versions
 			}
-			versionsOf[dep.ifaceName] = versions
+			versions[dep.verLang] = append(versions[dep.verLang], dep.moduleName())
 		}
-	}
-	if violators == nil || len(violators) == 0 {
-		return
-	}
 
-	violators = android.SortedUniqueStrings(violators)
-	mctx.ModuleErrorf("depends on multiple versions of the same aidl_interface: %s", strings.Join(violators, ", "))
-	mctx.WalkDeps(func(child android.Module, parent android.Module) bool {
-		if android.InList(child.Name(), violators) {
-			mctx.ModuleErrorf("Dependency path: %s", mctx.GetPathString(true))
-			return false
+		for _, versions := range versionsOf {
+			if len(versions) >= 2 {
+				var violators []string
+				for _, modules := range versions {
+					violators = append(violators, modules...)
+				}
+				violators = android.SortedUniqueStrings(violators)
+				mctx.ModuleErrorf("depends on multiple versions of the same aidl_interface: %s", strings.Join(violators, ", "))
+				mctx.WalkDeps(func(child android.Module, parent android.Module) bool {
+					if android.InList(child.Name(), violators) {
+						mctx.ModuleErrorf("Dependency path: %s", mctx.GetPathString(true))
+						return false
+					}
+					return true
+				})
+			}
 		}
-		return true
-	})
+	}
 }
 
 // wrap(p, a, s) = [p + v + s for v in a]
@@ -920,6 +941,11 @@ type CommonBackendProperties struct {
 	// For native modules, the property needs to be set when a module is a part of mainline modules(APEX).
 	// Forwarded to generated java/native module.
 	Min_sdk_version *string
+
+	// Determines whether the generated source files are available or not. When set to true,
+	// the source files can be added to `srcs` property via `:<ifacename>-<backend>-source`,
+	// e.g., ":myaidl-java-source"
+	Srcs_available *bool
 }
 
 type CommonNativeBackendProperties struct {
@@ -1473,11 +1499,38 @@ func (i *aidlInterface) moduleVersionForVndk() string {
 	return ""
 }
 
-func defaultVisibility(mctx android.LoadHookContext) []string {
+// srcsVisibility gives the value for the `visibility` property of the source gen module for the
+// language backend `lang`. By default, the source gen module is not visible to the clients of
+// aidl_interface (because it's an impl detail), but when `backend.<backend>.srcs_available` is set
+// to true, the source gen module follows the visibility of the aidl_interface module.
+func srcsVisibility(mctx android.LoadHookContext, lang string) []string {
+	if a, ok := mctx.Module().(*aidlInterface); !ok {
+		panic(fmt.Errorf("%q is not aidl_interface", mctx.Module().String()))
+	} else {
+		var prop *bool
+		switch lang {
+		case langCpp:
+			prop = a.properties.Backend.Cpp.Srcs_available
+		case langJava:
+			prop = a.properties.Backend.Java.Srcs_available
+		case langNdk, langNdkPlatform:
+			prop = a.properties.Backend.Ndk.Srcs_available
+		case langRust:
+			prop = a.properties.Backend.Rust.Srcs_available
+		default:
+			panic(fmt.Errorf("unsupported language backend %q\n", lang))
+		}
+		if proptools.Bool(prop) {
+			// Returning nil so that the visibility of the source module defaults to the
+			// the package-level default visibility. This way, the source module gets
+			// the same visibility as the library modules.
+			return nil
+		}
+	}
 	return []string{
 		"//" + mctx.ModuleDir(),
-		// system/tools/aidl/build is always added because aidl_metadata_json in the directory has
-		// dependencies to all aidl_interface modules.
+		// system/tools/aidl/build is always added because aidl_metadata_json in the
+		// directory has dependencies to all aidl_interface modules.
 		"//system/tools/aidl/build",
 	}
 }
@@ -1531,7 +1584,7 @@ func addCppLibrary(mctx android.LoadHookContext, i *aidlInterface, versionForMod
 		Version:    version,
 		GenTrace:   genTrace,
 		Unstable:   i.properties.Unstable,
-		Visibility: defaultVisibility(mctx),
+		Visibility: srcsVisibility(mctx, lang),
 	})
 	importPostfix := i.getImportPostfix(mctx, version, lang)
 
@@ -1664,7 +1717,7 @@ func addJavaLibrary(mctx android.LoadHookContext, i *aidlInterface, versionForMo
 		Version:    version,
 		GenTrace:   proptools.Bool(i.properties.Gen_trace),
 		Unstable:   i.properties.Unstable,
-		Visibility: defaultVisibility(mctx),
+		Visibility: srcsVisibility(mctx, langJava),
 	})
 
 	importPostfix := i.getImportPostfix(mctx, version, langJava)
@@ -1694,14 +1747,18 @@ type aidlRustSourceProvider struct {
 	properties aidlRustSourceProviderProperties
 }
 
-func (sp *aidlRustSourceProvider) GenerateSource(ctx rust.ModuleContext, deps rust.PathDeps) android.Path {
+var aidlRustSourceTag = struct {
+	blueprint.DependencyTag
+}{}
+
+func (sp *aidlRustSourceProvider) GenerateSource(ctx rust.ModuleContext, _ rust.PathDeps) android.Path {
 	sourceStem := proptools.String(sp.BaseSourceProvider.Properties.Source_stem)
 	topLevelOutputFile := android.PathForModuleOut(ctx, sourceStem+".rs")
-	srcPaths := android.PathsForModuleSrc(ctx, []string{sp.properties.SourceGen})
 
+	aidlGenModule := ctx.GetDirectDepWithTag(sp.properties.SourceGen, aidlRustSourceTag)
 	// Find the gen directory for the source module
-	aidlGenModule, _ := ctx.GetDirectDep(android.SrcIsModule(sp.properties.SourceGen))
 	srcGenDir := aidlGenModule.(*aidlGenRule).genOutDir
+	srcPaths := aidlGenModule.(*aidlGenRule).genOutputs.Paths()
 
 	// In Rust, we import our dependency crates into `mangled`:
 	//   use dependency::mangled::*;
@@ -1743,6 +1800,12 @@ func (sp *aidlRustSourceProvider) SourceProviderDeps(ctx rust.DepsContext, deps 
 	deps = sp.BaseSourceProvider.SourceProviderDeps(ctx, deps)
 	deps.Rustlibs = append(deps.Rustlibs, "libbinder_rs", "liblazy_static")
 	deps.Rustlibs = append(deps.Rustlibs, wrap("", sp.properties.Imports, "-rust")...)
+
+	// Add a depencency to the source module (*-rust-source) directly via `ctx` because
+	// the source module is specific to aidlRustSourceProvider and we don't want the rust module
+	// to know about it.
+	ctx.AddDependency(ctx.Module(), aidlRustSourceTag, sp.properties.SourceGen)
+
 	return deps
 }
 
@@ -1797,7 +1860,7 @@ func addRustLibrary(mctx android.LoadHookContext, i *aidlInterface, versionForMo
 		BaseName:   i.ModuleBase.Name(),
 		Version:    version,
 		Unstable:   i.properties.Unstable,
-		Visibility: defaultVisibility(mctx),
+		Visibility: srcsVisibility(mctx, langRust),
 	})
 
 	versionedRustName := fixRustName(i.versionedName(versionForModuleName))
@@ -1812,7 +1875,7 @@ func addRustLibrary(mctx android.LoadHookContext, i *aidlInterface, versionForMo
 	}, &rust.SourceProviderProperties{
 		Source_stem: proptools.StringPtr(versionedRustName),
 	}, &aidlRustSourceProviderProperties{
-		SourceGen: ":" + rustSourceGen,
+		SourceGen: rustSourceGen,
 		Imports:   i.properties.Imports,
 	})
 
@@ -1877,6 +1940,15 @@ func unstableModules(config android.Config) *[]string {
 type DepInfo struct {
 	ifaceName string
 	verLang   string
+	isSource  bool
+}
+
+func (d DepInfo) moduleName() string {
+	name := d.ifaceName + d.verLang
+	if d.isSource {
+		name += "-source"
+	}
+	return name
 }
 
 func aidlDeps(config android.Config) map[android.Module][]DepInfo {
@@ -1947,8 +2019,6 @@ func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx androi
 				info.HashFiles = append(info.HashFiles, t.hashFile.String())
 			}
 			moduleInfos[t.properties.BaseName] = info
-		default:
-			panic(fmt.Sprintf("Unrecognized module type: %v", t))
 		}
 
 	})

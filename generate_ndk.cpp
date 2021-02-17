@@ -420,6 +420,7 @@ static void GenerateClientMethodDefinition(CodeWriter& out, const AidlTypenames&
     } else if (arg->IsOut() && arg->GetType().IsArray()) {
       out << "_aidl_ret_status = ::ndk::AParcel_writeVectorSize(_aidl_in.get(), *" << var_name
           << ");\n";
+      StatusCheckGoto(out);
     }
   }
   out << "_aidl_ret_status = AIBinder_transact(\n";
@@ -522,6 +523,7 @@ static void GenerateServerCaseDefinition(CodeWriter& out, const AidlTypenames& t
       StatusCheckBreak(out);
     } else if (arg->IsOut() && arg->GetType().IsArray()) {
       out << "_aidl_ret_status = ::ndk::AParcel_resizeVector(_aidl_in, &" << var_name << ");\n";
+      StatusCheckBreak(out);
     }
   }
   if (options.GenLog()) {
@@ -1020,6 +1022,9 @@ void GenerateParcelHeader(CodeWriter& out, const AidlTypenames& types,
   out << "\n";
   out << "binder_status_t readFromParcel(const AParcel* parcel);\n";
   out << "binder_status_t writeToParcel(AParcel* parcel) const;\n";
+  out << "\n";
+
+  cpp::GenerateParcelableComparisonOperators(out, defined_type);
 
   out << "static const ::ndk::parcelable_stability_t _aidl_stability = ::ndk::"
       << (defined_type.IsVintfStability() ? "STABILITY_VINTF" : "STABILITY_LOCAL") << ";\n";
@@ -1156,6 +1161,9 @@ void GenerateParcelHeader(CodeWriter& out, const AidlTypenames& types,
 
   out << "binder_status_t readFromParcel(const AParcel* _parcel);\n";
   out << "binder_status_t writeToParcel(AParcel* _parcel) const;\n";
+  out << "\n";
+
+  cpp::GenerateParcelableComparisonOperators(out, defined_type);
 
   out << "static const ::ndk::parcelable_stability_t _aidl_stability = ::ndk::"
       << (defined_type.IsVintfStability() ? "STABILITY_VINTF" : "STABILITY_LOCAL") << ";\n";

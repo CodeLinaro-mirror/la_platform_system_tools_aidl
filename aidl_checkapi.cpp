@@ -59,6 +59,7 @@ static vector<string> get_strict_annotations(const AidlAnnotatable& node) {
       AidlAnnotation::Type::BACKING,
       // @RustDerive doesn't affect read/write
       AidlAnnotation::Type::RUST_DERIVE,
+      AidlAnnotation::Type::SUPPRESS_WARNINGS,
   };
   vector<string> annotations;
   for (const AidlAnnotation& annotation : node.GetAnnotations()) {
@@ -121,8 +122,8 @@ static bool are_compatible_constants(const AidlDefinedType& older, const AidlDef
     const auto new_c = found->second;
     compatible &= are_compatible_types(old_c->GetType(), new_c->GetType());
 
-    const string old_value = old_c->ValueString(AidlConstantValueDecorator);
-    const string new_value = new_c->ValueString(AidlConstantValueDecorator);
+    const string old_value = old_c->GetValue().Literal();
+    const string new_value = new_c->GetValue().Literal();
     if (old_value != new_value) {
       AIDL_ERROR(newer) << "Changed constant value: " << older.GetCanonicalName() << "."
                         << old_c->GetName() << " from " << old_value << " to " << new_value << ".";
@@ -191,24 +192,10 @@ static bool are_compatible_interfaces(const AidlInterface& older, const AidlInte
   return compatible;
 }
 
-// returns whether the given type when defaulted will be accepted by
-// unmarshalling code
-static bool has_usable_nil_type(const AidlTypeSpecifier& specifier) {
-  // TODO(b/155238508): fix for primitives
-
-  // This technically only applies in C++, but even if both the client and the
-  // server of an interface are in Java at a particular point in time, where
-  // null is currently always acceptable, we want to make sure that versions
-  // of this service can work in native and future backends without a problem.
-  // Also, in that case, adding nullable does not hurt.
-  return specifier.IsNullable();
-}
-
 static bool HasZeroEnumerator(const AidlEnumDeclaration& enum_decl) {
   return std::any_of(enum_decl.GetEnumerators().begin(), enum_decl.GetEnumerators().end(),
                      [&](const unique_ptr<AidlEnumerator>& enumerator) {
-                       return enumerator->GetValue()->ValueString(
-                                  enum_decl.GetBackingType(), AidlConstantValueDecorator) == "0";
+                       return enumerator->GetValue()->Literal() == "0";
                      });
 }
 
@@ -236,8 +223,8 @@ static bool are_compatible_parcelables(const AidlDefinedType& older, const AidlT
     const auto& new_field = new_fields.at(i);
     compatible &= are_compatible_types(old_field->GetType(), new_field->GetType());
 
-    const string old_value = old_field->ValueString(AidlConstantValueDecorator);
-    const string new_value = new_field->ValueString(AidlConstantValueDecorator);
+    string old_value = old_field->GetDefaultValue() ? old_field->GetDefaultValue()->Literal() : "";
+    string new_value = new_field->GetDefaultValue() ? new_field->GetDefaultValue()->Literal() : "";
     if (old_value != new_value) {
       AIDL_ERROR(new_field) << "Changed default value: " << old_value << " to " << new_value << ".";
       compatible = false;
@@ -262,12 +249,7 @@ static bool are_compatible_parcelables(const AidlDefinedType& older, const AidlT
 
   for (size_t i = old_fields.size(); i < new_fields.size(); i++) {
     const auto& new_field = new_fields.at(i);
-    if (new_field->GetDefaultValue()) {
-      continue;
-    }
-
-    // null is accepted as a valid default value
-    if (has_usable_nil_type(new_field->GetType())) {
+    if (new_field->HasUsefulDefaultValue()) {
       continue;
     }
 
@@ -346,10 +328,8 @@ static bool are_compatible_enums(const AidlEnumDeclaration& older,
       compatible = false;
       continue;
     }
-    const string old_value =
-        old_enum_map[name]->ValueString(older.GetBackingType(), AidlConstantValueDecorator);
-    const string new_value =
-        new_enum_map[name]->ValueString(newer.GetBackingType(), AidlConstantValueDecorator);
+    const string old_value = old_enum_map[name]->Literal();
+    const string new_value = new_enum_map[name]->Literal();
     if (old_value != new_value) {
       AIDL_ERROR(newer) << "Changed enumerator value: " << older.GetCanonicalName() << "::" << name
                         << " from " << old_value << " to " << new_value << ".";
