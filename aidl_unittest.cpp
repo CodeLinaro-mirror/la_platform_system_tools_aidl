@@ -78,135 +78,6 @@ const char kExpectedStructuredParcelableDepFileContents[] =
 p/Foo.aidl :
 )";
 
-const char kExpectedJavaParcelableOutputContents[] =
-    R"(/*
- * This file is auto-generated.  DO NOT MODIFY.
- */
-@android.annotation.Hide
-public class Rect implements android.os.Parcelable
-{
-  // Comment
-
-  @android.annotation.Hide
-  public int x = 5;
-
-  @android.annotation.Hide
-  @android.compat.annotation.UnsupportedAppUsage(expectedSignature = "dummy", implicitMember = "dummy", maxTargetSdk = 28, publicAlternatives = "dummy", trackingBug = 42L, overrideSourcePosition="Rect.aidl:7:1:10:14")
-  public int y = 0;
-
-  public android.os.ParcelFileDescriptor fd;
-
-  public java.util.List<android.os.ParcelFileDescriptor> fds;
-  public static final android.os.Parcelable.Creator<Rect> CREATOR = new android.os.Parcelable.Creator<Rect>() {
-    @Override
-    public Rect createFromParcel(android.os.Parcel _aidl_source) {
-      Rect _aidl_out = new Rect();
-      _aidl_out.readFromParcel(_aidl_source);
-      return _aidl_out;
-    }
-    @Override
-    public Rect[] newArray(int _aidl_size) {
-      return new Rect[_aidl_size];
-    }
-  };
-  @Override public final void writeToParcel(android.os.Parcel _aidl_parcel, int _aidl_flag)
-  {
-    int _aidl_start_pos = _aidl_parcel.dataPosition();
-    _aidl_parcel.writeInt(0);
-    _aidl_parcel.writeInt(x);
-    _aidl_parcel.writeInt(y);
-    if ((fd!=null)) {
-      _aidl_parcel.writeInt(1);
-      fd.writeToParcel(_aidl_parcel, 0);
-    }
-    else {
-      _aidl_parcel.writeInt(0);
-    }
-    _aidl_parcel.writeTypedList(fds);
-    int _aidl_end_pos = _aidl_parcel.dataPosition();
-    _aidl_parcel.setDataPosition(_aidl_start_pos);
-    _aidl_parcel.writeInt(_aidl_end_pos - _aidl_start_pos);
-    _aidl_parcel.setDataPosition(_aidl_end_pos);
-  }
-  public final void readFromParcel(android.os.Parcel _aidl_parcel)
-  {
-    int _aidl_start_pos = _aidl_parcel.dataPosition();
-    int _aidl_parcelable_size = _aidl_parcel.readInt();
-    try {
-      if (_aidl_parcelable_size < 0) return;
-      x = _aidl_parcel.readInt();
-      if (_aidl_parcel.dataPosition() - _aidl_start_pos >= _aidl_parcelable_size) return;
-      y = _aidl_parcel.readInt();
-      if (_aidl_parcel.dataPosition() - _aidl_start_pos >= _aidl_parcelable_size) return;
-      if ((0!=_aidl_parcel.readInt())) {
-        fd = android.os.ParcelFileDescriptor.CREATOR.createFromParcel(_aidl_parcel);
-      }
-      else {
-        fd = null;
-      }
-      if (_aidl_parcel.dataPosition() - _aidl_start_pos >= _aidl_parcelable_size) return;
-      fds = _aidl_parcel.createTypedArrayList(android.os.ParcelFileDescriptor.CREATOR);
-      if (_aidl_parcel.dataPosition() - _aidl_start_pos >= _aidl_parcelable_size) return;
-    } finally {
-      if (_aidl_start_pos > (Integer.MAX_VALUE - _aidl_parcelable_size)) {
-        throw new android.os.BadParcelableException("Overflow in the size of parcelable");
-      }
-      _aidl_parcel.setDataPosition(_aidl_start_pos + _aidl_parcelable_size);
-    }
-  }
-  @Override
-  public int describeContents() {
-    int _mask = 0;
-    _mask |= describeContents(fd);
-    _mask |= describeContents(fds);
-    return _mask;
-  }
-  private int describeContents(Object _v) {
-    if (_v == null) return 0;
-    if (_v instanceof java.util.Collection) {
-      int _mask = 0;
-      for (Object o : (java.util.Collection) _v) {
-        _mask |= describeContents(o);
-      }
-      return _mask;
-    }
-    if (_v instanceof android.os.Parcelable) {
-      return ((android.os.Parcelable) _v).describeContents();
-    }
-    return 0;
-  }
-}
-)";
-
-// clang-format off
-const char kExpectedCppHeaderOutput[] =
-    R"(#pragma once
-
-#include <binder/IBinder.h>
-#include <binder/IInterface.h>
-#include <binder/Status.h>
-#include <optional>
-#include <utils/String16.h>
-#include <utils/StrongPointer.h>
-#include <vector>
-
-class IFoo : public ::android::IInterface {
-public:
-  DECLARE_META_INTERFACE(Foo)
-  virtual ::android::binder::Status foo(::std::optional<::std::vector<::std::optional<::android::String16>>>* _aidl_return) = 0;
-};  // class IFoo
-class IFooDefault : public IFoo {
-public:
-  ::android::IBinder* onAsBinder() override {
-    return nullptr;
-  }
-  ::android::binder::Status foo(::std::optional<::std::vector<::std::optional<::android::String16>>>*) override {
-    return ::android::binder::Status::fromStatusT(::android::UNKNOWN_TRANSACTION);
-  }
-};  // class IFooDefault
-)";
-// clang-format on
-
 }  // namespace
 
 class AidlTest : public ::testing::TestWithParam<Options::Language> {
@@ -217,7 +88,7 @@ class AidlTest : public ::testing::TestWithParam<Options::Language> {
     io_delegate_.SetFileContents(path, contents);
     vector<string> args;
     args.emplace_back("aidl");
-    args.emplace_back("--lang=" + Options::LanguageToString(lang));
+    args.emplace_back("--lang=" + to_string(lang));
     for (const string& s : additional_arguments) {
       args.emplace_back(s);
     }
@@ -262,7 +133,7 @@ INSTANTIATE_TEST_SUITE_P(AidlTestSuite, AidlTest,
                          testing::Values(Options::Language::CPP, Options::Language::JAVA,
                                          Options::Language::NDK, Options::Language::RUST),
                          [](const testing::TestParamInfo<Options::Language>& info) {
-                           return Options::LanguageToString(info.param);
+                           return to_string(info.param);
                          });
 
 TEST_P(AidlTest, AcceptMissingPackage) {
@@ -423,7 +294,7 @@ TEST_P(AidlTest, RejectUnsupportedInterfaceAnnotations) {
   const string method = "package a; @nullable interface IFoo { int f(); }";
   CaptureStderr();
   EXPECT_EQ(nullptr, Parse("a/IFoo.aidl", method, typenames_, GetLanguage(), &error));
-  EXPECT_THAT(GetCapturedStderr(), HasSubstr("'nullable' is not a supported annotation"));
+  EXPECT_THAT(GetCapturedStderr(), HasSubstr("@nullable is not available."));
   EXPECT_EQ(AidlError::BAD_TYPE, error);
 }
 
@@ -432,8 +303,7 @@ TEST_P(AidlTest, RejectUnsupportedTypeAnnotations) {
   const string method = "package a; interface IFoo { @JavaOnlyStableParcelable int f(); }";
   CaptureStderr();
   EXPECT_EQ(nullptr, Parse("a/IFoo.aidl", method, typenames_, GetLanguage(), &error));
-  EXPECT_THAT(GetCapturedStderr(),
-              HasSubstr("'JavaOnlyStableParcelable' is not a supported annotation"));
+  EXPECT_THAT(GetCapturedStderr(), HasSubstr("@JavaOnlyStableParcelable is not available."));
   EXPECT_EQ(AidlError::BAD_TYPE, error);
 }
 
@@ -442,7 +312,7 @@ TEST_P(AidlTest, RejectUnsupportedParcelableAnnotations) {
   const string method = "package a; @nullable parcelable IFoo cpp_header \"IFoo.h\";";
   CaptureStderr();
   EXPECT_EQ(nullptr, Parse("a/IFoo.aidl", method, typenames_, GetLanguage(), &error));
-  EXPECT_THAT(GetCapturedStderr(), HasSubstr("'nullable' is not a supported annotation"));
+  EXPECT_THAT(GetCapturedStderr(), HasSubstr("@nullable is not available."));
   EXPECT_EQ(AidlError::BAD_TYPE, error);
 }
 
@@ -451,7 +321,7 @@ TEST_P(AidlTest, RejectUnsupportedParcelableDefineAnnotations) {
   const string method = "package a; @nullable parcelable IFoo { String a; String b; }";
   CaptureStderr();
   EXPECT_EQ(nullptr, Parse("a/IFoo.aidl", method, typenames_, GetLanguage(), &error));
-  EXPECT_THAT(GetCapturedStderr(), HasSubstr("'nullable' is not a supported annotation"));
+  EXPECT_THAT(GetCapturedStderr(), HasSubstr("@nullable is not available."));
   EXPECT_EQ(AidlError::BAD_TYPE, error);
 }
 
@@ -690,7 +560,7 @@ TEST_F(AidlTest, RejectsJavaDeriveAnnotation) {
     Options java_options = Options::From("aidl --lang=java -o out a/IFoo.aidl");
     CaptureStderr();
     EXPECT_NE(0, ::android::aidl::compile_aidl(java_options, io_delegate_));
-    EXPECT_THAT(GetCapturedStderr(), HasSubstr("'JavaDerive' is not a supported annotation"));
+    EXPECT_THAT(GetCapturedStderr(), HasSubstr("@JavaDerive is not available."));
   }
 
   {
@@ -698,7 +568,7 @@ TEST_F(AidlTest, RejectsJavaDeriveAnnotation) {
     Options java_options = Options::From("aidl --lang=java -o out a/IFoo.aidl");
     CaptureStderr();
     EXPECT_NE(0, ::android::aidl::compile_aidl(java_options, io_delegate_));
-    EXPECT_THAT(GetCapturedStderr(), HasSubstr("'JavaDerive' is not a supported annotation"));
+    EXPECT_THAT(GetCapturedStderr(), HasSubstr("@JavaDerive is not available."));
   }
 }
 
@@ -863,50 +733,155 @@ TEST_F(AidlTest, WritePreprocessedFile) {
   EXPECT_EQ("parcelable p.Outer.Inner;\ninterface one.IBar;\n", output);
 }
 
-TEST_F(AidlTest, JavaParcelableOutput) {
-  io_delegate_.SetFileContents(
-      "Rect.aidl",
-      "@Hide\n"
-      "parcelable Rect {\n"
-      "  // Comment\n"
-      "  @Hide\n"
-      "  int x=5;\n"
-      "  @Hide\n"
-      "  @UnsupportedAppUsage(maxTargetSdk = 28, trackingBug = 42, implicitMember = \"dummy\", "
-      "expectedSignature = \"dummy\", publicAlternatives = \"d\" \n + \"u\" + \n \"m\" \n + \"m\" "
-      "+ \"y\")\n"
-      "  int y;\n"
-      "  ParcelFileDescriptor fd;\n"
-      "  List<ParcelFileDescriptor> fds;\n"
-      "}");
+TEST_P(AidlTest, SupportDeprecated) {
+  struct TestCase {
+    std::string output_file;
+    std::string annotation;
+  };
 
-  vector<string> args{"aidl", "Rect.aidl"};
-  Options options = Options::From(args);
-  EXPECT_EQ(0, ::android::aidl::compile_aidl(options, io_delegate_));
+  auto CheckDeprecated = [&](const std::string& filename, const std::string& contents,
+                             std::vector<std::pair<Options::Language, TestCase>> expectations) {
+    io_delegate_.SetFileContents(filename, contents);
 
-  string output;
-  EXPECT_TRUE(io_delegate_.GetWrittenContents("Rect.java", &output));
-  EXPECT_EQ(kExpectedJavaParcelableOutputContents, output);
-}
+    auto options = Options::From("aidl --lang=" + to_string(GetLanguage()) + " " + filename +
+                                 " --out=out --header_out=out");
+    EXPECT_EQ(0, ::android::aidl::compile_aidl(options, io_delegate_));
+    for (const auto& [lang, test_case] : expectations) {
+      if (lang != GetLanguage()) continue;
+      string output;
+      EXPECT_TRUE(io_delegate_.GetWrittenContents(test_case.output_file, &output))
+          << base::Join(io_delegate_.ListOutputFiles(), ",");
+      EXPECT_THAT(output, HasSubstr(test_case.annotation));
+    }
+  };
 
-TEST_F(AidlTest, CppHeaderIncludes) {
-  io_delegate_.SetFileContents("IFoo.aidl",
-                               "interface IFoo {\n"
-                               "  @nullable List<String> foo();\n"
-                               "}");
+  // Emit escaped string for notes
+  CheckDeprecated(
+      "IFoo.aidl",
+      R"(interface IFoo {
+           /**
+            * @note asdf
+            * @deprecated a really long deprecation message
+            *
+            *    which is really long
+            * @param foo bar
+            */
+           List<String> foo();
+        })",
+      {
+          {Options::Language::JAVA, {"out/IFoo.java", "@Deprecated"}},
+          {Options::Language::CPP,
+           {"out/IFoo.h",
+            R"(__attribute__((deprecated("a really long deprecation message which is really long"))))"}},
+          {Options::Language::NDK,
+           {"out/aidl/IFoo.h",
+            R"(__attribute__((deprecated("a really long deprecation message which is really long"))))"}},
+          {Options::Language::RUST,
+           {"out/IFoo.rs",
+            R"(#[deprecated = "a really long deprecation message which is really long"])"}},
+      });
 
-  vector<string> args{"aidl", "--lang=cpp", "IFoo.aidl"};
-  Options options = Options::From(args);
-  EXPECT_EQ(0, ::android::aidl::compile_aidl(options, io_delegate_));
-  std::vector<std::string> empty;
-  EXPECT_EQ(empty, io_delegate_.ListFiles(""));
-  EXPECT_EQ(empty, io_delegate_.ListFiles("/"));
-  EXPECT_EQ(empty, io_delegate_.ListFiles("out"));
+  // In AIDL @deprecated can be in block comments as well as javadoc style
+  CheckDeprecated(
+      "IFoo.aidl",
+      "interface IFoo {\n"
+      "  /* @deprecated use bar() */\n"
+      "  List<String> foo();\n"
+      "}",
+      {
+          {Options::Language::JAVA, {"out/IFoo.java", "@Deprecated"}},
+          // TODO(b/177276893) @deprecated should be in javadoc style comments
+          // {Options::Language::JAVA, {"out/IFoo.java", "/** @deprecated use bar() */"}},
+          {Options::Language::CPP, {"out/IFoo.h", "__attribute__((deprecated(\"use bar()\")))"}},
+          {Options::Language::NDK,
+           {"out/aidl/IFoo.h", "__attribute__((deprecated(\"use bar()\")))"}},
+          {Options::Language::RUST, {"out/IFoo.rs", "#[deprecated = \"use bar()\"]"}},
+      });
 
-  // Make sure the optional and String16.h includes are added
-  string output;
-  EXPECT_TRUE(io_delegate_.GetWrittenContents("IFoo.h", &output));
-  EXPECT_EQ(kExpectedCppHeaderOutput, output);
+  // but not in line comments
+  auto parsed = Parse("IFoo.aidl", "// @deprecated\ninterface IFoo {}", typenames_, GetLanguage());
+  EXPECT_FALSE(parsed->IsDeprecated());
+
+  // parcelable
+  CheckDeprecated("Foo.aidl",
+                  "parcelable Foo {\n"
+                  "  /** @deprecated use bar*/\n"
+                  "  int foo = 0;\n"
+                  "}",
+                  {
+                      {Options::Language::JAVA, {"out/Foo.java", "@Deprecated"}},
+                      {Options::Language::CPP, {"out/Foo.h", "__attribute__((deprecated"}},
+                      {Options::Language::NDK, {"out/aidl/Foo.h", "__attribute__((deprecated"}},
+                      {Options::Language::RUST, {"out/Foo.rs", "#[deprecated"}},
+                  });
+
+  // interface constants
+  CheckDeprecated("IFoo.aidl",
+                  "interface IFoo {\n"
+                  "  /** @deprecated use bar*/\n"
+                  "  const int FOO = 0;\n"
+                  "}",
+                  {
+                      {Options::Language::JAVA, {"out/IFoo.java", "@Deprecated"}},
+                      {Options::Language::CPP, {"out/IFoo.h", "__attribute__((deprecated"}},
+                      {Options::Language::NDK, {"out/aidl/IFoo.h", "__attribute__((deprecated"}},
+                      {Options::Language::RUST, {"out/IFoo.rs", "#[deprecated"}},
+                  });
+
+  // union fields
+  CheckDeprecated("Foo.aidl",
+                  "union Foo {\n"
+                  "  int bar = 0;\n"
+                  "  /** @deprecated use bar*/\n"
+                  "  int foo;\n"
+                  "}",
+                  {
+                      {Options::Language::JAVA, {"out/Foo.java", "@Deprecated"}},
+                      {Options::Language::CPP, {"out/Foo.h", "__attribute__((deprecated"}},
+                      {Options::Language::NDK, {"out/aidl/Foo.h", "__attribute__((deprecated"}},
+                      {Options::Language::RUST, {"out/Foo.rs", "#[deprecated"}},
+                  });
+
+  CheckDeprecated("Foo.aidl",
+                  "/** @deprecated use Bar */\n"
+                  "parcelable Foo {}",
+                  {
+                      {Options::Language::JAVA, {"out/Foo.java", "@Deprecated"}},
+                      {Options::Language::CPP, {"out/Foo.h", "__attribute__((deprecated"}},
+                      {Options::Language::NDK, {"out/aidl/Foo.h", "__attribute__((deprecated"}},
+                      {Options::Language::RUST, {"out/Foo.rs", "#[deprecated"}},
+                  });
+
+  CheckDeprecated("Foo.aidl",
+                  "/** @deprecated use Bar */\n"
+                  "union Foo { int foo = 0; }",
+                  {
+                      {Options::Language::JAVA, {"out/Foo.java", "@Deprecated"}},
+                      {Options::Language::CPP, {"out/Foo.h", "__attribute__((deprecated"}},
+                      {Options::Language::NDK, {"out/aidl/Foo.h", "__attribute__((deprecated"}},
+                      {Options::Language::RUST, {"out/Foo.rs", "#[deprecated"}},
+                  });
+
+  CheckDeprecated("IFoo.aidl",
+                  "/** @deprecated use IBar */\n"
+                  "interface IFoo {}",
+                  {
+                      {Options::Language::JAVA, {"out/IFoo.java", "@Deprecated"}},
+                      {Options::Language::CPP, {"out/IFoo.h", "__attribute__((deprecated"}},
+                      {Options::Language::NDK, {"out/aidl/IFoo.h", "__attribute__((deprecated"}},
+                      {Options::Language::RUST, {"out/IFoo.rs", "#[deprecated"}},
+                  });
+
+  CheckDeprecated("Foo.aidl",
+                  "/** @deprecated use IBar */\n"
+                  "enum Foo { FOO }",
+                  {
+                      {Options::Language::JAVA, {"out/Foo.java", "@Deprecated"}},
+                      {Options::Language::CPP, {"out/Foo.h", "__attribute__((deprecated"}},
+                      {Options::Language::NDK, {"out/aidl/Foo.h", "__attribute__((deprecated"}},
+                      // TODO(b/174514415) support "deprecated"
+                      // {Options::Language::RUST, {"out/Foo.rs", "#[deprecated"}},
+                  });
 }
 
 TEST_P(AidlTest, RequireOuterClass) {
@@ -1397,8 +1372,7 @@ TEST_P(AidlTest, ParcelableHolderAsArgumentType) {
 
 TEST_P(AidlTest, RejectNullableParcelableHolderField) {
   io_delegate_.SetFileContents("Foo.aidl", "parcelable Foo { @nullable ParcelableHolder ext; }");
-  Options options =
-      Options::From("aidl Foo.aidl --lang=" + Options::LanguageToString(GetLanguage()));
+  Options options = Options::From("aidl Foo.aidl --lang=" + to_string(GetLanguage()));
   const string expected_stderr = "ERROR: Foo.aidl:1.27-44: ParcelableHolder cannot be nullable.\n";
   CaptureStderr();
   EXPECT_NE(0, ::android::aidl::compile_aidl(options, io_delegate_));
@@ -1415,8 +1389,7 @@ TEST_P(AidlTest, RejectNullableParcelableHolderField) {
 
 TEST_P(AidlTest, ParcelablesWithConstants) {
   io_delegate_.SetFileContents("Foo.aidl", "parcelable Foo { const int BIT = 0x1 << 3; }");
-  Options options =
-      Options::From("aidl Foo.aidl --lang=" + Options::LanguageToString(GetLanguage()));
+  Options options = Options::From("aidl Foo.aidl --lang=" + to_string(GetLanguage()));
   CaptureStderr();
   EXPECT_EQ(0, ::android::aidl::compile_aidl(options, io_delegate_));
   EXPECT_EQ("", GetCapturedStderr());
@@ -1424,11 +1397,26 @@ TEST_P(AidlTest, ParcelablesWithConstants) {
 
 TEST_P(AidlTest, UnionWithConstants) {
   io_delegate_.SetFileContents("Foo.aidl", "union Foo { const int BIT = 0x1 << 3; int n; }");
-  Options options =
-      Options::From("aidl Foo.aidl --lang=" + Options::LanguageToString(GetLanguage()));
+  Options options = Options::From("aidl Foo.aidl --lang=" + to_string(GetLanguage()));
   CaptureStderr();
   EXPECT_EQ(0, ::android::aidl::compile_aidl(options, io_delegate_));
   EXPECT_EQ("", GetCapturedStderr());
+}
+
+TEST_F(AidlTest, ConstantsWithAnnotations) {
+  io_delegate_.SetFileContents("IFoo.aidl",
+                               "interface IFoo {\n"
+                               " @JavaPassthrough(annotation=\"@Foo\")\n"
+                               " const @JavaPassthrough(annotation=\"@Bar\") int FOO = 0;\n"
+                               "}");
+  Options options = Options::From("aidl IFoo.aidl --lang=java -o out");
+  CaptureStderr();
+  EXPECT_EQ(0, ::android::aidl::compile_aidl(options, io_delegate_));
+  EXPECT_EQ("", GetCapturedStderr());
+  string code;
+  EXPECT_TRUE(io_delegate_.GetWrittenContents("out/IFoo.java", &code));
+  EXPECT_THAT(code, HasSubstr("@Foo\n"));
+  EXPECT_THAT(code, HasSubstr("@Bar\n"));
 }
 
 TEST_F(AidlTest, ApiDump) {
@@ -1436,7 +1424,7 @@ TEST_F(AidlTest, ApiDump) {
       "foo/bar/IFoo.aidl",
       "package foo.bar;\n"
       "import foo.bar.Data;\n"
-      "// comment @hide\n"
+      "// commented /* @hide */\n"
       "interface IFoo {\n"
       "    /* @hide */\n"
       "    int foo(out int[] a, String b, boolean c, inout List<String>  d);\n"
@@ -1444,7 +1432,11 @@ TEST_F(AidlTest, ApiDump) {
       "    IFoo foo3(IFoo foo);\n"
       "    Data getData();\n"
       "    // @hide\n"
+      "    /** blahblah\n"
+      "        @deprecated\n"
+      "          reason why... */\n"
       "    const int A = 1;\n"
+      "    // @deprecated tags in line comments are ignored\n"
       "    const String STR = \"Hello\";\n"
       "}\n");
   io_delegate_.SetFileContents("foo/bar/Data.aidl",
@@ -1458,7 +1450,7 @@ TEST_F(AidlTest, ApiDump) {
                                "   int y;\n"
                                "   /*@hide2*/\n"
                                "   IFoo foo;\n"
-                               "   // It should be @hide property\n"
+                               "   // Ignore @hide property in line comment\n"
                                "   @nullable String[] c;\n"
                                "}\n");
   io_delegate_.SetFileContents("api.aidl", "");
@@ -1470,14 +1462,13 @@ TEST_F(AidlTest, ApiDump) {
   string actual;
   EXPECT_TRUE(io_delegate_.GetWrittenContents("dump/foo/bar/IFoo.aidl", &actual));
   EXPECT_EQ(actual, string(kPreamble).append(R"(package foo.bar;
-/* @hide */
 interface IFoo {
   /* @hide */
   int foo(out int[] a, String b, boolean c, inout List<String> d);
   int foo2(@utf8InCpp String x, inout List<String> y);
   foo.bar.IFoo foo3(foo.bar.IFoo foo);
   foo.bar.Data getData();
-  /* @hide */
+  /* @deprecated reason why... */
   const int A = 1;
   const String STR = "Hello";
 }
@@ -1487,12 +1478,9 @@ interface IFoo {
   EXPECT_EQ(actual, string(kPreamble).append(R"(package foo.bar;
 /* @hide */
 parcelable Data {
-  /* @hide */
   int x = 10;
-  /* @hide */
   int y;
   foo.bar.IFoo foo;
-  /* @hide */
   @nullable String[] c;
 }
 )"));
@@ -1884,6 +1872,19 @@ TEST_F(AidlTest, ConflictWithMetaTransactionGetName) {
                                "package p; interface IFoo {"
                                "String getTransactionName(); }");
   EXPECT_EQ(0, ::android::aidl::compile_aidl(options, io_delegate_));
+}
+
+TEST_F(AidlTest, CheckApiForEquality) {
+  CaptureStderr();
+  Options options = Options::From("aidl --checkapi=equal old new");
+
+  io_delegate_.SetFileContents("old/p/IFoo.aidl",
+                               "package p; interface IFoo{ @utf8InCpp @nullable String foo();}");
+  io_delegate_.SetFileContents("new/p/IFoo.aidl",
+                               "package p; interface IFoo{ @utf8InCpp String foo();}");
+
+  EXPECT_FALSE(::android::aidl::check_api(options, io_delegate_));
+  EXPECT_THAT(GetCapturedStderr(), HasSubstr("+  @utf8InCpp String foo();"));
 }
 
 TEST_F(AidlTest, DifferentOrderAnnotationsInCheckAPI) {
@@ -2526,7 +2527,7 @@ TEST_F(AidlTestIncompatibleChanges, ChangedAnnatationParams) {
 
 TEST_F(AidlTestIncompatibleChanges, AddedParcelableAnnotation) {
   const string expected_stderr =
-      "ERROR: new/p/Foo.aidl:1.47-51: Changed annotations: (empty) to @JavaOnlyStableParcelable\n";
+      "ERROR: new/p/Foo.aidl:1.32-36: Changed annotations: (empty) to @FixedSize\n";
   io_delegate_.SetFileContents("old/p/Foo.aidl",
                                "package p;"
                                "parcelable Foo {"
@@ -2534,7 +2535,7 @@ TEST_F(AidlTestIncompatibleChanges, AddedParcelableAnnotation) {
                                "}");
   io_delegate_.SetFileContents("new/p/Foo.aidl",
                                "package p;"
-                               "@JavaOnlyStableParcelable parcelable Foo {"
+                               "@FixedSize parcelable Foo {"
                                "  int A;"
                                "}");
   CaptureStderr();
@@ -2544,10 +2545,10 @@ TEST_F(AidlTestIncompatibleChanges, AddedParcelableAnnotation) {
 
 TEST_F(AidlTestIncompatibleChanges, RemovedParcelableAnnotation) {
   const string expected_stderr =
-      "ERROR: new/p/Foo.aidl:1.21-25: Changed annotations: @JavaOnlyStableParcelable to (empty)\n";
+      "ERROR: new/p/Foo.aidl:1.21-25: Changed annotations: @FixedSize to (empty)\n";
   io_delegate_.SetFileContents("old/p/Foo.aidl",
                                "package p;"
-                               "@JavaOnlyStableParcelable parcelable Foo {"
+                               "@FixedSize parcelable Foo {"
                                "  int A;"
                                "}");
   io_delegate_.SetFileContents("new/p/Foo.aidl",
@@ -2652,8 +2653,7 @@ TEST_P(AidlTest, RejectNonFixedSizeFromFixedSize) {
                                "  int isFixedSize;"
                                "}");
   io_delegate_.SetFileContents("Bar.aidl", "parcelable Bar { int a; }");
-  Options options =
-      Options::From("aidl Foo.aidl -I . --lang=" + Options::LanguageToString(GetLanguage()));
+  Options options = Options::From("aidl Foo.aidl -I . --lang=" + to_string(GetLanguage()));
 
   CaptureStderr();
   EXPECT_NE(0, ::android::aidl::compile_aidl(options, io_delegate_));
@@ -2666,8 +2666,7 @@ TEST_P(AidlTest, AcceptFixedSizeFromFixedSize) {
   io_delegate_.SetFileContents("Foo.aidl", "@FixedSize parcelable Foo { int a; Bar b; }");
   io_delegate_.SetFileContents("Bar.aidl", "@FixedSize parcelable Bar { Val c; }");
   io_delegate_.SetFileContents("Val.aidl", "enum Val { A, B, }");
-  Options options =
-      Options::From("aidl Foo.aidl -I . --lang=" + Options::LanguageToString(GetLanguage()));
+  Options options = Options::From("aidl Foo.aidl -I . --lang=" + to_string(GetLanguage()));
 
   CaptureStderr();
   EXPECT_EQ(0, ::android::aidl::compile_aidl(options, io_delegate_));
@@ -3134,713 +3133,12 @@ TEST_F(AidlTest, ImmutableParcelableFieldNameRestriction) {
   EXPECT_EQ(expected_stderr, GetCapturedStderr());
 }
 
-const char kUnionExampleExpectedOutputCppHeader[] = R"(#pragma once
-
-#include <a/ByteEnum.h>
-#include <binder/Parcel.h>
-#include <binder/ParcelFileDescriptor.h>
-#include <binder/Status.h>
-#include <cassert>
-#include <codecvt>
-#include <cstdint>
-#include <locale>
-#include <sstream>
-#include <type_traits>
-#include <utility>
-#include <variant>
-#include <vector>
-
-#ifndef __BIONIC__
-#define __assert2(a,b,c,d) ((void)0)
-#endif
-
-namespace a {
-
-class Foo : public ::android::Parcelable {
-public:
-  inline bool operator!=(const Foo& rhs) const {
-    return _value != rhs._value;
-  }
-  inline bool operator<(const Foo& rhs) const {
-    return _value < rhs._value;
-  }
-  inline bool operator<=(const Foo& rhs) const {
-    return _value <= rhs._value;
-  }
-  inline bool operator==(const Foo& rhs) const {
-    return _value == rhs._value;
-  }
-  inline bool operator>(const Foo& rhs) const {
-    return _value > rhs._value;
-  }
-  inline bool operator>=(const Foo& rhs) const {
-    return _value >= rhs._value;
-  }
-
-  enum Tag : int32_t {
-    ns = 0,  // int[] ns;
-    e,  // a.ByteEnum e;
-    pfd,  // ParcelFileDescriptor pfd;
-  };
-
-  template<typename _Tp>
-  static constexpr bool _not_self = !std::is_same_v<std::remove_cv_t<std::remove_reference_t<_Tp>>, Foo>;
-
-  Foo() : _value(std::in_place_index<ns>, ::std::vector<int32_t>({42})) { }
-  Foo(const Foo&) = default;
-  Foo(Foo&&) = default;
-  Foo& operator=(const Foo&) = default;
-  Foo& operator=(Foo&&) = default;
-
-  template <typename _Tp, typename = std::enable_if_t<_not_self<_Tp>>>
-  // NOLINTNEXTLINE(google-explicit-constructor)
-  constexpr Foo(_Tp&& _arg)
-      : _value(std::forward<_Tp>(_arg)) {}
-
-  template <typename... _Tp>
-  constexpr explicit Foo(_Tp&&... _args)
-      : _value(std::forward<_Tp>(_args)...) {}
-
-  template <Tag _tag, typename... _Tp>
-  static Foo make(_Tp&&... _args) {
-    return Foo(std::in_place_index<_tag>, std::forward<_Tp>(_args)...);
-  }
-
-  template <Tag _tag, typename _Tp, typename... _Up>
-  static Foo make(std::initializer_list<_Tp> _il, _Up&&... _args) {
-    return Foo(std::in_place_index<_tag>, std::move(_il), std::forward<_Up>(_args)...);
-  }
-
-  Tag getTag() const {
-    return static_cast<Tag>(_value.index());
-  }
-
-  template <Tag _tag>
-  const auto& get() const {
-    if (getTag() != _tag) { __assert2(__FILE__, __LINE__, __PRETTY_FUNCTION__, "bad access: a wrong tag"); }
-    return std::get<_tag>(_value);
-  }
-
-  template <Tag _tag>
-  auto& get() {
-    if (getTag() != _tag) { __assert2(__FILE__, __LINE__, __PRETTY_FUNCTION__, "bad access: a wrong tag"); }
-    return std::get<_tag>(_value);
-  }
-
-  template <Tag _tag, typename... _Tp>
-  void set(_Tp&&... _args) {
-    _value.emplace<_tag>(std::forward<_Tp>(_args)...);
-  }
-
-  ::android::status_t readFromParcel(const ::android::Parcel* _aidl_parcel) override final;
-  ::android::status_t writeToParcel(::android::Parcel* _aidl_parcel) const override final;
-  static const std::string& getParcelableDescriptor() {
-    static const std::string DESCIPTOR = "a.Foo";
-    return DESCIPTOR;
-  }
-  template <typename _T> class _has_toString {
-    template <typename _U> static std::true_type __has_toString(decltype(&_U::toString));
-    template <typename _U> static std::false_type __has_toString(...);
-    public: enum { value = decltype(__has_toString<_T>(nullptr))::value };
-  };
-  template <typename _T> inline static std::string _call_toString(const _T& t) {
-    if constexpr (_has_toString<_T>::value) return t.toString();
-    return "{no toString() implemented}";
-  }
-  inline std::string toString() const {
-    std::ostringstream os;
-    os << "Foo{";
-    switch (getTag()) {
-    case ns: os << "ns: " << [&](){ std::ostringstream o; o << "["; bool first = true; for (const auto& v: get<ns>()) { (void)v; if (first) first = false; else o << ", "; o << std::to_string(v); }; o << "]"; return o.str(); }(); break;
-    case e: os << "e: " << a::toString(get<e>()); break;
-    case pfd: os << "pfd: " << ""; break;
-    }
-    os << "}";
-    return os.str();
-  }
-private:
-  std::variant<::std::vector<int32_t>, ::a::ByteEnum, ::android::os::ParcelFileDescriptor> _value;
-};  // class Foo
-
-}  // namespace a
-)";
-
-const char kUnionExampleExpectedOutputCppSource[] = R"(#include <a/Foo.h>
-
-namespace a {
-
-::android::status_t Foo::readFromParcel(const ::android::Parcel* _aidl_parcel) {
-  ::android::status_t _aidl_ret_status;
-  int32_t _aidl_tag;
-  if ((_aidl_ret_status = _aidl_parcel->readInt32(&_aidl_tag)) != ::android::OK) return _aidl_ret_status;
-  switch (_aidl_tag) {
-  case ns: {
-    ::std::vector<int32_t> _aidl_value;
-    if ((_aidl_ret_status = _aidl_parcel->readInt32Vector(&_aidl_value)) != ::android::OK) return _aidl_ret_status;
-    if constexpr (std::is_trivially_copyable_v<::std::vector<int32_t>>) {
-      set<ns>(_aidl_value);
-    } else {
-      // NOLINTNEXTLINE(performance-move-const-arg)
-      set<ns>(std::move(_aidl_value));
-    }
-    return ::android::OK; }
-  case e: {
-    ::a::ByteEnum _aidl_value;
-    if ((_aidl_ret_status = _aidl_parcel->readByte(reinterpret_cast<int8_t *>(&_aidl_value))) != ::android::OK) return _aidl_ret_status;
-    if constexpr (std::is_trivially_copyable_v<::a::ByteEnum>) {
-      set<e>(_aidl_value);
-    } else {
-      // NOLINTNEXTLINE(performance-move-const-arg)
-      set<e>(std::move(_aidl_value));
-    }
-    return ::android::OK; }
-  case pfd: {
-    ::android::os::ParcelFileDescriptor _aidl_value;
-    if ((_aidl_ret_status = _aidl_parcel->readParcelable(&_aidl_value)) != ::android::OK) return _aidl_ret_status;
-    if constexpr (std::is_trivially_copyable_v<::android::os::ParcelFileDescriptor>) {
-      set<pfd>(_aidl_value);
-    } else {
-      // NOLINTNEXTLINE(performance-move-const-arg)
-      set<pfd>(std::move(_aidl_value));
-    }
-    return ::android::OK; }
-  }
-  return ::android::BAD_VALUE;
-}
-
-::android::status_t Foo::writeToParcel(::android::Parcel* _aidl_parcel) const {
-  ::android::status_t _aidl_ret_status = _aidl_parcel->writeInt32(getTag());
-  if (_aidl_ret_status != ::android::OK) return _aidl_ret_status;
-  switch (getTag()) {
-  case ns: return _aidl_parcel->writeInt32Vector(get<ns>());
-  case e: return _aidl_parcel->writeByte(static_cast<int8_t>(get<e>()));
-  case pfd: return _aidl_parcel->writeParcelable(get<pfd>());
-  }
-  __assert2(__FILE__, __LINE__, __PRETTY_FUNCTION__, "can't reach here");
-}
-
-}  // namespace a
-)";
-
-const char kUnionExampleExpectedOutputNdkHeader[] = R"(#pragma once
-#include <android/binder_interface_utils.h>
-#include <android/binder_parcelable_utils.h>
-#include <codecvt>
-#include <locale>
-#include <sstream>
-
-#include <cassert>
-#include <type_traits>
-#include <utility>
-#include <variant>
-#include <cstdint>
-#include <memory>
-#include <optional>
-#include <string>
-#include <vector>
-#ifdef BINDER_STABILITY_SUPPORT
-#include <android/binder_stability.h>
-#endif  // BINDER_STABILITY_SUPPORT
-#include <aidl/a/ByteEnum.h>
-
-#ifndef __BIONIC__
-#define __assert2(a,b,c,d) ((void)0)
-#endif
-
-namespace aidl {
-namespace a {
-class Foo {
-public:
-  typedef std::false_type fixed_size;
-  static const char* descriptor;
-
-  enum Tag : int32_t {
-    ns = 0,  // int[] ns;
-    e,  // a.ByteEnum e;
-    pfd,  // ParcelFileDescriptor pfd;
-  };
-
-  template<typename _Tp>
-  static constexpr bool _not_self = !std::is_same_v<std::remove_cv_t<std::remove_reference_t<_Tp>>, Foo>;
-
-  Foo() : _value(std::in_place_index<ns>, std::vector<int32_t>({42})) { }
-  Foo(const Foo&) = default;
-  Foo(Foo&&) = default;
-  Foo& operator=(const Foo&) = default;
-  Foo& operator=(Foo&&) = default;
-
-  template <typename _Tp, typename = std::enable_if_t<_not_self<_Tp>>>
-  // NOLINTNEXTLINE(google-explicit-constructor)
-  constexpr Foo(_Tp&& _arg)
-      : _value(std::forward<_Tp>(_arg)) {}
-
-  template <typename... _Tp>
-  constexpr explicit Foo(_Tp&&... _args)
-      : _value(std::forward<_Tp>(_args)...) {}
-
-  template <Tag _tag, typename... _Tp>
-  static Foo make(_Tp&&... _args) {
-    return Foo(std::in_place_index<_tag>, std::forward<_Tp>(_args)...);
-  }
-
-  template <Tag _tag, typename _Tp, typename... _Up>
-  static Foo make(std::initializer_list<_Tp> _il, _Up&&... _args) {
-    return Foo(std::in_place_index<_tag>, std::move(_il), std::forward<_Up>(_args)...);
-  }
-
-  Tag getTag() const {
-    return static_cast<Tag>(_value.index());
-  }
-
-  template <Tag _tag>
-  const auto& get() const {
-    if (getTag() != _tag) { __assert2(__FILE__, __LINE__, __PRETTY_FUNCTION__, "bad access: a wrong tag"); }
-    return std::get<_tag>(_value);
-  }
-
-  template <Tag _tag>
-  auto& get() {
-    if (getTag() != _tag) { __assert2(__FILE__, __LINE__, __PRETTY_FUNCTION__, "bad access: a wrong tag"); }
-    return std::get<_tag>(_value);
-  }
-
-  template <Tag _tag, typename... _Tp>
-  void set(_Tp&&... _args) {
-    _value.emplace<_tag>(std::forward<_Tp>(_args)...);
-  }
-
-  binder_status_t readFromParcel(const AParcel* _parcel);
-  binder_status_t writeToParcel(AParcel* _parcel) const;
-
-  inline bool operator!=(const Foo& rhs) const {
-    return _value != rhs._value;
-  }
-  inline bool operator<(const Foo& rhs) const {
-    return _value < rhs._value;
-  }
-  inline bool operator<=(const Foo& rhs) const {
-    return _value <= rhs._value;
-  }
-  inline bool operator==(const Foo& rhs) const {
-    return _value == rhs._value;
-  }
-  inline bool operator>(const Foo& rhs) const {
-    return _value > rhs._value;
-  }
-  inline bool operator>=(const Foo& rhs) const {
-    return _value >= rhs._value;
-  }
-
-  static const ::ndk::parcelable_stability_t _aidl_stability = ::ndk::STABILITY_LOCAL;
-  template <typename _T> class _has_toString {
-    template <typename _U> static std::true_type __has_toString(decltype(&_U::toString));
-    template <typename _U> static std::false_type __has_toString(...);
-    public: enum { value = decltype(__has_toString<_T>(nullptr))::value };
-  };
-  template <typename _T> inline static std::string _call_toString(const _T& t) {
-    if constexpr (_has_toString<_T>::value) return t.toString();
-    return "{no toString() implemented}";
-  }
-  inline std::string toString() const {
-    std::ostringstream os;
-    os << "Foo{";
-    switch (getTag()) {
-    case ns: os << "ns: " << [&](){ std::ostringstream o; o << "["; bool first = true; for (const auto& v: get<ns>()) { (void)v; if (first) first = false; else o << ", "; o << std::to_string(v); }; o << "]"; return o.str(); }(); break;
-    case e: os << "e: " << a::toString(get<e>()); break;
-    case pfd: os << "pfd: " << ""; break;
-    }
-    os << "}";
-    return os.str();
-  }
-private:
-  std::variant<std::vector<int32_t>, ::aidl::a::ByteEnum, ::ndk::ScopedFileDescriptor> _value;
-};
-}  // namespace a
-}  // namespace aidl
-)";
-
-const char kUnionExampleExpectedOutputNdkSource[] = R"(#include "aidl/a/Foo.h"
-
-#include <android/binder_parcel_utils.h>
-
-namespace aidl {
-namespace a {
-const char* Foo::descriptor = "a.Foo";
-
-binder_status_t Foo::readFromParcel(const AParcel* _parcel) {
-  binder_status_t _aidl_ret_status;
-  int32_t _aidl_tag;
-  if ((_aidl_ret_status = AParcel_readInt32(_parcel, &_aidl_tag)) != STATUS_OK) return _aidl_ret_status;
-  switch (_aidl_tag) {
-  case ns: {
-    std::vector<int32_t> _aidl_value;
-    if ((_aidl_ret_status = ::ndk::AParcel_readVector(_parcel, &_aidl_value)) != STATUS_OK) return _aidl_ret_status;
-    if constexpr (std::is_trivially_copyable_v<std::vector<int32_t>>) {
-      set<ns>(_aidl_value);
-    } else {
-      // NOLINTNEXTLINE(performance-move-const-arg)
-      set<ns>(std::move(_aidl_value));
-    }
-    return STATUS_OK; }
-  case e: {
-    ::aidl::a::ByteEnum _aidl_value;
-    if ((_aidl_ret_status = AParcel_readByte(_parcel, reinterpret_cast<int8_t*>(&_aidl_value))) != STATUS_OK) return _aidl_ret_status;
-    if constexpr (std::is_trivially_copyable_v<::aidl::a::ByteEnum>) {
-      set<e>(_aidl_value);
-    } else {
-      // NOLINTNEXTLINE(performance-move-const-arg)
-      set<e>(std::move(_aidl_value));
-    }
-    return STATUS_OK; }
-  case pfd: {
-    ::ndk::ScopedFileDescriptor _aidl_value;
-    if ((_aidl_ret_status = ::ndk::AParcel_readRequiredParcelFileDescriptor(_parcel, &_aidl_value)) != STATUS_OK) return _aidl_ret_status;
-    if constexpr (std::is_trivially_copyable_v<::ndk::ScopedFileDescriptor>) {
-      set<pfd>(_aidl_value);
-    } else {
-      // NOLINTNEXTLINE(performance-move-const-arg)
-      set<pfd>(std::move(_aidl_value));
-    }
-    return STATUS_OK; }
-  }
-  return STATUS_BAD_VALUE;
-}
-binder_status_t Foo::writeToParcel(AParcel* _parcel) const {
-  binder_status_t _aidl_ret_status = AParcel_writeInt32(_parcel, getTag());
-  if (_aidl_ret_status != STATUS_OK) return _aidl_ret_status;
-  switch (getTag()) {
-  case ns: return ::ndk::AParcel_writeVector(_parcel, get<ns>());
-  case e: return AParcel_writeByte(_parcel, static_cast<int8_t>(get<e>()));
-  case pfd: return ::ndk::AParcel_writeRequiredParcelFileDescriptor(_parcel, get<pfd>());
-  }
-  __assert2(__FILE__, __LINE__, __PRETTY_FUNCTION__, "can't reach here");
-}
-
-}  // namespace a
-}  // namespace aidl
-)";
-
-const char kUnionExampleExpectedOutputJava[] = R"(/*
- * This file is auto-generated.  DO NOT MODIFY.
- */
-package a;
-
-
-public final class Foo implements android.os.Parcelable {
-  // tags for union fields
-  public final static int ns = 0;  // int[] ns;
-  public final static int e = 1;  // a.ByteEnum e;
-  public final static int pfd = 2;  // ParcelFileDescriptor pfd;
-
-  private int _tag;
-  private Object _value;
-
-  public Foo() {
-    int[] _value = {42};
-    this._tag = ns;
-    this._value = _value;
-  }
-
-  private Foo(android.os.Parcel _aidl_parcel) {
-    readFromParcel(_aidl_parcel);
-  }
-
-  private Foo(int _tag, Object _value) {
-    this._tag = _tag;
-    this._value = _value;
-  }
-
-  public int getTag() {
-    return _tag;
-  }
-
-  // int[] ns;
-
-  public static Foo ns(int[] _value) {
-    return new Foo(ns, _value);
-  }
-
-  public int[] getNs() {
-    _assertTag(ns);
-    return (int[]) _value;
-  }
-
-  public void setNs(int[] _value) {
-    _set(ns, _value);
-  }
-
-  // a.ByteEnum e;
-
-  public static Foo e(byte _value) {
-    return new Foo(e, _value);
-  }
-
-  public byte getE() {
-    _assertTag(e);
-    return (byte) _value;
-  }
-
-  public void setE(byte _value) {
-    _set(e, _value);
-  }
-
-  // ParcelFileDescriptor pfd;
-
-  public static Foo pfd(android.os.ParcelFileDescriptor _value) {
-    return new Foo(pfd, _value);
-  }
-
-  public android.os.ParcelFileDescriptor getPfd() {
-    _assertTag(pfd);
-    return (android.os.ParcelFileDescriptor) _value;
-  }
-
-  public void setPfd(android.os.ParcelFileDescriptor _value) {
-    _set(pfd, _value);
-  }
-
-  public static final android.os.Parcelable.Creator<Foo> CREATOR = new android.os.Parcelable.Creator<Foo>() {
-    @Override
-    public Foo createFromParcel(android.os.Parcel _aidl_source) {
-      return new Foo(_aidl_source);
-    }
-    @Override
-    public Foo[] newArray(int _aidl_size) {
-      return new Foo[_aidl_size];
-    }
-  };
-
-  @Override
-  public final void writeToParcel(android.os.Parcel _aidl_parcel, int _aidl_flag) {
-    _aidl_parcel.writeInt(_tag);
-    switch (_tag) {
-    case ns:
-      _aidl_parcel.writeIntArray(getNs());
-      break;
-    case e:
-      _aidl_parcel.writeByte(getE());
-      break;
-    case pfd:
-      if ((getPfd()!=null)) {
-        _aidl_parcel.writeInt(1);
-        getPfd().writeToParcel(_aidl_parcel, 0);
-      }
-      else {
-        _aidl_parcel.writeInt(0);
-      }
-      break;
-    }
-  }
-
-  public void readFromParcel(android.os.Parcel _aidl_parcel) {
-    int _aidl_tag;
-    _aidl_tag = _aidl_parcel.readInt();
-    switch (_aidl_tag) {
-    case ns: {
-      int[] _aidl_value;
-      _aidl_value = _aidl_parcel.createIntArray();
-      _set(_aidl_tag, _aidl_value);
-      return; }
-    case e: {
-      byte _aidl_value;
-      _aidl_value = _aidl_parcel.readByte();
-      _set(_aidl_tag, _aidl_value);
-      return; }
-    case pfd: {
-      android.os.ParcelFileDescriptor _aidl_value;
-      if ((0!=_aidl_parcel.readInt())) {
-        _aidl_value = android.os.ParcelFileDescriptor.CREATOR.createFromParcel(_aidl_parcel);
-      }
-      else {
-        _aidl_value = null;
-      }
-      _set(_aidl_tag, _aidl_value);
-      return; }
-    }
-    throw new IllegalArgumentException("union: unknown tag: " + _aidl_tag);
-  }
-
-  @Override
-  public int describeContents() {
-    int _mask = 0;
-    switch (getTag()) {
-    case pfd:
-      _mask |= describeContents(getPfd());
-      break;
-    }
-    return _mask;
-  }
-  private int describeContents(Object _v) {
-    if (_v == null) return 0;
-    if (_v instanceof android.os.Parcelable) {
-      return ((android.os.Parcelable) _v).describeContents();
-    }
-    return 0;
-  }
-
-  private void _assertTag(int tag) {
-    if (getTag() != tag) {
-      throw new IllegalStateException("bad access: " + _tagString(tag) + ", " + _tagString(getTag()) + " is available.");
-    }
-  }
-
-  private String _tagString(int _tag) {
-    switch (_tag) {
-    case ns: return "ns";
-    case e: return "e";
-    case pfd: return "pfd";
-    }
-    throw new IllegalStateException("unknown field: " + _tag);
-  }
-
-  private void _set(int _tag, Object _value) {
-    this._tag = _tag;
-    this._value = _value;
-  }
-}
-)";
-
-const char kUnionExampleExpectedOutputRust[] = R"(#[derive(Debug)]
-pub enum Foo {
-  Ns(Vec<i32>),
-  E(crate::mangled::_1_a_8_ByteEnum),
-  Pfd(Option<binder::parcel::ParcelFileDescriptor>),
-}
-pub(crate) mod mangled { pub use super::Foo as _1_a_3_Foo; }
-impl Default for Foo {
-  fn default() -> Self {
-    Self::Ns(vec!{42})
-  }
-}
-impl binder::parcel::Serialize for Foo {
-  fn serialize(&self, parcel: &mut binder::parcel::Parcel) -> binder::Result<()> {
-    <Self as binder::parcel::SerializeOption>::serialize_option(Some(self), parcel)
-  }
-}
-impl binder::parcel::SerializeArray for Foo {}
-impl binder::parcel::SerializeOption for Foo {
-  fn serialize_option(this: Option<&Self>, parcel: &mut binder::parcel::Parcel) -> binder::Result<()> {
-    let this = if let Some(this) = this {
-      parcel.write(&1i32)?;
-      this
-    } else {
-      return parcel.write(&0i32);
-    };
-    match this {
-      Self::Ns(v) => {
-        parcel.write(&0i32)?;
-        parcel.write(v)
-      }
-      Self::E(v) => {
-        parcel.write(&1i32)?;
-        parcel.write(v)
-      }
-      Self::Pfd(v) => {
-        parcel.write(&2i32)?;
-        let __field_ref = v.as_ref().ok_or(binder::StatusCode::UNEXPECTED_NULL)?;
-        parcel.write(__field_ref)
-      }
-    }
-  }
-}
-impl binder::parcel::Deserialize for Foo {
-  fn deserialize(parcel: &binder::parcel::Parcel) -> binder::Result<Self> {
-    <Self as binder::parcel::DeserializeOption>::deserialize_option(parcel)
-       .transpose()
-       .unwrap_or(Err(binder::StatusCode::UNEXPECTED_NULL))
-  }
-}
-impl binder::parcel::DeserializeArray for Foo {}
-impl binder::parcel::DeserializeOption for Foo {
-  fn deserialize_option(parcel: &binder::parcel::Parcel) -> binder::Result<Option<Self>> {
-    let status: i32 = parcel.read()?;
-    if status == 0 { return Ok(None); }
-    let tag: i32 = parcel.read()?;
-    match tag {
-      0 => {
-        let value: Vec<i32> = parcel.read()?;
-        Ok(Some(Self::Ns(value)))
-      }
-      1 => {
-        let value: crate::mangled::_1_a_8_ByteEnum = parcel.read()?;
-        Ok(Some(Self::E(value)))
-      }
-      2 => {
-        let value: Option<binder::parcel::ParcelFileDescriptor> = Some(parcel.read()?);
-        Ok(Some(Self::Pfd(value)))
-      }
-      _ => {
-        Err(binder::StatusCode::BAD_VALUE)
-      }
-    }
-  }
-}
-)";
-
-struct AidlUnionTest : ::testing::Test {
-  void SetUp() override {
-    io_delegate_.SetFileContents("a/Foo.aidl", R"(
-package a;
-import a.ByteEnum;
-union Foo {
-  int[] ns = {42};
-  ByteEnum  e;
-  ParcelFileDescriptor pfd;
-}
-)");
-    io_delegate_.SetFileContents("a/ByteEnum.aidl", R"(
-package a;
-@Backing(type="byte")
-enum ByteEnum {
-  a, b, c
-}
-)");
-  }
-  FakeIoDelegate io_delegate_;
-  void Compile(string lang) {
-    string command = "aidl --structured -I. -o out --lang=" + lang;
-    if (lang == "cpp" || lang == "ndk") {
-      command += " -h out";
-    }
-    command += " a/Foo.aidl";
-    auto opts = Options::From(command);
-    CaptureStderr();
-    auto ret = ::android::aidl::compile_aidl(opts, io_delegate_);
-    auto err = GetCapturedStderr();
-    EXPECT_EQ(0, ret) << err;
-  }
-  void EXPECT_COMPILE_OUTPUTS(const map<string, string>& outputs) {
-    for (const auto& [path, expected] : outputs) {
-      string actual;
-      EXPECT_TRUE(io_delegate_.GetWrittenContents(path, &actual)) << path << " not found.";
-      EXPECT_EQ(expected, actual);
-    }
-  }
-};
-
-TEST_F(AidlUnionTest, Example_Cpp) {
-  Compile("cpp");
-  EXPECT_COMPILE_OUTPUTS(
-      map<string, string>({{"out/a/Foo.cpp", kUnionExampleExpectedOutputCppSource},
-                           {"out/a/Foo.h", kUnionExampleExpectedOutputCppHeader}}));
-}
-
-TEST_F(AidlUnionTest, Example_Ndk) {
-  Compile("ndk");
-  EXPECT_COMPILE_OUTPUTS(
-      map<string, string>({{"out/a/Foo.cpp", kUnionExampleExpectedOutputNdkSource},
-                           {"out/aidl/a/Foo.h", kUnionExampleExpectedOutputNdkHeader}}));
-}
-
-TEST_F(AidlUnionTest, Example_Java) {
-  Compile("java");
-  EXPECT_COMPILE_OUTPUTS(
-      map<string, string>({{"out/a/Foo.java", kUnionExampleExpectedOutputJava}}));
-}
-
-TEST_F(AidlUnionTest, Example_Rust) {
-  Compile("rust");
-  EXPECT_COMPILE_OUTPUTS(map<string, string>({{"out/a/Foo.rs", kUnionExampleExpectedOutputRust}}));
+TEST_P(AidlTest, UnionInUnion) {
+  import_paths_.insert(".");
+  io_delegate_.SetFileContents("Bar.aidl", "union Bar { int n = 42; long l; }");
+  CaptureStderr();
+  EXPECT_NE(nullptr, Parse("Foo.aidl", "union Foo { Bar b; int n; }", typenames_, GetLanguage()));
+  EXPECT_THAT("", GetCapturedStderr());
 }
 
 TEST_P(AidlTest, UnionRejectsEmptyDecl) {
@@ -3872,8 +3170,7 @@ TEST_P(AidlTest, UnionRejectsFirstEnumWithNoDefaults) {
 
 TEST_P(AidlTest, GenericStructuredParcelable) {
   io_delegate_.SetFileContents("Foo.aidl", "parcelable Foo<T, U> { int a; int A; }");
-  Options options =
-      Options::From("aidl Foo.aidl --lang=" + Options::LanguageToString(GetLanguage()));
+  Options options = Options::From("aidl Foo.aidl --lang=" + to_string(GetLanguage()));
   const string expected_stderr = "";
   CaptureStderr();
   EXPECT_EQ(0, ::android::aidl::compile_aidl(options, io_delegate_));
@@ -3884,8 +3181,7 @@ TEST_F(AidlTest, GenericStructuredParcelableWithStringConstants_Cpp) {
   io_delegate_.SetFileContents("Foo.aidl",
                                "parcelable Foo<T, U> { int a; const String s = \"\"; }");
   Options options =
-      Options::From("aidl Foo.aidl --lang=" + Options::LanguageToString(Options::Language::CPP) +
-                    " -o out -h out");
+      Options::From("aidl Foo.aidl --lang=" + to_string(Options::Language::CPP) + " -o out -h out");
   const string expected_stderr = "";
   CaptureStderr();
   EXPECT_EQ(0, ::android::aidl::compile_aidl(options, io_delegate_));
@@ -3904,8 +3200,7 @@ TEST_F(AidlTest, GenericStructuredParcelableWithStringConstants_Ndk) {
   io_delegate_.SetFileContents("Foo.aidl",
                                "parcelable Foo<T, U> { int a; const String s = \"\"; }");
   Options options =
-      Options::From("aidl Foo.aidl --lang=" + Options::LanguageToString(Options::Language::NDK) +
-                    " -o out -h out");
+      Options::From("aidl Foo.aidl --lang=" + to_string(Options::Language::NDK) + " -o out -h out");
   const string expected_stderr = "";
   CaptureStderr();
   EXPECT_EQ(0, ::android::aidl::compile_aidl(options, io_delegate_));
@@ -4007,8 +3302,7 @@ TEST_F(GenericAidlTest, ImportGenericParameterTypesNDK) {
 
 TEST_P(AidlTest, RejectGenericStructuredParcelabelRepeatedParam) {
   io_delegate_.SetFileContents("Foo.aidl", "parcelable Foo<T,T> { int a; int A; }");
-  Options options =
-      Options::From("aidl Foo.aidl --lang=" + Options::LanguageToString(GetLanguage()));
+  Options options = Options::From("aidl Foo.aidl --lang=" + to_string(GetLanguage()));
   const string expected_stderr =
       "ERROR: Foo.aidl:1.11-15: Every type parameter should be unique.\n";
   CaptureStderr();
@@ -4018,8 +3312,7 @@ TEST_P(AidlTest, RejectGenericStructuredParcelabelRepeatedParam) {
 
 TEST_P(AidlTest, RejectGenericStructuredParcelableField) {
   io_delegate_.SetFileContents("Foo.aidl", "parcelable Foo<T,T> { T a; int A; }");
-  Options options =
-      Options::From("aidl Foo.aidl --lang=" + Options::LanguageToString(GetLanguage()));
+  Options options = Options::From("aidl Foo.aidl --lang=" + to_string(GetLanguage()));
   const string expected_stderr = "ERROR: Foo.aidl:1.22-24: Failed to resolve 'T'\n";
   CaptureStderr();
   EXPECT_NE(0, ::android::aidl::compile_aidl(options, io_delegate_));
@@ -4028,8 +3321,7 @@ TEST_P(AidlTest, RejectGenericStructuredParcelableField) {
 
 TEST_P(AidlTest, LongCommentWithinConstExpression) {
   io_delegate_.SetFileContents("Foo.aidl", "enum Foo { FOO = (1 << 1) /* comment */ | 0x0 }");
-  Options options =
-      Options::From("aidl Foo.aidl --lang=" + Options::LanguageToString(GetLanguage()));
+  Options options = Options::From("aidl Foo.aidl --lang=" + to_string(GetLanguage()));
   CaptureStderr();
   EXPECT_EQ(0, ::android::aidl::compile_aidl(options, io_delegate_));
   EXPECT_EQ("", GetCapturedStderr());
@@ -4236,8 +3528,8 @@ TEST_P(AidlTest, DefaultWithEmptyArray) {
   io_delegate_.SetFileContents("a/p/Foo.aidl", "package p; parcelable Foo { p.Bar[] bars = {}; }");
   io_delegate_.SetFileContents("a/p/Bar.aidl", "package p; parcelable Bar { }");
   CaptureStderr();
-  auto options = Options::From("aidl -I a --lang " + Options::LanguageToString(GetLanguage()) +
-                               " -o out -h out a/p/Foo.aidl");
+  auto options =
+      Options::From("aidl -I a --lang " + to_string(GetLanguage()) + " -o out -h out a/p/Foo.aidl");
   EXPECT_EQ(0, aidl::compile_aidl(options, io_delegate_));
   auto err = GetCapturedStderr();
   EXPECT_EQ("", err);
@@ -4250,8 +3542,8 @@ TEST_P(AidlTest, RejectRefsInAnnotation) {
                                "  @JavaPassthrough(annotation=ANNOTATION) void foo();\n"
                                "}");
   CaptureStderr();
-  auto options = Options::From("aidl --lang " + Options::LanguageToString(GetLanguage()) +
-                               " -o out -h out a/p/IFoo.aidl");
+  auto options =
+      Options::From("aidl --lang " + to_string(GetLanguage()) + " -o out -h out a/p/IFoo.aidl");
   EXPECT_EQ(1, aidl::compile_aidl(options, io_delegate_));
   auto err = GetCapturedStderr();
   EXPECT_EQ(
@@ -4311,6 +3603,19 @@ TEST_F(AidlTest, RecursiveReferences) {
   EXPECT_EQ("", GetCapturedStderr());
 }
 
+TEST_P(AidlTest, UnknownConstReference) {
+  io_delegate_.SetFileContents("Foo.aidl", " parcelable Foo { UnknownType field = UNKNOWN_REF; }");
+  auto options =
+      Options::From("aidl --lang " + to_string(GetLanguage()) + " -o out -h out Foo.aidl");
+  const string err =
+      "ERROR: Foo.aidl:1.18-30: Failed to resolve 'UnknownType'\n"
+      "ERROR: Foo.aidl:1.38-50: Can't find UNKNOWN_REF in Foo\n"
+      "ERROR: Foo.aidl:1.38-50: Unknown reference 'UNKNOWN_REF'\n";
+  CaptureStderr();
+  EXPECT_EQ(1, aidl::compile_aidl(options, io_delegate_));
+  EXPECT_EQ(err, GetCapturedStderr());
+}
+
 TEST_P(AidlTest, JavaCompatibleBuiltinTypes) {
   string contents = R"(
 import android.os.IBinder;
@@ -4322,7 +3627,7 @@ interface IFoo {}
 
 TEST_P(AidlTest, WarningInterfaceName) {
   io_delegate_.SetFileContents("p/Foo.aidl", "interface Foo {}");
-  auto options = Options::From("aidl --lang " + Options::LanguageToString(GetLanguage()) +
+  auto options = Options::From("aidl --lang " + to_string(GetLanguage()) +
                                " -Weverything -o out -h out p/Foo.aidl");
   CaptureStderr();
   EXPECT_EQ(0, aidl::compile_aidl(options, io_delegate_));
@@ -4332,12 +3637,35 @@ TEST_P(AidlTest, WarningInterfaceName) {
 
 TEST_P(AidlTest, ErrorInterfaceName) {
   io_delegate_.SetFileContents("p/Foo.aidl", "interface Foo {}");
-  auto options = Options::From("aidl --lang " + Options::LanguageToString(GetLanguage()) +
+  auto options = Options::From("aidl --lang " + to_string(GetLanguage()) +
                                " -Weverything -Werror -o out -h out p/Foo.aidl");
   CaptureStderr();
   EXPECT_EQ(1, aidl::compile_aidl(options, io_delegate_));
   EXPECT_EQ("ERROR: p/Foo.aidl:1.1-10: Interface names should start with I. [-Winterface-name]\n",
             GetCapturedStderr());
+}
+
+TEST_F(AidlTest, HideIsNotForArgs) {
+  io_delegate_.SetFileContents("IFoo.aidl",
+                               "interface IFoo {\n"
+                               "  void foo(in @Hide int x);\n"
+                               "}");
+  auto options = Options::From("aidl --lang=java IFoo.aidl");
+  CaptureStderr();
+  EXPECT_EQ(1, aidl::compile_aidl(options, io_delegate_));
+  EXPECT_THAT(GetCapturedStderr(), HasSubstr("@Hide is not available"));
+}
+
+TEST_F(AidlTest, SuppressWarningsIsNotForArgs) {
+  io_delegate_.SetFileContents(
+      "IFoo.aidl",
+      "interface IFoo {\n"
+      "  void foo(in @SuppressWarnings(value=\"inout-parameter\") int x);\n"
+      "}");
+  auto options = Options::From("aidl --lang=java IFoo.aidl");
+  CaptureStderr();
+  EXPECT_EQ(1, aidl::compile_aidl(options, io_delegate_));
+  EXPECT_THAT(GetCapturedStderr(), HasSubstr("@SuppressWarnings is not available"));
 }
 
 struct TypeParam {
@@ -4427,7 +3755,7 @@ class AidlTypeParamTest : public testing::TestWithParam<std::tuple<Options::Lang
   void Run(const std::string& generic_type_decl,
            const std::map<std::string, std::string>& expectations) {
     const auto& param = GetParam();
-    const auto& lang = Options::LanguageToString(std::get<0>(param));
+    const auto& lang = to_string(std::get<0>(param));
     const auto& kind = std::get<1>(param).kind;
 
     FakeIoDelegate io;
@@ -4458,8 +3786,7 @@ INSTANTIATE_TEST_SUITE_P(
                                      Options::Language::NDK, Options::Language::RUST),
                      testing::ValuesIn(kTypeParams)),
     [](const testing::TestParamInfo<std::tuple<Options::Language, TypeParam>>& info) {
-      return Options::LanguageToString(std::get<0>(info.param)) + "_" +
-             std::get<1>(info.param).kind;
+      return to_string(std::get<0>(info.param)) + "_" + std::get<1>(info.param).kind;
     });
 
 TEST_P(AidlTypeParamTest, ListSupportedTypes) {

@@ -79,6 +79,8 @@ class Options final {
 
   enum class Task { UNSPECIFIED, COMPILE, PREPROCESS, DUMP_API, CHECK_API, DUMP_MAPPINGS };
 
+  enum class CheckApiLevel { COMPATIBLE, EQUAL };
+
   enum class Stability { UNSPECIFIED, VINTF };
   bool StabilityFromString(const std::string& stability, Stability* out_stability);
 
@@ -99,6 +101,8 @@ class Options final {
   bool IsCppOutput() const { return language_ == Language::CPP || language_ == Language::NDK; }
 
   Task GetTask() const { return task_; }
+
+  CheckApiLevel GetCheckApiLevel() const { return check_api_level_; }
 
   const set<string>& ImportDirs() const { return import_dirs_; }
 
@@ -149,8 +153,6 @@ class Options final {
 
   bool GenApiMapping() const { return task_ == Task::DUMP_MAPPINGS; }
 
-  static const string LanguageToString(Language language);
-
   DiagnosticMapping GetDiagnosticMapping() const { return warning_options_.GetDiagnosticMapping(); }
 
   // The following are for testability, but cannot be influenced on the command line.
@@ -165,6 +167,7 @@ class Options final {
   const string myname_;
   Language language_ = Language::UNSPECIFIED;
   Task task_ = Task::COMPILE;
+  CheckApiLevel check_api_level_ = CheckApiLevel::COMPATIBLE;
   set<string> import_dirs_;
   set<string> import_files_;
   vector<string> preprocessed_files_;
@@ -186,6 +189,8 @@ class Options final {
   ErrorMessage error_message_;
   WarningOptions warning_options_;
 };
+
+std::string to_string(Options::Language language);
 
 }  // namespace aidl
 }  // namespace android

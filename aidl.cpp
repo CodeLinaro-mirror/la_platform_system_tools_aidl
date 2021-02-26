@@ -217,25 +217,24 @@ bool write_dep_file(const Options& options, const AidlDefinedType& defined_type,
   return true;
 }
 
-string generate_outputFileName(const Options& options, const AidlDefinedType& defined_type) {
-  // create the path to the destination folder based on the
-  // defined_type package name
+// Returns the path to the destination file of `defined_type`.
+string GetOutputFilePath(const Options& options, const AidlDefinedType& defined_type) {
   string result = options.OutputDir();
 
+  // add the package
   string package = defined_type.GetPackage();
-  size_t len = package.length();
-  for (size_t i = 0; i < len; i++) {
-    if (package[i] == '.') {
-      package[i] = OS_PATH_SEPARATOR;
+  if (!package.empty()) {
+    for (auto& c : package) {
+      if (c == '.') {
+        c = OS_PATH_SEPARATOR;
+      }
     }
+    result += package;
+    result += OS_PATH_SEPARATOR;
   }
 
-  result += package;
-
-  // add the filename by replacing the .aidl extension to .java
-  const string& name = defined_type.GetName();
-  result += OS_PATH_SEPARATOR;
-  result.append(name, 0, name.find('.'));
+  // add the filename
+  result += defined_type.GetName();
   if (options.TargetLanguage() == Options::Language::JAVA) {
     result += ".java";
   } else if (options.IsCppOutput()) {
@@ -345,6 +344,57 @@ bool ParsePreprocessedLine(const string& line, string* decl, std::string* packag
   }
 
   return true;
+}
+
+bool ValidateAnnotationContext(const AidlDocument& doc) {
+  struct AnnotationValidator : AidlVisitor {
+    bool success = true;
+
+    void Check(const AidlAnnotatable& annotatable, AidlAnnotation::TargetContext context) {
+      for (const auto& annot : annotatable.GetAnnotations()) {
+        if (!annot.CheckContext(context)) {
+          success = false;
+        }
+      }
+    }
+    void Visit(const AidlInterface& m) override {
+      Check(m, AidlAnnotation::CONTEXT_TYPE_INTERFACE);
+    }
+    void Visit(const AidlParcelable& m) override {
+      Check(m, AidlAnnotation::CONTEXT_TYPE_UNSTRUCTURED_PARCELABLE);
+    }
+    void Visit(const AidlStructuredParcelable& m) override {
+      Check(m, AidlAnnotation::CONTEXT_TYPE_STRUCTURED_PARCELABLE);
+    }
+    void Visit(const AidlEnumDeclaration& m) override {
+      Check(m, AidlAnnotation::CONTEXT_TYPE_ENUM);
+    }
+    void Visit(const AidlUnionDecl& m) override { Check(m, AidlAnnotation::CONTEXT_TYPE_UNION); }
+    void Visit(const AidlMethod& m) override {
+      Check(m.GetType(), AidlAnnotation::CONTEXT_TYPE_SPECIFIER | AidlAnnotation::CONTEXT_METHOD);
+      for (const auto& arg : m.GetArguments()) {
+        Check(arg->GetType(), AidlAnnotation::CONTEXT_TYPE_SPECIFIER);
+      }
+    }
+    void Visit(const AidlConstantDeclaration& m) override {
+      Check(m.GetType(), AidlAnnotation::CONTEXT_TYPE_SPECIFIER | AidlAnnotation::CONTEXT_CONST);
+    }
+    void Visit(const AidlVariableDeclaration& m) override {
+      Check(m.GetType(), AidlAnnotation::CONTEXT_TYPE_SPECIFIER | AidlAnnotation::CONTEXT_FIELD);
+    }
+    void Visit(const AidlTypeSpecifier& m) override {
+      // nested generic type parameters are checked as well
+      if (m.IsGeneric()) {
+        for (const auto& tp : m.GetTypeParameters()) {
+          Check(*tp, AidlAnnotation::CONTEXT_TYPE_SPECIFIER);
+        }
+      }
+    }
+  };
+
+  AnnotationValidator validator;
+  VisitTopDown(validator, doc);
+  return validator.success;
 }
 
 }  // namespace
@@ -663,6 +713,10 @@ AidlError load_and_validate_aidl(const std::string& input_file_name, const Optio
     }
   }
 
+  if (!ValidateAnnotationContext(main_parser->ParsedDocument())) {
+    return AidlError::BAD_TYPE;
+  }
+
   if (!is_check_api && !Diagnose(main_parser->ParsedDocument(), options.GetDiagnosticMapping())) {
     return AidlError::BAD_TYPE;
   }
@@ -751,7 +805,7 @@ int compile_aidl(const Options& options, const IoDelegate& io_delegate) {
       string output_file_name = options.OutputFile();
       // if needed, generate the output file name from the base folder
       if (output_file_name.empty() && !options.OutputDir().empty()) {
-        output_file_name = generate_outputFileName(options, *defined_type);
+        output_file_name = GetOutputFilePath(options, *defined_type);
         if (output_file_name.empty()) {
           return 1;
         }
@@ -847,9 +901,13 @@ bool dump_api(const Options& options, const IoDelegate& io_delegate) {
     AidlTypenames typenames;
     if (internals::load_and_validate_aidl(file, options, io_delegate, &typenames, nullptr) ==
         AidlError::OK) {
-      for (const auto& type : typenames.MainDocument().DefinedTypes()) {
+      const auto& doc = typenames.MainDocument();
+
+      for (const auto& type : doc.DefinedTypes()) {
         unique_ptr<CodeWriter> writer =
             io_delegate.GetCodeWriter(GetApiDumpPathFor(*type, options));
+        // dump doc comments (license) as well for each type
+        (*writer) << doc.GetComments();
         (*writer) << kPreamble;
         if (!type->GetPackage().empty()) {
           (*writer) << "package " << type->GetPackage() << ";\n";
