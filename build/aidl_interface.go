@@ -292,6 +292,11 @@ type CommonNativeBackendProperties struct {
 	cc.VndkProperties
 }
 
+type DumpApiProperties struct {
+	// Dumps without license header (assuming it is the first comment in .aidl file). Default: false
+	No_license *bool
+}
+
 type aidlInterfaceProperties struct {
 	// Vndk properties for C++/NDK libraries only (preferred to use backend-specific settings)
 	cc.VndkProperties
@@ -398,6 +403,9 @@ type aidlInterfaceProperties struct {
 
 	// Optional flags to be passed to the AIDL compiler. e.g. "-Weverything"
 	Flags []string
+
+	// --dumpapi options
+	Dumpapi DumpApiProperties
 }
 
 type aidlInterface struct {
@@ -808,8 +816,6 @@ func (i *aidlInterface) isAllowedListedModule() bool {
 		"ipmemorystore-aidl-interfaces",
 		"dnsresolver_aidl_interface",
 		"netd_event_listener_interface",
-		// TODO(b/180417006) remove it after the prebuilt doesn't include it anymore
-		"android.hardware.gnss",
 	}
 	return android.InList(i.ModuleBase.Name(), allowlist)
 }
