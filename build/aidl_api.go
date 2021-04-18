@@ -50,12 +50,13 @@ var (
 )
 
 type aidlApiProperties struct {
-	BaseName  string
-	Srcs      []string `android:"path"`
-	AidlRoot  string   // base directory for the input aidl file
-	Stability *string
-	Imports   []string
-	Versions  []string
+	BaseName              string
+	Srcs                  []string `android:"path"`
+	AidlRoot              string   // base directory for the input aidl file
+	Stability             *string
+	ImportsWithoutVersion []string
+	Versions              []string
+	Dumpapi               DumpApiProperties
 }
 
 type aidlApi struct {
@@ -127,6 +128,9 @@ func (m *aidlApi) createApiDumpFromSource(ctx android.ModuleContext) apiDump {
 	var optionalFlags []string
 	if m.properties.Stability != nil {
 		optionalFlags = append(optionalFlags, "--stability", *m.properties.Stability)
+	}
+	if proptools.Bool(m.properties.Dumpapi.No_license) {
+		optionalFlags = append(optionalFlags, "--no_license")
 	}
 
 	ctx.Build(pctx, android.BuildParams{
@@ -347,7 +351,7 @@ func (m *aidlApi) AndroidMk() android.AndroidMkData {
 }
 
 func (m *aidlApi) DepsMutator(ctx android.BottomUpMutatorContext) {
-	ctx.AddDependency(ctx.Module(), nil, wrap("", m.properties.Imports, aidlInterfaceSuffix)...)
+	ctx.AddDependency(ctx.Module(), nil, wrap("", m.properties.ImportsWithoutVersion, aidlInterfaceSuffix)...)
 }
 
 func aidlApiFactory() android.Module {
@@ -363,12 +367,13 @@ func addApiModule(mctx android.LoadHookContext, i *aidlInterface) string {
 	mctx.CreateModule(aidlApiFactory, &nameProperties{
 		Name: proptools.StringPtr(apiModule),
 	}, &aidlApiProperties{
-		BaseName:  i.ModuleBase.Name(),
-		Srcs:      srcs,
-		AidlRoot:  aidlRoot,
-		Stability: i.properties.Stability,
-		Imports:   concat(i.properties.Imports, []string{i.ModuleBase.Name()}),
-		Versions:  i.properties.Versions,
+		BaseName:              i.ModuleBase.Name(),
+		Srcs:                  srcs,
+		AidlRoot:              aidlRoot,
+		Stability:             i.properties.Stability,
+		ImportsWithoutVersion: concat(i.properties.ImportsWithoutVersion, []string{i.ModuleBase.Name()}),
+		Versions:              i.properties.Versions,
+		Dumpapi:               i.properties.Dumpapi,
 	})
 	return apiModule
 }
