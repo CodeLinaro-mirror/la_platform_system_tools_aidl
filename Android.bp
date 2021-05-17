@@ -38,7 +38,7 @@ cc_defaults {
         "-Werror",
         "-Wextra",
     ],
-    whole_static_libs: ["libgtest_prod"],
+    header_libs: ["libgtest_prod_headers"],
     static_libs: [
         "libbase",
         "libcutils",
@@ -227,6 +227,9 @@ python_test_host {
         "aidl_test_rust_service",
     ],
     test_suites: ["general-tests"],
+    test_options: {
+        unit_test: false,
+    },
 }
 
 cc_defaults {
