@@ -75,8 +75,7 @@ func addCppLibrary(mctx android.LoadHookContext, i *aidlInterface, version strin
 	}, &aidlGenProperties{
 		Srcs:                  srcs,
 		AidlRoot:              aidlRoot,
-		IsToT:                 version == i.nextVersion(),
-		ImportsWithoutVersion: i.properties.ImportsWithoutVersion,
+		ImportsWithoutVersion: concat(i.properties.ImportsWithoutVersion, []string{i.ModuleBase.Name()}),
 		Stability:             i.properties.Stability,
 		Lang:                  lang,
 		BaseName:              i.ModuleBase.Name(),
@@ -233,8 +232,7 @@ func addJavaLibrary(mctx android.LoadHookContext, i *aidlInterface, version stri
 	}, &aidlGenProperties{
 		Srcs:                  srcs,
 		AidlRoot:              aidlRoot,
-		IsToT:                 version == i.nextVersion(),
-		ImportsWithoutVersion: i.properties.ImportsWithoutVersion,
+		ImportsWithoutVersion: concat(i.properties.ImportsWithoutVersion, []string{i.ModuleBase.Name()}),
 		Stability:             i.properties.Stability,
 		Lang:                  langJava,
 		BaseName:              i.ModuleBase.Name(),
@@ -282,8 +280,7 @@ func addRustLibrary(mctx android.LoadHookContext, i *aidlInterface, version stri
 	}, &aidlGenProperties{
 		Srcs:                  srcs,
 		AidlRoot:              aidlRoot,
-		ImportsWithoutVersion: i.properties.ImportsWithoutVersion,
-		IsToT:                 version == i.nextVersion(),
+		ImportsWithoutVersion: concat(i.properties.ImportsWithoutVersion, []string{i.ModuleBase.Name()}),
 		Stability:             i.properties.Stability,
 		Lang:                  langRust,
 		BaseName:              i.ModuleBase.Name(),

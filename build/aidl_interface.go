@@ -77,10 +77,6 @@ func createAidlInterfaceMutator(mctx android.TopDownMutatorContext) {
 }
 
 func checkUnstableModuleMutator(mctx android.BottomUpMutatorContext) {
-	// If it is an aidl interface, we don't need to check its dependencies.
-	if isAidlModule(mctx.ModuleName(), mctx.Config()) {
-		return
-	}
 	mctx.VisitDirectDepsIf(func(m android.Module) bool {
 		return android.InList(m.Name(), *unstableModules(mctx.Config()))
 	}, func(m android.Module) {
@@ -97,15 +93,6 @@ func checkUnstableModuleMutator(mctx android.BottomUpMutatorContext) {
 	})
 }
 
-func isAidlModule(moduleName string, config android.Config) bool {
-	for _, i := range *aidlInterfaces(config) {
-		if android.InList(moduleName, i.internalModuleNames) {
-			return true
-		}
-	}
-	return false
-}
-
 func recordVersions(mctx android.BottomUpMutatorContext) {
 	switch mctx.Module().(type) {
 	case *java.Library:
@@ -116,7 +103,13 @@ func recordVersions(mctx android.BottomUpMutatorContext) {
 		return
 	}
 
-	isAidlModule := isAidlModule(mctx.ModuleName(), mctx.Config())
+	isAidlModule := false // whether this module is from an AIDL interface
+	for _, i := range *aidlInterfaces(mctx.Config()) {
+		if android.InList(mctx.ModuleName(), i.internalModuleNames) {
+			isAidlModule = true
+			break
+		}
+	}
 
 	// First, gather all the AIDL interfaces modules that are directly or indirectly
 	// depended on by this module
@@ -227,28 +220,19 @@ func checkDuplicatedVersions(mctx android.BottomUpMutatorContext) {
 	}
 }
 
-func getPaths(ctx android.ModuleContext, rawSrcs []string, root string) (srcs android.Paths, imports []string) {
-	// TODO(b/189288369): move this to android.PathsForModuleSrcSubDir(ctx, srcs, subdir)
-	for _, src := range rawSrcs {
-		if m, _ := android.SrcIsModuleWithTag(src); m != "" {
-			srcs = append(srcs, android.PathsForModuleSrc(ctx, []string{src})...)
-		} else {
-			srcs = append(srcs, android.PathsWithModuleSrcSubDir(ctx, android.PathsForModuleSrc(ctx, []string{src}), root)...)
-		}
-	}
+func getPaths(ctx android.ModuleContext, rawSrcs []string) (paths android.Paths, imports []string) {
+	srcs := android.PathsForModuleSrc(ctx, rawSrcs)
 
 	if len(srcs) == 0 {
 		ctx.PropertyErrorf("srcs", "No sources provided.")
 	}
 
-	// gather base directories from input .aidl files
 	for _, src := range srcs {
 		if src.Ext() != ".aidl" {
 			// Silently ignore non-aidl files as some filegroups have both java and aidl files together
 			continue
 		}
 		baseDir := strings.TrimSuffix(src.String(), src.Rel())
-		baseDir = strings.TrimSuffix(baseDir, "/")
 		if baseDir != "" && !android.InList(baseDir, imports) {
 			imports = append(imports, baseDir)
 		}
