@@ -19,7 +19,6 @@ import (
 
 	"fmt"
 	"strings"
-        "strconv"
 
 	"github.com/google/blueprint"
 	"github.com/google/blueprint/proptools"
@@ -31,13 +30,15 @@ var (
 			`echo '{' && ` +
 			`echo "\"name\": \"${name}\"," && ` +
 			`echo "\"stability\": \"${stability}\"," && ` +
-                        `echo "\"vendor_available\": \"${vendor_available}\"," && ` +
+ 			`echo "\"vendor_available\": \"${vendor_available}\"," && ` +
 			`echo "\"types\": [${types}]," && ` +
-			`echo "\"hashes\": [${hashes}]" && ` +
+			`echo "\"hashes\": [${hashes}]," && ` +
+			`echo "\"has_development\": ${has_development}," && ` +
+			`echo "\"versions\": [${versions}]" && ` +
 			`echo '}' ` +
 			`;} >> ${out}`,
 		Description: "AIDL metadata: ${out}",
-	}, "name", "stability", "types", "hashes","vendor_available")
+	}, "name", "stability", "types", "hashes","vendor_available", "has_development", "versions")
 
 	joinJsonObjectsToArrayRule = pctx.StaticRule("joinJsonObjectsToArrayRule", blueprint.RuleParams{
 		Rspfile:        "$out.rsp",
@@ -80,9 +81,11 @@ func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx androi
 	}
 
 	type ModuleInfo struct {
-		Stability     string
-		ComputedTypes []string
-		HashFiles     []string
+		Stability      string
+		ComputedTypes  []string
+		HashFiles      []string
+		HasDevelopment android.WritablePath
+		Versions       []string
 	}
 
         type ModuleInfoExt struct {
@@ -99,17 +102,22 @@ func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx androi
 		switch t := m.(type) {
 		case *aidlInterface:
 			info := moduleInfos[t.ModuleBase.Name()]
-                        infoExt := moduleInfosExt[t.ModuleBase.Name()]
+			infoExt := moduleInfosExt[t.ModuleBase.Name()]
 			info.Stability = proptools.StringDefault(t.properties.Stability, "")
 			info.ComputedTypes = t.computedTypes
-                        infoExt.VendorAvailable = t.properties.Vendor_available
+			infoExt.VendorAvailable = t.properties.Vendor_available
+			info.Versions = t.properties.Versions
 			moduleInfos[t.ModuleBase.Name()] = info
-                        moduleInfosExt[t.ModuleBase.Name()] = infoExt
+			moduleInfosExt[t.ModuleBase.Name()] = infoExt
 		case *aidlGenRule:
 			info := moduleInfos[t.properties.BaseName]
 			if t.hashFile != nil {
 				info.HashFiles = append(info.HashFiles, t.hashFile.String())
 			}
+			moduleInfos[t.properties.BaseName] = info
+		case *aidlApi:
+			info := moduleInfos[t.properties.BaseName]
+			info.HasDevelopment = t.hasDevelopment
 			moduleInfos[t.properties.BaseName] = info
 		}
 
@@ -118,7 +126,6 @@ func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx androi
 	var metadataOutputs android.Paths
 	for _, name := range android.SortedStringKeys(moduleInfos) {
 		info := moduleInfos[name]
-                infoExt := moduleInfosExt[name]
 		metadataPath := android.PathForModuleOut(ctx, "metadata_"+name)
 		metadataOutputs = append(metadataOutputs, metadataPath)
 
@@ -126,22 +133,31 @@ func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx androi
 		// objects per version and sub-objects per backend, we could
 		// avoid needing to filter out duplicates.
 		info.HashFiles = android.FirstUniqueStrings(info.HashFiles)
+		readHashes := ""
+		if len(info.HashFiles) > 0 {
+			readHashes = "$$(sed 's/.*/\"&\",/' " + strings.Join(info.HashFiles, " ") +
+				"| tr '\n' ' ' | sed 's/, $$//')"
+		}
 
 		implicits := android.PathsForSource(ctx, info.HashFiles)
+		hasDevelopmentValue := "true"
+		if info.HasDevelopment != nil {
+			hasDevelopmentValue = "$$(if [ \"$$(cat " + info.HasDevelopment.String() +
+				")\" = \"1\" ]; then echo true; else echo false; fi)"
+		}
 
 		ctx.Build(pctx, android.BuildParams{
 			Rule:      aidlMetadataRule,
 			Implicits: implicits,
+			Input:     info.HasDevelopment,
 			Output:    metadataPath,
 			Args: map[string]string{
-				"name":      name,
-				"stability": info.Stability,
-				"types":     strings.Join(wrap(`\"`, info.ComputedTypes, `\"`), ", "),
-				"hashes": strings.Join(
-					wrap(`\"$$(read -r < `,
-						info.HashFiles,
-						` hash extra; printf '%s' $$hash)\"`), ", "),
-                                "vendor_available":  strconv.FormatBool(proptools.Bool(infoExt.VendorAvailable)),
+				"name":            name,
+				"stability":       info.Stability,
+				"types":           strings.Join(wrap(`\"`, info.ComputedTypes, `\"`), ", "),
+				"hashes":          readHashes,
+				"has_development": hasDevelopmentValue,
+				"versions":        strings.Join(info.Versions, ", "),
 			},
 		})
 	}
