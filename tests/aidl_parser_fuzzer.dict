@@ -55,6 +55,8 @@
 " @Descriptor "
 " @JavaDervie "
 " @RustDerive "
+" /** @hide */ "
+" /** @deprecated reason */ "
 
 # annotation arguments
 " value "
@@ -86,10 +88,13 @@
 " a.path "
 " b.path "
 " Foo "
+" a/path/Foo.aidl "
+" b/path/Foo.aidl "
+" path/Foo.aidl "
 
 #arguments
 " aidl "
-" --apimappings "
+" --apimapping "
 " --checkapi=compatible "
 " --checkapi=equal "
 " --hash "

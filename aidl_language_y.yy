@@ -347,6 +347,10 @@ parcelable_members
     $1->emplace_back($2);
     $$ = $1;
   }
+ | parcelable_members decl {
+    if ($2) $1->emplace_back($2);  // decl may be nullptr on error
+    $$ = $1;
+  }
  | parcelable_members error ';' {
     ps->AddError();
     $$ = $1;
@@ -398,6 +402,11 @@ interface_members
   { $1->push_back(std::unique_ptr<AidlMember>($2)); $$ = $1; }
  | interface_members constant_decl
   { $1->push_back(std::unique_ptr<AidlMember>($2)); $$ = $1; }
+ | interface_members decl
+  {
+    if ($2) $1->emplace_back($2);  // decl may be nullptr on error
+    $$ = $1;
+  }
  | interface_members error ';' {
     ps->AddError();
     $$ = $1;
@@ -772,14 +781,16 @@ parameter_non_empty_list
 
 annotation
  : ANNOTATION {
-    $$ = AidlAnnotation::Parse(loc(@1), $1->GetText(), nullptr, $1->GetComments());
+    // release() returns nullptr if unique_ptr is empty.
+    $$ = AidlAnnotation::Parse(loc(@1), $1->GetText(), {}, $1->GetComments()).release();
     if (!$$) {
       ps->AddError();
     }
     delete $1;
   }
  | ANNOTATION '(' parameter_list ')' {
-    $$ = AidlAnnotation::Parse(loc(@1, @4), $1->GetText(), $3, $1->GetComments());
+    // release() returns nullptr if unique_ptr is empty.
+    $$ = AidlAnnotation::Parse(loc(@1, @4), $1->GetText(), std::move(*$3), $1->GetComments()).release();
     if (!$$) {
       ps->AddError();
     }
