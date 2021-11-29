@@ -1114,6 +1114,14 @@ const AidlDefinedType* AidlDefinedType::GetParentType() const {
   return AidlCast<AidlDefinedType>(GetEnclosingScope()->GetNode());
 }
 
+const AidlDefinedType* AidlDefinedType::GetRootType() const {
+  const AidlDefinedType* root = this;
+  for (auto parent = root->GetParentType(); parent; parent = parent->GetParentType()) {
+    root = parent;
+  }
+  return root;
+}
+
 // Resolve `name` in the current scope. If not found, delegate to the parent
 std::string AidlDefinedType::ResolveName(const std::string& name) const {
   // For example, in the following, t1's type Baz means x.Foo.Bar.Baz
@@ -1166,11 +1174,11 @@ const AidlDefinedType* AidlCast<AidlDefinedType>(const AidlNode& node) {
 }
 
 const AidlDocument& AidlDefinedType::GetDocument() const {
-  // TODO(b/182508839): resolve with nested types when we support nested types
-  auto scope = GetEnclosingScope();
+  const AidlDefinedType* root = GetRootType();
+  auto scope = root->GetEnclosingScope();
   AIDL_FATAL_IF(!scope, this) << "no scope defined.";
   auto doc = AidlCast<AidlDocument>(scope->GetNode());
-  AIDL_FATAL_IF(!doc, this) << "scope is not a document.";
+  AIDL_FATAL_IF(!doc, this) << "root scope is not a document.";
   return *doc;
 }
 
@@ -1271,11 +1279,6 @@ bool AidlTypeSpecifier::LanguageSpecificCheckValid(const AidlTypenames& typename
   if ((lang == Options::Language::NDK || lang == Options::Language::RUST) && IsArray() &&
       GetName() == "IBinder") {
     AIDL_ERROR(this) << "The " << to_string(lang) << " backend does not support array of IBinder";
-    return false;
-  }
-  if (lang == Options::Language::RUST && GetName() == "ParcelableHolder") {
-    // TODO(b/146611855): Remove it when Rust backend supports ParcelableHolder
-    AIDL_ERROR(this) << "The Rust backend does not support ParcelableHolder yet.";
     return false;
   }
   if ((lang == Options::Language::NDK || lang == Options::Language::RUST) && IsArray() &&
