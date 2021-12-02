@@ -29,6 +29,9 @@ use aidl_test_interface::aidl::android::aidl::tests::{
     extension::MyExt::MyExt, extension::MyExt2::MyExt2,
     extension::MyExtLike::MyExtLike,
 };
+use aidl_test_interface::aidl::android::aidl::tests::nested::{
+    INestedService, ParcelableWithNested,
+};
 use aidl_test_interface::aidl::android::aidl::tests::unions::{
     EnumUnion::EnumUnion,
 };
@@ -998,3 +1001,51 @@ fn test_renamed_interface_new_as_old() {
         assert_eq!(real_name.as_ref().map(String::as_str), Ok("NewName"));
     });
 }
+
+#[test]
+fn test_nested_type() {
+    let service: binder::Strong<dyn INestedService::INestedService> =
+        binder::get_interface(<INestedService::BpNestedService as INestedService::INestedService>::get_descriptor())
+            .expect("did not get binder service");
+
+    let p = ParcelableWithNested::ParcelableWithNested {
+        status: ParcelableWithNested::Status::Status::OK,
+    };
+    let ret = service.flipStatus(&p);
+    assert_eq!(ret, Ok(INestedService::Result::Result {
+        status: ParcelableWithNested::Status::Status::NOT_OK,
+    }));
+}
+
+#[test]
+fn test_binder_array() {
+    let service = get_test_service();
+    let callback = service
+        .GetCallback(false)
+        .expect("error calling GetCallback")
+        .expect("expected Some from GetCallback");
+
+    let mut array = vec![service.as_binder(), callback.as_binder()];
+
+    // Java needs initial values here (can't resize arrays)
+    let mut repeated = vec![Default::default(); array.len()];
+
+    let result = service.ReverseIBinderArray(&array, &mut repeated);
+    assert_eq!(repeated.into_iter().collect::<Option<Vec<_>>>().as_ref(), Some(&array));
+    array.reverse();
+    assert_eq!(result, Ok(array));
+}
+
+#[test]
+fn test_nullable_binder_array() {
+    let service = get_test_service();
+    let mut array = vec![Some(service.as_binder()), None];
+
+    // Java needs initial values here (can't resize arrays)
+    let mut repeated = Some(vec![Default::default(); array.len()]);
+
+    let result = service.ReverseNullableIBinderArray(Some(&array[..]), &mut repeated);
+    assert_eq!(repeated.as_ref(), Some(&array));
+    array.reverse();
+    assert_eq!(result, Ok(Some(array)));
+  }

@@ -26,6 +26,9 @@ use aidl_test_interface::aidl::android::aidl::tests::{
     extension::ExtendableParcelable::ExtendableParcelable,
     extension::MyExt::MyExt,
 };
+use aidl_test_interface::aidl::android::aidl::tests::nested::{
+    INestedService, ParcelableWithNested,
+};
 use aidl_test_interface::binder::{
     self, BinderFeatures, Interface, ParcelFileDescriptor, SpIBinder,
 };
@@ -323,6 +326,25 @@ impl ITestService::ITestService for TestService {
         Ok(reversed.unwrap())
     }
 
+    fn ReverseIBinderArray(
+        &self,
+        input: &[SpIBinder],
+        repeated: &mut Vec<Option<SpIBinder>>,
+    ) -> binder::Result<Vec<SpIBinder>> {
+        *repeated = input.iter().cloned().map(Some).collect();
+        Ok(input.iter().rev().cloned().collect())
+    }
+
+    fn ReverseNullableIBinderArray(
+        &self,
+        input: Option<&[Option<SpIBinder>]>,
+        repeated: &mut Option<Vec<Option<SpIBinder>>>,
+    ) -> binder::Result<Option<Vec<Option<SpIBinder>>>> {
+        let input = input.expect("input is null");
+        *repeated = Some(input.to_vec());
+        Ok(Some(input.iter().rev().cloned().collect()))
+    }
+
     fn GetOldNameInterface(&self) -> binder::Result<binder::Strong<dyn IOldName::IOldName>> {
         Ok(IOldName::BnOldName::new_binder(
             OldName,
@@ -367,6 +389,24 @@ impl IFooInterface::IFooInterface for FooInterface {
     }
 }
 
+struct NestedService;
+
+impl Interface for NestedService {}
+
+impl INestedService::INestedService for NestedService {
+    fn flipStatus(&self, p: &ParcelableWithNested::ParcelableWithNested) -> binder::Result<INestedService::Result::Result> {
+        if p.status == ParcelableWithNested::Status::Status::OK {
+            Ok(INestedService::Result::Result {
+                status: ParcelableWithNested::Status::Status::NOT_OK,
+            })
+        } else {
+            Ok(INestedService::Result::Result {
+                status: ParcelableWithNested::Status::Status::OK,
+            })
+        }
+    }
+}
+
 fn main() {
     binder::ProcessState::set_thread_pool_max_thread_count(0);
     binder::ProcessState::start_thread_pool();
@@ -379,6 +419,11 @@ fn main() {
     let versioned_service = BnFooInterface::new_binder(FooInterface, BinderFeatures::default());
     binder::add_service(versioned_service_name, versioned_service.as_binder())
         .expect("Could not register service");
+
+    let nested_service_name = <INestedService::BpNestedService as INestedService::INestedService>::get_descriptor();
+    let nested_service = INestedService::BnNestedService::new_binder(NestedService, BinderFeatures::default());
+    binder::add_service(nested_service_name, nested_service.as_binder())
+            .expect("Could not register service");
 
     binder::ProcessState::join_thread_pool();
 }
