@@ -40,6 +40,7 @@
 #include "aidl_dumpapi.h"
 #include "aidl_language.h"
 #include "aidl_typenames.h"
+#include "check_valid.h"
 #include "generate_aidl_mappings.h"
 #include "generate_cpp.h"
 #include "generate_java.h"
@@ -423,15 +424,15 @@ AidlError load_and_validate_aidl(const std::string& input_file_name, const Optio
   vector<string> import_paths;
   ImportResolver import_resolver{io_delegate, input_file_name, options.ImportDirs()};
   for (const auto& import : document->Imports()) {
-    if (typenames->IsIgnorableImport(import->GetNeededClass())) {
+    if (typenames->IsIgnorableImport(import)) {
       // There are places in the Android tree where an import doesn't resolve,
       // but we'll pick the type up through the preprocessed types.
       // This seems like an error, but legacy support demands we support it...
       continue;
     }
-    string import_path = import_resolver.FindImportFile(import->GetNeededClass());
+    string import_path = import_resolver.FindImportFile(import);
     if (import_path.empty()) {
-      AIDL_ERROR(input_file_name) << "Couldn't find import for class " << import->GetNeededClass();
+      AIDL_ERROR(input_file_name) << "Couldn't find import for class " << import;
       err = AidlError::BAD_IMPORT;
       continue;
     }
@@ -440,8 +441,7 @@ AidlError load_and_validate_aidl(const std::string& input_file_name, const Optio
 
     auto imported_doc = Parser::Parse(import_path, io_delegate, *typenames);
     if (imported_doc == nullptr) {
-      AIDL_ERROR(import_path) << "error while importing " << import_path << " for "
-                              << import->GetNeededClass();
+      AIDL_ERROR(import_path) << "error while importing " << import_path << " for " << import;
       err = AidlError::BAD_IMPORT;
       continue;
     }
@@ -524,14 +524,16 @@ AidlError load_and_validate_aidl(const std::string& input_file_name, const Optio
     }
 
     if (unstructured_parcelable != nullptr) {
-      bool isStable = unstructured_parcelable->IsStableApiParcelable(options.TargetLanguage());
+      auto lang = options.TargetLanguage();
+      bool isStable = unstructured_parcelable->IsStableApiParcelable(lang);
       if (options.IsStructured() && !isStable) {
         AIDL_ERROR(unstructured_parcelable)
             << "Cannot declare unstructured parcelable in a --structured interface. Parcelable "
                "must be defined in AIDL directly.";
         return AidlError::NOT_STRUCTURED;
       }
-      if (options.FailOnParcelable()) {
+      if (options.FailOnParcelable() || lang == Options::Language::NDK ||
+          lang == Options::Language::RUST) {
         AIDL_ERROR(unstructured_parcelable)
             << "Refusing to generate code with unstructured parcelables. Declared parcelables "
                "should be in their own file and/or cannot be used with --structured interfaces.";
@@ -593,6 +595,10 @@ AidlError load_and_validate_aidl(const std::string& input_file_name, const Optio
 
   for (const auto& doc : typenames->AllDocuments()) {
     VisitTopDown([](const AidlNode& n) { n.MarkVisited(); }, *doc);
+  }
+
+  if (!CheckValid(*document, options)) {
+    return AidlError::BAD_TYPE;
   }
 
   if (!ValidateAnnotationContext(*document)) {

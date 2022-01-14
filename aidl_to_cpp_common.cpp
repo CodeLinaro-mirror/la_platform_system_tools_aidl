@@ -22,12 +22,12 @@
 #include <set>
 #include <unordered_map>
 
-#include "ast_cpp.h"
 #include "comments.h"
 #include "logging.h"
 #include "os.h"
 
 using ::android::base::Join;
+using ::android::base::Split;
 
 namespace android {
 namespace aidl {
@@ -80,6 +80,8 @@ std::string HeaderFile(const AidlDefinedType& defined_type, ClassNames class_typ
   // For a nested type, we need to include its top-most parent type's header.
   const AidlDefinedType* toplevel = &defined_type;
   for (auto parent = toplevel->GetParentType(); parent;) {
+    // When including the parent's header, it should be always RAW
+    class_type = ClassNames::RAW;
     toplevel = parent;
     parent = toplevel->GetParentType();
   }
@@ -199,12 +201,12 @@ const string GenLogAfterExecute(const string className, const AidlInterface& int
 }
 
 // Returns Parent1::Parent2::Self. Namespaces are not included.
-string GetQualifiedName(const AidlDefinedType& type) {
-  string name = type.GetName();
+string GetQualifiedName(const AidlDefinedType& type, ClassNames class_names) {
+  string q_name = ClassName(type, class_names);
   for (auto parent = type.GetParentType(); parent; parent = parent->GetParentType()) {
-    name = parent->GetName() + "::" + name;
+    q_name = parent->GetName() + "::" + q_name;
   }
-  return name;
+  return q_name;
 }
 
 // Generates enum's class declaration. This should be called in a proper scope. For example, in its
@@ -545,6 +547,57 @@ void UnionWriter::WriteToParcel(CodeWriter& out, const ParcelWriterContext& ctx)
   out << "__assert2(__FILE__, __LINE__, __PRETTY_FUNCTION__, \"can't reach here\");\n";
 }
 
+std::string CppConstantValueDecorator(const AidlTypeSpecifier& type, const std::string& raw_value,
+                                      bool is_ndk) {
+  AIDL_FATAL_IF(raw_value.empty(), type) << "Empty value for constants";
+
+  // apply array type only if raw_value is actually an array value(`{...}`).
+  if (type.IsArray() && raw_value[0] == '{') {
+    return raw_value;
+  }
+
+  if (AidlTypenames::IsBuiltinTypename(type.GetName())) {
+    if (type.GetName() == "boolean") {
+      return raw_value;
+    } else if (type.GetName() == "byte") {
+      // cast only if necessary
+      if (type.IsArray() && raw_value[0] == '-') {
+        return "uint8_t(" + raw_value + ")";
+      } else {
+        return raw_value;
+      }
+    } else if (type.GetName() == "char") {
+      // TODO: consider 'L'-prefix for wide char literal
+      return raw_value;
+    } else if (type.GetName() == "double") {
+      return raw_value;
+    } else if (type.GetName() == "float") {
+      return raw_value;  // raw_value has 'f' suffix
+    } else if (type.GetName() == "int") {
+      return raw_value;
+    } else if (type.GetName() == "long") {
+      return raw_value + "L";
+    } else if (type.GetName() == "String") {
+      if (is_ndk || type.IsUtf8InCpp()) {
+        return raw_value;
+      } else {
+        return "::android::String16(" + raw_value + ")";
+      }
+    }
+    AIDL_FATAL(type) << "Unknown built-in type: " << type.GetName();
+  }
+
+  auto defined_type = type.GetDefinedType();
+  AIDL_FATAL_IF(!defined_type, type) << "Invalid type for \"" << raw_value << "\"";
+  auto enum_type = defined_type->AsEnumDeclaration();
+  AIDL_FATAL_IF(!enum_type, type) << "Invalid type for \"" << raw_value << "\"";
+
+  auto cpp_type_name = "::" + Join(Split(enum_type->GetCanonicalName(), "."), "::");
+  if (is_ndk) {
+    cpp_type_name = "::aidl" + cpp_type_name;
+  }
+  return cpp_type_name + "::" + raw_value.substr(raw_value.find_last_of('.') + 1);
+}
 }  // namespace cpp
 }  // namespace aidl
 }  // namespace android
