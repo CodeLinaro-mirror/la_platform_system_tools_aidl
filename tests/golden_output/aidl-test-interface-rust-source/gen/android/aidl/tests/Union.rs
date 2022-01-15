@@ -1,4 +1,5 @@
 #![forbid(unsafe_code)]
+#![rustfmt::skip]
 #[derive(Debug, Clone, PartialEq)]
 pub enum Union {
   Ns(Vec<i32>),
@@ -16,7 +17,7 @@ impl Default for Union {
   }
 }
 impl binder::parcel::Parcelable for Union {
-  fn write_to_parcel(&self, parcel: &mut binder::parcel::Parcel) -> binder::Result<()> {
+  fn write_to_parcel(&self, parcel: &mut binder::parcel::BorrowedParcel) -> binder::Result<()> {
     match self {
       Self::Ns(v) => {
         parcel.write(&0i32)?;
@@ -48,7 +49,7 @@ impl binder::parcel::Parcelable for Union {
       }
     }
   }
-  fn read_from_parcel(&mut self, parcel: &binder::parcel::Parcel) -> binder::Result<()> {
+  fn read_from_parcel(&mut self, parcel: &binder::parcel::BorrowedParcel) -> binder::Result<()> {
     let tag: i32 = parcel.read()?;
     match tag {
       0 => {

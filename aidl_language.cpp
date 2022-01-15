@@ -179,10 +179,18 @@ const std::vector<AidlAnnotation::Schema>& AidlAnnotation::AllSchemas() {
        "SuppressWarnings",
        CONTEXT_TYPE | CONTEXT_MEMBER,
        {{"value", kStringArrayType, /* required= */ true}}},
-      {AidlAnnotation::Type::ENFORCE,
+      {AidlAnnotation::Type::PERMISSION_ENFORCE,
        "Enforce",
-       CONTEXT_METHOD,
+       CONTEXT_TYPE_INTERFACE | CONTEXT_METHOD,
        {{"condition", kStringType, /* required= */ true}}},
+      {AidlAnnotation::Type::PERMISSION_MANUAL,
+       "PermissionManuallyEnforced",
+       CONTEXT_TYPE_INTERFACE | CONTEXT_METHOD,
+       {}},
+      {AidlAnnotation::Type::PERMISSION_NONE,
+       "NoPermissionRequired",
+       CONTEXT_TYPE_INTERFACE | CONTEXT_METHOD,
+       {}},
   };
   return kSchemas;
 }
@@ -293,7 +301,7 @@ bool AidlAnnotation::CheckValid() const {
     return false;
   }
   // For @Enforce annotations, validates the expression.
-  if (schema_.type == AidlAnnotation::Type::ENFORCE) {
+  if (schema_.type == AidlAnnotation::Type::PERMISSION_ENFORCE) {
     auto expr = EnforceExpression();
     if (!expr.ok()) {
       AIDL_ERROR(this) << "Unable to parse @Enforce annotation: " << expr.error();
@@ -442,18 +450,25 @@ std::vector<std::string> AidlAnnotatable::SuppressWarnings() const {
 }
 
 // Parses the @Enforce annotation expression.
-std::unique_ptr<perm::Expression> AidlAnnotatable::EnforceExpression(
-    const AidlNode& context) const {
-  auto annot = GetAnnotation(annotations_, AidlAnnotation::Type::ENFORCE);
+std::unique_ptr<perm::Expression> AidlAnnotatable::EnforceExpression() const {
+  auto annot = GetAnnotation(annotations_, AidlAnnotation::Type::PERMISSION_ENFORCE);
   if (annot) {
     auto perm_expr = annot->EnforceExpression();
     if (!perm_expr.ok()) {
       // This should have been caught during validation.
-      AIDL_FATAL(context) << "Unable to parse @Enforce annotation: " << perm_expr.error();
+      AIDL_FATAL(this) << "Unable to parse @Enforce annotation: " << perm_expr.error();
     }
     return std::move(perm_expr.value());
   }
   return {};
+}
+
+bool AidlAnnotatable::IsPermissionManual() const {
+  return GetAnnotation(annotations_, AidlAnnotation::Type::PERMISSION_MANUAL);
+}
+
+bool AidlAnnotatable::IsPermissionNone() const {
+  return GetAnnotation(annotations_, AidlAnnotation::Type::PERMISSION_NONE);
 }
 
 bool AidlAnnotatable::IsStableApiParcelable(Options::Language lang) const {
@@ -612,27 +627,19 @@ bool AidlTypeSpecifier::CheckValid(const AidlTypenames& typenames) const {
                          << "'";
         return false;
       }
+      static const char* kListUsage =
+          "List<T> supports interface/parcelable/union, String, IBinder, and ParcelFileDescriptor.";
       const AidlTypeSpecifier& contained_type = *GetTypeParameters()[0];
       if (contained_type.IsArray()) {
-        AIDL_ERROR(this)
-            << "List of arrays is not supported. List<T> supports parcelable/union, String, "
-               "IBinder, and ParcelFileDescriptor.";
+        AIDL_ERROR(this) << "List of arrays is not supported. " << kListUsage;
         return false;
       }
       const string& contained_type_name = contained_type.GetName();
       if (AidlTypenames::IsBuiltinTypename(contained_type_name)) {
         if (contained_type_name != "String" && contained_type_name != "IBinder" &&
             contained_type_name != "ParcelFileDescriptor") {
-          AIDL_ERROR(this) << "List<" << contained_type_name
-                           << "> is not supported. List<T> supports parcelable/union, String, "
-                              "IBinder, and ParcelFileDescriptor.";
-          return false;
-        }
-      } else {  // Defined types
-        if (typenames.GetInterface(contained_type)) {
-          AIDL_ERROR(this) << "List<" << contained_type_name
-                           << "> is not supported. List<T> supports parcelable/union, String, "
-                              "IBinder, and ParcelFileDescriptor.";
+          AIDL_ERROR(this) << "List<" << contained_type_name << "> is not supported. "
+                           << kListUsage;
           return false;
         }
       }
@@ -679,11 +686,6 @@ bool AidlTypeSpecifier::CheckValid(const AidlTypenames& typenames) const {
   }
 
   if (IsArray()) {
-    const auto defined_type = typenames.TryGetDefinedType(GetName());
-    if (defined_type != nullptr && defined_type->AsInterface() != nullptr) {
-      AIDL_ERROR(this) << "Binder type cannot be an array";
-      return false;
-    }
     if (GetName() == "ParcelableHolder" || GetName() == "List" || GetName() == "Map" ||
         GetName() == "CharSequence") {
       AIDL_ERROR(this) << "Arrays of " << GetName() << " are not supported.";
@@ -1121,12 +1123,6 @@ bool AidlDefinedType::CheckValidWithMembers(const AidlTypenames& typenames) cons
     if (AidlCast<AidlParcelable>(*t)) {
       AIDL_ERROR(t) << "'" << t->GetName()
                     << "' is nested. Unstructured parcelables should be at the root scope.";
-      return false;
-    }
-    // For now we don't allow "interface" to be nested
-    if (AidlCast<AidlInterface>(*t)) {
-      AIDL_ERROR(t) << "'" << t->GetName()
-                    << "' is nested. Interfaces should be at the root scope.";
       return false;
     }
   }
@@ -1571,6 +1567,10 @@ bool AidlInterface::CheckValid(const AidlTypenames& typenames) const {
       AIDL_ERROR(m) << " method " << m->Signature() << " is reserved for internal use.";
       return false;
     }
+
+    if (!CheckValidPermissionAnnotations(*m.get())) {
+      return false;
+    }
   }
 
   bool success = true;
@@ -1586,6 +1586,31 @@ bool AidlInterface::CheckValid(const AidlTypenames& typenames) const {
   return success;
 }
 
+bool AidlInterface::CheckValidPermissionAnnotations(const AidlMethod& m) const {
+  if (IsPermissionNone() || IsPermissionManual()) {
+    if (m.GetType().IsPermissionNone() || m.GetType().IsPermissionManual() ||
+        m.GetType().EnforceExpression()) {
+      std::string interface_annotation = IsPermissionNone()
+                                             ? "requiring no permission"
+                                             : "manually implementing permission checks";
+      AIDL_ERROR(m) << "The interface " << GetName() << " is annotated as " << interface_annotation
+                    << " but the method " << m.GetName() << " is also annotated.\n"
+                    << "Consider distributing the annotation to each method.";
+      return false;
+    }
+  } else if (EnforceExpression()) {
+    if (m.GetType().IsPermissionNone() || m.GetType().IsPermissionManual()) {
+      AIDL_ERROR(m) << "The interface " << GetName()
+                    << " enforces permissions using annotations"
+                       " but the method "
+                    << m.GetName() << " is also annotated.\n"
+                    << "Consider distributing the annotation to each method.";
+      return false;
+    }
+  }
+  return true;
+}
+
 std::string AidlInterface::GetDescriptor() const {
   std::string annotatedDescriptor = AidlAnnotatable::GetDescriptor();
   if (annotatedDescriptor != "") {
@@ -1594,12 +1619,8 @@ std::string AidlInterface::GetDescriptor() const {
   return GetCanonicalName();
 }
 
-AidlImport::AidlImport(const AidlLocation& location, const std::string& needed_class,
-                       const Comments& comments)
-    : AidlNode(location, comments), needed_class_(needed_class) {}
-
 AidlDocument::AidlDocument(const AidlLocation& location, const Comments& comments,
-                           std::vector<std::unique_ptr<AidlImport>> imports,
+                           std::set<string> imports,
                            std::vector<std::unique_ptr<AidlDefinedType>> defined_types,
                            bool is_preprocessed)
     : AidlCommentable(location, comments),
@@ -1629,8 +1650,8 @@ std::string AidlDocument::ResolveName(const std::string& name) const {
   const std::string nested_type = (first_dot == std::string::npos) ? "" : name.substr(first_dot);
 
   for (const auto& import : Imports()) {
-    if (import->SimpleName() == class_name) {
-      return import->GetNeededClass() + nested_type;
+    if (SimpleName(import) == class_name) {
+      return import + nested_type;
     }
   }
 

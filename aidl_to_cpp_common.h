@@ -75,7 +75,7 @@ std::vector<T> Append(std::vector<T>&& as, std::vector<T>&& bs) {
 }
 
 // Returns Parent1::Parent2::Self. Namespaces are not included.
-std::string GetQualifiedName(const AidlDefinedType& type);
+std::string GetQualifiedName(const AidlDefinedType& type, ClassNames name = ClassNames::RAW);
 
 void GenerateEnumClassDecl(CodeWriter& out, const AidlEnumDeclaration& enum_decl,
                            const std::string& backing_type, ::ConstantValueDecorator decorator);
@@ -122,6 +122,8 @@ struct UnionWriter {
   void WriteToParcel(CodeWriter& out, const ParcelWriterContext&) const;
 };
 
+std::string CppConstantValueDecorator(const AidlTypeSpecifier& type, const std::string& raw_value,
+                                      bool is_ndk);
 }  // namespace cpp
 }  // namespace aidl
 }  // namespace android
