@@ -310,7 +310,8 @@ void GenerateHeaderIncludes(CodeWriter& out, const AidlTypenames& types,
       includes.insert("android/binder_interface_utils.h");
       includes.insert("android/binder_parcelable_utils.h");
       includes.insert("android/binder_to_string.h");  // used by toString()
-      includes.insert(std::begin(cpp::UnionWriter::headers), std::end(cpp::UnionWriter::headers));
+      auto union_headers = cpp::UnionWriter::GetHeaders(union_decl);
+      includes.insert(std::begin(union_headers), std::end(union_headers));
     }
 
     void Visit(const AidlEnumDeclaration& enum_decl) override {
@@ -1143,7 +1144,7 @@ void GenerateParcelClassDecl(CodeWriter& out, const AidlTypenames& types,
           << "}";
     }
     if (defined_type.IsFixedSize()) {
-      int alignment = NdkAlignmentOf(types, variable->GetType());
+      int alignment = cpp::AlignmentOf(variable->GetType(), types);
       if (alignment > 0) {
         out << " __attribute__((aligned (" << std::to_string(alignment) << ")))";
       }
