@@ -219,12 +219,16 @@ const AidlDefinedType* AidlTypenames::TryGetDefinedType(const string& type_name)
   return nullptr;
 }
 
-std::vector<AidlDefinedType*> AidlTypenames::AllDefinedTypes() const {
-  std::vector<AidlDefinedType*> res;
-  for (const auto& d : AllDocuments()) {
-    for (const auto& t : d->DefinedTypes()) {
-      res.push_back(t.get());
-    }
+std::vector<const AidlDefinedType*> AidlTypenames::AllDefinedTypes() const {
+  std::vector<const AidlDefinedType*> res;
+  for (const auto& doc : AllDocuments()) {
+    VisitTopDown(
+        [&](const AidlNode& node) {
+          if (auto defined_type = AidlCast<AidlDefinedType>(node); defined_type) {
+            res.push_back(defined_type);
+          }
+        },
+        *doc);
   }
   return res;
 }
@@ -243,6 +247,16 @@ AidlTypenames::ResolvedTypename AidlTypenames::ResolveTypename(const string& typ
   } else {
     return {type_name, false, nullptr};
   }
+}
+
+std::unique_ptr<AidlTypeSpecifier> AidlTypenames::MakeResolvedType(const AidlLocation& location,
+                                                                   const string& name,
+                                                                   bool is_array) const {
+  std::unique_ptr<AidlTypeSpecifier> type(
+      new AidlTypeSpecifier(location, name, is_array, nullptr, {}));
+  AIDL_FATAL_IF(!type->Resolve(*this, nullptr), type) << "Can't make unknown type: " << name;
+  type->MarkVisited();
+  return type;
 }
 
 // Only immutable Parcelable, primitive type, and String, and List, Map, array of the types can be

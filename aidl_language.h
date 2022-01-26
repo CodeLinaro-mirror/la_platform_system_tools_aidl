@@ -81,8 +81,6 @@ bool ParseFloating(std::string_view sv, double* parsed);
 bool ParseFloating(std::string_view sv, float* parsed);
 
 class AidlDocument;
-class AidlPackage;
-class AidlImport;
 class AidlInterface;
 class AidlParcelable;
 class AidlStructuredParcelable;
@@ -120,8 +118,6 @@ class AidlVisitor {
   virtual void Visit(const AidlUnaryConstExpression&) {}
   virtual void Visit(const AidlBinaryConstExpression&) {}
   virtual void Visit(const AidlAnnotation&) {}
-  virtual void Visit(const AidlImport&) {}
-  virtual void Visit(const AidlPackage&) {}
 };
 
 class AidlScope {
@@ -146,9 +142,10 @@ class AidlNode {
  public:
   AidlNode(const AidlLocation& location, const Comments& comments = {});
 
-  AidlNode(const AidlNode&) = default;
-  virtual ~AidlNode() = default;
+  virtual ~AidlNode();
 
+  AidlNode(AidlNode&) = delete;
+  AidlNode& operator=(AidlNode&) = delete;
   AidlNode(AidlNode&&) = delete;
   AidlNode& operator=(AidlNode&&) = delete;
 
@@ -164,11 +161,19 @@ class AidlNode {
   const Comments& GetComments() const { return comments_; }
   void SetComments(const Comments& comments) { comments_ = comments; }
 
+  static void ClearUnvisitedNodes();
+  static const std::vector<AidlLocation>& GetLocationsOfUnvisitedNodes();
+  void MarkVisited() const;
+
  private:
   std::string PrintLine() const;
   std::string PrintLocation() const;
   const AidlLocation location_;
   Comments comments_;
+
+  // make sure we are able to abort if types are not visited
+  mutable bool visited_ = false;
+  static std::vector<AidlLocation> unvisited_locations_;
 };
 
 // unique_ptr<AidlTypeSpecifier> for type arugment,
@@ -189,9 +194,6 @@ class AidlParameterizable {
   }
 
   virtual const AidlNode& AsAidlNode() const = 0;
-
- protected:
-  AidlParameterizable(const AidlParameterizable&);
 
  private:
   unique_ptr<std::vector<T>> type_params_;
@@ -234,7 +236,9 @@ class AidlAnnotation : public AidlNode {
     DESCRIPTOR,
     RUST_DERIVE,
     SUPPRESS_WARNINGS,
-    ENFORCE,
+    PERMISSION_ENFORCE,
+    PERMISSION_NONE,
+    PERMISSION_MANUAL
   };
 
   using TargetContext = uint16_t;
@@ -261,7 +265,6 @@ class AidlAnnotation : public AidlNode {
       std::map<std::string, std::shared_ptr<AidlConstantValue>> parameter_list,
       const Comments& comments);
 
-  AidlAnnotation(const AidlAnnotation&) = default;
   AidlAnnotation(AidlAnnotation&&) = default;
   virtual ~AidlAnnotation() = default;
   bool CheckValid() const;
@@ -330,11 +333,9 @@ class AidlAnnotatable : public AidlCommentable {
  public:
   AidlAnnotatable(const AidlLocation& location, const Comments& comments);
 
-  AidlAnnotatable(const AidlAnnotatable&) = default;
-  AidlAnnotatable(AidlAnnotatable&&) = default;
   virtual ~AidlAnnotatable() = default;
 
-  void Annotate(vector<AidlAnnotation>&& annotations) {
+  void Annotate(vector<std::unique_ptr<AidlAnnotation>>&& annotations) {
     for (auto& annotation : annotations) {
       annotations_.emplace_back(std::move(annotation));
     }
@@ -355,23 +356,25 @@ class AidlAnnotatable : public AidlCommentable {
   const AidlAnnotation* RustDerive() const;
   const AidlAnnotation* BackingType() const;
   std::vector<std::string> SuppressWarnings() const;
-  std::unique_ptr<perm::Expression> EnforceExpression(const AidlNode&) const;
+  std::unique_ptr<perm::Expression> EnforceExpression() const;
+  bool IsPermissionManual() const;
+  bool IsPermissionNone() const;
 
   // ToString is for dumping AIDL.
   // Returns string representation of annotations.
   // e.g) "@JavaDerive(toString=true) @RustDerive(Clone=true, Copy=true)"
   std::string ToString() const;
 
-  const vector<AidlAnnotation>& GetAnnotations() const { return annotations_; }
+  const vector<std::unique_ptr<AidlAnnotation>>& GetAnnotations() const { return annotations_; }
   bool CheckValid(const AidlTypenames&) const;
   void TraverseChildren(std::function<void(const AidlNode&)> traverse) const override {
     for (const auto& annot : GetAnnotations()) {
-      traverse(annot);
+      traverse(*annot);
     }
   }
 
  private:
-  vector<AidlAnnotation> annotations_;
+  vector<std::unique_ptr<AidlAnnotation>> annotations_;
 };
 
 // AidlTypeSpecifier represents a reference to either a built-in type,
@@ -383,8 +386,8 @@ class AidlTypeSpecifier final : public AidlAnnotatable,
                     vector<unique_ptr<AidlTypeSpecifier>>* type_params, const Comments& comments);
   virtual ~AidlTypeSpecifier() = default;
 
-  // Copy of this type which is not an array.
-  const AidlTypeSpecifier& ArrayBase() const;
+  // View of this type which is not an array.
+  void ViewAsArrayBase(std::function<void(const AidlTypeSpecifier&)> func) const;
 
   // Returns the full-qualified name of the base type.
   // int -> int
@@ -430,7 +433,7 @@ class AidlTypeSpecifier final : public AidlAnnotatable,
   bool Resolve(const AidlTypenames& typenames, const AidlScope* scope);
 
   bool CheckValid(const AidlTypenames& typenames) const;
-  bool LanguageSpecificCheckValid(const AidlTypenames& typenames, Options::Language lang) const;
+  bool LanguageSpecificCheckValid(Options::Language lang) const;
   const AidlNode& AsAidlNode() const override { return *this; }
 
   const AidlDefinedType* GetDefinedType() const;
@@ -445,14 +448,11 @@ class AidlTypeSpecifier final : public AidlAnnotatable,
   void DispatchVisit(AidlVisitor& v) const override { v.Visit(*this); }
 
  private:
-  AidlTypeSpecifier(const AidlTypeSpecifier&) = default;
-
   const string unresolved_name_;
   string fully_qualified_name_;
-  bool is_array_;
+  mutable bool is_array_;
   vector<string> split_name_;
   const AidlDefinedType* defined_type_ = nullptr;  // set when Resolve() for defined types
-  mutable shared_ptr<AidlTypeSpecifier> array_base_;
 };
 
 // Returns the universal value unaltered.
@@ -553,9 +553,6 @@ class AidlArgument : public AidlVariableDeclaration {
   // e.g) "in @utf8InCpp String[] names"
   std::string ToString() const;
 
-  void TraverseChildren(std::function<void(const AidlNode&)> traverse) const override {
-    traverse(GetType());
-  }
   void DispatchVisit(AidlVisitor& v) const override { v.Visit(*this); }
 
  private:
@@ -834,6 +831,7 @@ class AidlMethod : public AidlMember {
   AidlMethod& operator=(const AidlMethod&) = delete;
   AidlMethod& operator=(AidlMethod&&) = delete;
 
+  bool CheckValid(const AidlTypenames&) const;
   const AidlTypeSpecifier& GetType() const { return *type_; }
   AidlTypeSpecifier* GetMutableType() { return type_.get(); }
 
@@ -929,7 +927,7 @@ class AidlDefinedType : public AidlMember, public AidlScope {
   virtual const AidlInterface* AsInterface() const { return nullptr; }
   virtual const AidlParameterizable<std::string>* AsParameterizable() const { return nullptr; }
   virtual bool CheckValid(const AidlTypenames& typenames) const;
-  bool LanguageSpecificCheckValid(const AidlTypenames& typenames, Options::Language lang) const;
+  bool LanguageSpecificCheckValid(Options::Language lang) const;
   AidlStructuredParcelable* AsStructuredParcelable() {
     return const_cast<AidlStructuredParcelable*>(
         const_cast<const AidlDefinedType*>(this)->AsStructuredParcelable());
@@ -964,6 +962,7 @@ class AidlDefinedType : public AidlMember, public AidlScope {
         const_cast<const AidlDefinedType*>(this)->AsUnstructuredParcelable());
   }
   const AidlDefinedType* GetParentType() const;
+  const AidlDefinedType* GetRootType() const;
   const std::vector<std::unique_ptr<AidlDefinedType>>& GetNestedTypes() const { return types_; }
   const std::vector<std::unique_ptr<AidlVariableDeclaration>>& GetFields() const {
     return variables_;
@@ -972,7 +971,10 @@ class AidlDefinedType : public AidlMember, public AidlScope {
     return constants_;
   }
   const std::vector<std::unique_ptr<AidlMethod>>& GetMethods() const { return methods_; }
-  void AddMethod(std::unique_ptr<AidlMethod> method) { methods_.push_back(std::move(method)); }
+  void AddMethod(std::unique_ptr<AidlMethod> method) {
+    members_.push_back(method.get());
+    methods_.push_back(std::move(method));
+  }
   const std::vector<const AidlMember*>& GetMembers() const { return members_; }
   void TraverseChildren(std::function<void(const AidlNode&)> traverse) const override {
     AidlAnnotatable::TraverseChildren(traverse);
@@ -1159,50 +1161,20 @@ class AidlInterface final : public AidlDefinedType {
   std::string GetPreprocessDeclarationName() const override { return "interface"; }
 
   bool CheckValid(const AidlTypenames& typenames) const override;
+  bool CheckValidPermissionAnnotations(const AidlMethod& m) const;
   std::string GetDescriptor() const;
   void DispatchVisit(AidlVisitor& v) const override { v.Visit(*this); }
 };
 
-class AidlPackage : public AidlNode {
- public:
-  AidlPackage(const AidlLocation& location, const std::string& name, const Comments& comments)
-      : AidlNode(location, comments), name_(name) {}
-  virtual ~AidlPackage() = default;
-  void TraverseChildren(std::function<void(const AidlNode&)>) const {}
-  void DispatchVisit(AidlVisitor& v) const { v.Visit(*this); }
-
-  const std::string& GetName() const { return name_; }
-
- private:
-  std::string name_;
-};
-
-class AidlImport : public AidlNode {
- public:
-  AidlImport(const AidlLocation& location, const std::string& needed_class,
-             const Comments& comments);
-  virtual ~AidlImport() = default;
-
-  // non-copyable, non-movable
-  AidlImport(const AidlImport&) = delete;
-  AidlImport(AidlImport&&) = delete;
-  AidlImport& operator=(const AidlImport&) = delete;
-  AidlImport& operator=(AidlImport&&) = delete;
-
-  const std::string& GetNeededClass() const { return needed_class_; }
-  std::string SimpleName() const { return needed_class_.substr(needed_class_.rfind('.') + 1); }
-  void TraverseChildren(std::function<void(const AidlNode&)>) const {}
-  void DispatchVisit(AidlVisitor& v) const { v.Visit(*this); }
-
- private:
-  std::string needed_class_;
-};
+inline std::string SimpleName(const std::string& qualified_name) {
+  return qualified_name.substr(qualified_name.rfind('.') + 1);
+}
 
 // AidlDocument models an AIDL file
 class AidlDocument : public AidlCommentable, public AidlScope {
  public:
   AidlDocument(const AidlLocation& location, const Comments& comments,
-               std::vector<std::unique_ptr<AidlImport>> imports,
+               std::set<std::string> imports,
                std::vector<std::unique_ptr<AidlDefinedType>> defined_types, bool is_preprocessed);
   ~AidlDocument() = default;
 
@@ -1213,16 +1185,13 @@ class AidlDocument : public AidlCommentable, public AidlScope {
   AidlDocument& operator=(AidlDocument&&) = delete;
 
   std::string ResolveName(const std::string& name) const override;
-  const std::vector<std::unique_ptr<AidlImport>>& Imports() const { return imports_; }
+  const std::set<std::string>& Imports() const { return imports_; }
   const std::vector<std::unique_ptr<AidlDefinedType>>& DefinedTypes() const {
     return defined_types_;
   }
   bool IsPreprocessed() const { return is_preprocessed_; }
 
   void TraverseChildren(std::function<void(const AidlNode&)> traverse) const override {
-    for (const auto& i : Imports()) {
-      traverse(*i);
-    }
     for (const auto& t : DefinedTypes()) {
       traverse(*t);
     }
@@ -1230,7 +1199,7 @@ class AidlDocument : public AidlCommentable, public AidlScope {
   void DispatchVisit(AidlVisitor& v) const override { v.Visit(*this); }
 
  private:
-  const std::vector<std::unique_ptr<AidlImport>> imports_;
+  const std::set<std::string> imports_;
   const std::vector<std::unique_ptr<AidlDefinedType>> defined_types_;
   bool is_preprocessed_;
 };
@@ -1244,17 +1213,20 @@ std::optional<T> AidlAnnotation::ParamValue(const std::string& param_name) const
   return it->second->EvaluatedValue<T>();
 }
 
-// Utility to make a visitor to visit AST tree in top-down order
+// Utilities to make a visitor to visit AST tree in top-down order
 // Given:       foo
 //              / \
 //            bar baz
 // VisitTopDown(v, foo) makes v visit foo -> bar -> baz.
-inline void VisitTopDown(AidlVisitor& v, const AidlNode& node) {
+inline void VisitTopDown(std::function<void(const AidlNode&)> v, const AidlNode& node) {
   std::function<void(const AidlNode&)> top_down = [&](const AidlNode& n) {
-    n.DispatchVisit(v);
+    v(n);
     n.TraverseChildren(top_down);
   };
   top_down(node);
+}
+inline void VisitTopDown(AidlVisitor& v, const AidlNode& node) {
+  VisitTopDown([&](const AidlNode& n) { n.DispatchVisit(v); }, node);
 }
 
 // Utility to make a visitor to visit AST tree in bottom-up order
@@ -1286,4 +1258,69 @@ const AidlDefinedType* AidlCast<AidlDefinedType>(const AidlNode& node);
 template <typename T>
 T* AidlCast(AidlNode& node) {
   return const_cast<T*>(AidlCast<T>(const_cast<const AidlNode&>(node)));
+}
+
+template <typename AidlNodeType>
+vector<const AidlNodeType*> Collect(const AidlNode& root) {
+  vector<const AidlNodeType*> result;
+  std::function<void(const AidlNode&)> top_down = [&](const AidlNode& n) {
+    if (auto cast = AidlCast<AidlNodeType>(n); cast) {
+      result.push_back(cast);
+    }
+    n.TraverseChildren(top_down);
+  };
+  top_down(root);
+  return result;
+}
+
+template <typename VisitFn>
+bool TopologicalVisit(const vector<unique_ptr<AidlDefinedType>>& nested_types, VisitFn visit) {
+  // 1. Maps deeply nested types to one of nested_types
+  map<const AidlDefinedType*, const AidlDefinedType*> roots;
+  for (const auto& nested : nested_types) {
+    for (const auto& t : Collect<AidlDefinedType>(*nested)) {
+      roots[t] = nested.get();
+    }
+  }
+  // 2. Collect sibling types referenced within each nested type.
+  map<const AidlDefinedType*, vector<const AidlDefinedType*>> required_types;
+  for (const auto& nested : nested_types) {
+    for (const auto& t : Collect<AidlTypeSpecifier>(*nested)) {
+      if (auto defined_type = t->GetDefinedType(); defined_type) {
+        auto sibling = roots[defined_type];
+        if (sibling && sibling != nested.get()) {
+          required_types[nested.get()].push_back(sibling);
+        }
+      }
+    }
+  };
+  // 3. Run DFS
+  enum { NOT_STARTED = 0, STARTED = 1, FINISHED = 2 };
+  map<const AidlDefinedType*, int> visited;
+  std::function<bool(const AidlDefinedType&)> dfs = [&](const AidlDefinedType& type) {
+    if (visited[&type] == FINISHED) {
+      return true;
+    } else if (visited[&type] == STARTED) {
+      return false;
+    } else {
+      visited[&type] = STARTED;
+      // Visit every required dep first
+      for (const auto& dep_type : required_types[&type]) {
+        if (!dfs(*dep_type)) {
+          return false;
+        }
+      }
+      visited[&type] = FINISHED;
+      visit(type);
+      return true;
+    }
+  };
+
+  for (const auto& type : nested_types) {
+    if (!dfs(*type)) {
+      return false;
+    }
+  }
+
+  return true;
 }

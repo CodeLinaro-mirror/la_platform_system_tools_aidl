@@ -14,12 +14,9 @@
  * limitations under the License.
  */
 
-#include <android/aidl/tests/nested/BpNestedService.h>
-#include <android/aidl/tests/nested/INestedService.h>
-
 #include "aidl_test_client.h"
 
-#include <android/aidl/tests/BackendType.h>
+#include <android/aidl/tests/nested/INestedService.h>
 #include <binder/IServiceManager.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
@@ -28,24 +25,19 @@
 using android::IBinder;
 using android::sp;
 using android::String16;
-using android::aidl::tests::nested::BpNestedService;
 using android::aidl::tests::nested::INestedService;
 using android::aidl::tests::nested::ParcelableWithNested;
+using android::binder::Status;
 using NestedResult = android::aidl::tests::nested::INestedService::Result;
 using NestedStatus = android::aidl::tests::nested::ParcelableWithNested::Status;
-using android::aidl::tests::BackendType;
 using std::optional;
 using std::pair;
 using std::string;
 using std::vector;
 using testing::Eq;
+using testing::Optional;
 
 TEST_F(AidlTest, NestedService) {
-  BackendType backendType;
-  auto status = service->getBackendType(&backendType);
-  EXPECT_TRUE(status.isOk());
-  if (backendType != BackendType::CPP) GTEST_SKIP();
-
   sp<INestedService> nestedService;
   EXPECT_EQ(android::OK, android::getService(INestedService::descriptor, &nestedService));
   ASSERT_NE(nullptr, nestedService);
@@ -54,9 +46,20 @@ TEST_F(AidlTest, NestedService) {
   p.status = NestedStatus::OK;
   NestedResult r;
   // OK -> NOT_OK
-  status = nestedService->flipStatus(p, &r);
-  EXPECT_TRUE(status.isOk());
+  EXPECT_TRUE(nestedService->flipStatus(p, &r).isOk());
   EXPECT_EQ(r.status, NestedStatus::NOT_OK);
+
+  // NOT_OK -> OK with callback nested interface
+  struct Callback : INestedService::BnCallback {
+    optional<NestedStatus> result;
+    Status done(NestedStatus st) override {
+      result = st;
+      return Status::ok();
+    }
+  };
+  sp<Callback> cb = new Callback;
+  EXPECT_TRUE(nestedService->flipStatusWithCallback(r.status, cb).isOk());
+  EXPECT_THAT(cb->result, Optional(NestedStatus::OK));
 
   // android::enum_ranges<>
   vector<NestedStatus> values{android::enum_range<NestedStatus>().begin(),

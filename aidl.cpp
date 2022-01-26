@@ -40,6 +40,7 @@
 #include "aidl_dumpapi.h"
 #include "aidl_language.h"
 #include "aidl_typenames.h"
+#include "check_valid.h"
 #include "generate_aidl_mappings.h"
 #include "generate_cpp.h"
 #include "generate_java.h"
@@ -309,7 +310,7 @@ bool ValidateAnnotationContext(const AidlDocument& doc) {
 
     void Check(const AidlAnnotatable& annotatable, AidlAnnotation::TargetContext context) {
       for (const auto& annot : annotatable.GetAnnotations()) {
-        if (!annot.CheckContext(context)) {
+        if (!annot->CheckContext(context)) {
           success = false;
         }
       }
@@ -423,15 +424,15 @@ AidlError load_and_validate_aidl(const std::string& input_file_name, const Optio
   vector<string> import_paths;
   ImportResolver import_resolver{io_delegate, input_file_name, options.ImportDirs()};
   for (const auto& import : document->Imports()) {
-    if (typenames->IsIgnorableImport(import->GetNeededClass())) {
+    if (typenames->IsIgnorableImport(import)) {
       // There are places in the Android tree where an import doesn't resolve,
       // but we'll pick the type up through the preprocessed types.
       // This seems like an error, but legacy support demands we support it...
       continue;
     }
-    string import_path = import_resolver.FindImportFile(import->GetNeededClass());
+    string import_path = import_resolver.FindImportFile(import);
     if (import_path.empty()) {
-      AIDL_ERROR(input_file_name) << "Couldn't find import for class " << import->GetNeededClass();
+      AIDL_ERROR(input_file_name) << "Couldn't find import for class " << import;
       err = AidlError::BAD_IMPORT;
       continue;
     }
@@ -440,8 +441,7 @@ AidlError load_and_validate_aidl(const std::string& input_file_name, const Optio
 
     auto imported_doc = Parser::Parse(import_path, io_delegate, *typenames);
     if (imported_doc == nullptr) {
-      AIDL_ERROR(import_path) << "error while importing " << import_path << " for "
-                              << import->GetNeededClass();
+      AIDL_ERROR(import_path) << "error while importing " << import_path << " for " << import;
       err = AidlError::BAD_IMPORT;
       continue;
     }
@@ -514,7 +514,7 @@ AidlError load_and_validate_aidl(const std::string& input_file_name, const Optio
         valid_type = false;
       }
 
-      if (!defined_type->LanguageSpecificCheckValid(*typenames, options.TargetLanguage())) {
+      if (!defined_type->LanguageSpecificCheckValid(options.TargetLanguage())) {
         valid_type = false;
       }
 
@@ -524,14 +524,16 @@ AidlError load_and_validate_aidl(const std::string& input_file_name, const Optio
     }
 
     if (unstructured_parcelable != nullptr) {
-      bool isStable = unstructured_parcelable->IsStableApiParcelable(options.TargetLanguage());
+      auto lang = options.TargetLanguage();
+      bool isStable = unstructured_parcelable->IsStableApiParcelable(lang);
       if (options.IsStructured() && !isStable) {
         AIDL_ERROR(unstructured_parcelable)
             << "Cannot declare unstructured parcelable in a --structured interface. Parcelable "
                "must be defined in AIDL directly.";
         return AidlError::NOT_STRUCTURED;
       }
-      if (options.FailOnParcelable()) {
+      if (options.FailOnParcelable() || lang == Options::Language::NDK ||
+          lang == Options::Language::RUST) {
         AIDL_ERROR(unstructured_parcelable)
             << "Refusing to generate code with unstructured parcelables. Declared parcelables "
                "should be in their own file and/or cannot be used with --structured interfaces.";
@@ -557,23 +559,19 @@ AidlError load_and_validate_aidl(const std::string& input_file_name, const Optio
     if (interface != nullptr) {
       // add the meta-method 'int getInterfaceVersion()' if version is specified.
       if (options.Version() > 0) {
-        AidlTypeSpecifier* ret =
-            new AidlTypeSpecifier(AIDL_LOCATION_HERE, "int", false, nullptr, Comments{});
-        ret->Resolve(*typenames, nullptr);
+        auto ret = typenames->MakeResolvedType(AIDL_LOCATION_HERE, "int", false);
         vector<unique_ptr<AidlArgument>>* args = new vector<unique_ptr<AidlArgument>>();
         auto method = std::make_unique<AidlMethod>(
-            AIDL_LOCATION_HERE, false, ret, "getInterfaceVersion", args, Comments{},
+            AIDL_LOCATION_HERE, false, ret.release(), "getInterfaceVersion", args, Comments{},
             kGetInterfaceVersionId, false /* is_user_defined */);
         interface->AddMethod(std::move(method));
       }
       // add the meta-method 'string getInterfaceHash()' if hash is specified.
       if (!options.Hash().empty()) {
-        AidlTypeSpecifier* ret =
-            new AidlTypeSpecifier(AIDL_LOCATION_HERE, "String", false, nullptr, Comments{});
-        ret->Resolve(*typenames, nullptr);
+        auto ret = typenames->MakeResolvedType(AIDL_LOCATION_HERE, "String", false);
         vector<unique_ptr<AidlArgument>>* args = new vector<unique_ptr<AidlArgument>>();
         auto method = std::make_unique<AidlMethod>(
-            AIDL_LOCATION_HERE, false, ret, kGetInterfaceHash, args, Comments{},
+            AIDL_LOCATION_HERE, false, ret.release(), kGetInterfaceHash, args, Comments{},
             kGetInterfaceHashId, false /* is_user_defined */);
         interface->AddMethod(std::move(method));
       }
@@ -595,6 +593,14 @@ AidlError load_and_validate_aidl(const std::string& input_file_name, const Optio
     }
   }
 
+  for (const auto& doc : typenames->AllDocuments()) {
+    VisitTopDown([](const AidlNode& n) { n.MarkVisited(); }, *doc);
+  }
+
+  if (!CheckValid(*document, options)) {
+    return AidlError::BAD_TYPE;
+  }
+
   if (!ValidateAnnotationContext(*document)) {
     return AidlError::BAD_TYPE;
   }
@@ -610,7 +616,7 @@ AidlError load_and_validate_aidl(const std::string& input_file_name, const Optio
   }
 
   typenames->IterateTypes([&](const AidlDefinedType& type) {
-    if (!type.LanguageSpecificCheckValid(*typenames, options.TargetLanguage())) {
+    if (!type.LanguageSpecificCheckValid(options.TargetLanguage())) {
       err = AidlError::BAD_TYPE;
     }
 
@@ -688,13 +694,6 @@ bool compile_aidl(const Options& options, const IoDelegate& io_delegate) {
     for (const auto& defined_type : typenames.MainDocument().DefinedTypes()) {
       AIDL_FATAL_IF(defined_type == nullptr, input_file);
 
-      // TODO(b/182508839) add backend support for nested types
-      if (!defined_type->GetNestedTypes().empty() && lang != Options::Language::CPP) {
-        AIDL_ERROR(defined_type) << "Nested types are not supported yet in " << to_string(lang)
-                                 << " backend.";
-        return false;
-      }
-
       string output_file_name = options.OutputFile();
       // if needed, generate the output file name from the base folder
       if (output_file_name.empty() && !options.OutputDir().empty()) {
@@ -721,12 +720,12 @@ bool compile_aidl(const Options& options, const IoDelegate& io_delegate) {
           // Legacy behavior. For parcelable declarations in Java, don't generate output file.
           success = true;
         } else {
-          success = java::generate_java(output_file_name, defined_type.get(), typenames,
-                                        io_delegate, options);
+          java::GenerateJava(output_file_name, options, typenames, *defined_type, io_delegate);
+          success = true;
         }
       } else if (lang == Options::Language::RUST) {
-        success = rust::GenerateRust(output_file_name, defined_type.get(), typenames, io_delegate,
-                                     options);
+        rust::GenerateRust(output_file_name, options, typenames, *defined_type, io_delegate);
+        success = true;
       } else {
         AIDL_FATAL(input_file) << "Should not reach here.";
       }
@@ -765,6 +764,7 @@ bool dump_mappings(const Options& options, const IoDelegate& io_delegate) {
 
 int aidl_entry(const Options& options, const IoDelegate& io_delegate) {
   AidlErrorLog::clearError();
+  AidlNode::ClearUnvisitedNodes();
 
   bool success = false;
   if (options.Ok()) {
@@ -799,6 +799,17 @@ int aidl_entry(const Options& options, const IoDelegate& io_delegate) {
   AIDL_FATAL_IF(success == reportedError, AIDL_LOCATION_HERE)
       << "Compiler returned success " << success << " but did" << (reportedError ? "" : " not")
       << " emit error logs";
+
+  if (success) {
+    auto locations = AidlNode::GetLocationsOfUnvisitedNodes();
+    if (!locations.empty()) {
+      for (const auto& location : locations) {
+        AIDL_ERROR(location) << "AidlNode at location was not visited!";
+      }
+      AIDL_FATAL(AIDL_LOCATION_HERE)
+          << "The AIDL AST was not processed fully. Please report an issue.";
+    }
+  }
 
   return success ? 0 : 1;
 }

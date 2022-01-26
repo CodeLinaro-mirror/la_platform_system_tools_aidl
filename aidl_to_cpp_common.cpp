@@ -22,12 +22,12 @@
 #include <set>
 #include <unordered_map>
 
-#include "ast_cpp.h"
 #include "comments.h"
 #include "logging.h"
 #include "os.h"
 
 using ::android::base::Join;
+using ::android::base::Split;
 
 namespace android {
 namespace aidl {
@@ -66,6 +66,8 @@ string ClassName(const AidlDefinedType& defined_type, ClassNames type) {
       return "I" + base_name + "Default";
     case ClassNames::BASE:
       return base_name;
+    case ClassNames::DELEGATOR_IMPL:
+      return "I" + base_name + "Delegator";
     case ClassNames::RAW:
       [[fallthrough]];
     default:
@@ -75,19 +77,21 @@ string ClassName(const AidlDefinedType& defined_type, ClassNames type) {
 
 std::string HeaderFile(const AidlDefinedType& defined_type, ClassNames class_type,
                        bool use_os_sep) {
-  std::string file_path = defined_type.GetPackage();
-  for (char& c : file_path) {
-    if (c == '.') {
-      c = (use_os_sep) ? OS_PATH_SEPARATOR : '/';
-    }
+  // For a nested type, we need to include its top-most parent type's header.
+  const AidlDefinedType* toplevel = &defined_type;
+  for (auto parent = toplevel->GetParentType(); parent;) {
+    // When including the parent's header, it should be always RAW
+    class_type = ClassNames::RAW;
+    toplevel = parent;
+    parent = toplevel->GetParentType();
   }
-  if (!file_path.empty()) {
-    file_path += (use_os_sep) ? OS_PATH_SEPARATOR : '/';
-  }
-  file_path += ClassName(defined_type, class_type);
-  file_path += ".h";
+  AIDL_FATAL_IF(toplevel->GetParentType() != nullptr, defined_type)
+      << "Can't find a top-level decl";
 
-  return file_path;
+  char separator = (use_os_sep) ? OS_PATH_SEPARATOR : '/';
+  vector<string> paths = toplevel->GetSplitPackage();
+  paths.push_back(ClassName(*toplevel, class_type));
+  return Join(paths, separator) + ".h";
 }
 
 void EnterNamespace(CodeWriter& out, const AidlDefinedType& defined_type) {
@@ -197,12 +201,28 @@ const string GenLogAfterExecute(const string className, const AidlInterface& int
 }
 
 // Returns Parent1::Parent2::Self. Namespaces are not included.
-string GetQualifiedName(const AidlDefinedType& type) {
-  string name = type.GetName();
+string GetQualifiedName(const AidlDefinedType& type, ClassNames class_names) {
+  string q_name = ClassName(type, class_names);
   for (auto parent = type.GetParentType(); parent; parent = parent->GetParentType()) {
-    name = parent->GetName() + "::" + name;
+    q_name = parent->GetName() + "::" + q_name;
   }
-  return name;
+  return q_name;
+}
+
+// Generates enum's class declaration. This should be called in a proper scope. For example, in its
+// namespace or parent type.
+void GenerateEnumClassDecl(CodeWriter& out, const AidlEnumDeclaration& enum_decl,
+                           const std::string& backing_type, ConstantValueDecorator decorator) {
+  out << "enum class";
+  GenerateDeprecated(out, enum_decl);
+  out << " " << enum_decl.GetName() << " : " << backing_type << " {\n";
+  out.Indent();
+  for (const auto& enumerator : enum_decl.GetEnumerators()) {
+    out << enumerator->GetName() << " = "
+        << enumerator->ValueString(enum_decl.GetBackingType(), decorator) << ",\n";
+  }
+  out.Dedent();
+  out << "};\n";
 }
 
 // enum_values template value is defined in its own namespace (android::internal or ndk::internal),
@@ -225,6 +245,41 @@ std::string GenerateEnumValues(const AidlEnumDeclaration& enum_decl,
   }
   code << "};\n";
   code << "#pragma clang diagnostic pop\n";
+  return code.str();
+}
+
+// toString(enum_type) is defined in the same namespace of the type.
+// So, if enum_decl is nested in parent type(s), it should be qualified with parent type(s).
+std::string GenerateEnumToString(const AidlEnumDeclaration& enum_decl,
+                                 const std::string& backing_type) {
+  const auto q_name = GetQualifiedName(enum_decl);
+  std::ostringstream code;
+  const std::string signature =
+      "[[nodiscard]] static inline std::string toString(" + q_name + " val)";
+  if (enum_decl.IsDeprecated()) {
+    code << signature;
+    GenerateDeprecated(code, enum_decl);
+    code << ";\n";
+  }
+  code << signature << " {\n";
+  code << "  switch(val) {\n";
+  std::set<std::string> unique_cases;
+  for (const auto& enumerator : enum_decl.GetEnumerators()) {
+    std::string c = enumerator->ValueString(enum_decl.GetBackingType(), AidlConstantValueDecorator);
+    // Only add a case if its value has not yet been used in the switch
+    // statement. C++ does not allow multiple cases with the same value, but
+    // enums does allow this. In this scenario, the first declared
+    // enumerator with the given value is printed.
+    if (unique_cases.count(c) == 0) {
+      unique_cases.insert(c);
+      code << "  case " << q_name << "::" << enumerator->GetName() << ":\n";
+      code << "    return \"" << enumerator->GetName() << "\";\n";
+    }
+  }
+  code << "  default:\n";
+  code << "    return std::to_string(static_cast<" << backing_type << ">(val));\n";
+  code << "  }\n";
+  code << "}\n";
   return code.str();
 }
 
@@ -357,11 +412,9 @@ void UnionWriter::PrivateFields(CodeWriter& out) const {
 }
 
 void UnionWriter::PublicFields(CodeWriter& out) const {
-  AidlTypeSpecifier tag_type(AIDL_LOCATION_HERE, "int", /* is_array= */ false,
-                             /* type_params= */ nullptr, Comments{});
-  tag_type.Resolve(typenames, nullptr);
+  auto tag_type = typenames.MakeResolvedType(AIDL_LOCATION_HERE, "int", /* is_array= */ false);
 
-  out << "enum Tag : " << name_of(tag_type, typenames) << " {\n";
+  out << "enum Tag : " << name_of(*tag_type, typenames) << " {\n";
   bool is_first = true;
   for (const auto& f : decl.GetFields()) {
     out << "  " << f->GetName();
@@ -432,9 +485,7 @@ void set(_Tp&&... _args) {{
 }
 
 void UnionWriter::ReadFromParcel(CodeWriter& out, const ParcelWriterContext& ctx) const {
-  AidlTypeSpecifier tag_type(AIDL_LOCATION_HERE, "int", /* is_array= */ false,
-                             /* type_params= */ nullptr, Comments{});
-  tag_type.Resolve(typenames, nullptr);
+  auto tag_type = typenames.MakeResolvedType(AIDL_LOCATION_HERE, "int", /* is_array= */ false);
 
   const string tag = "_aidl_tag";
   const string value = "_aidl_value";
@@ -448,7 +499,7 @@ void UnionWriter::ReadFromParcel(CodeWriter& out, const ParcelWriterContext& ctx
   };
 
   out << fmt::format("{} {};\n", ctx.status_type, status);
-  read_var(tag, tag_type);
+  read_var(tag, *tag_type);
   out << fmt::format("switch ({}) {{\n", tag);
   for (const auto& variable : decl.GetFields()) {
     out << fmt::format("case {}: {{\n", variable->GetName());
@@ -476,16 +527,14 @@ void UnionWriter::ReadFromParcel(CodeWriter& out, const ParcelWriterContext& ctx
 }
 
 void UnionWriter::WriteToParcel(CodeWriter& out, const ParcelWriterContext& ctx) const {
-  AidlTypeSpecifier tag_type(AIDL_LOCATION_HERE, "int", /* is_array= */ false,
-                             /* type_params= */ nullptr, Comments{});
-  tag_type.Resolve(typenames, nullptr);
+  auto tag_type = typenames.MakeResolvedType(AIDL_LOCATION_HERE, "int", /* is_array= */ false);
 
   const string tag = "_aidl_tag";
   const string value = "_aidl_value";
   const string status = "_aidl_ret_status";
 
   out << fmt::format("{} {} = ", ctx.status_type, status);
-  ctx.write_func(out, "getTag()", tag_type);
+  ctx.write_func(out, "getTag()", *tag_type);
   out << ";\n";
   out << fmt::format("if ({} != {}) return {};\n", status, ctx.status_ok, status);
   out << "switch (getTag()) {\n";
@@ -498,6 +547,57 @@ void UnionWriter::WriteToParcel(CodeWriter& out, const ParcelWriterContext& ctx)
   out << "__assert2(__FILE__, __LINE__, __PRETTY_FUNCTION__, \"can't reach here\");\n";
 }
 
+std::string CppConstantValueDecorator(const AidlTypeSpecifier& type, const std::string& raw_value,
+                                      bool is_ndk) {
+  AIDL_FATAL_IF(raw_value.empty(), type) << "Empty value for constants";
+
+  // apply array type only if raw_value is actually an array value(`{...}`).
+  if (type.IsArray() && raw_value[0] == '{') {
+    return raw_value;
+  }
+
+  if (AidlTypenames::IsBuiltinTypename(type.GetName())) {
+    if (type.GetName() == "boolean") {
+      return raw_value;
+    } else if (type.GetName() == "byte") {
+      // cast only if necessary
+      if (type.IsArray() && raw_value[0] == '-') {
+        return "uint8_t(" + raw_value + ")";
+      } else {
+        return raw_value;
+      }
+    } else if (type.GetName() == "char") {
+      // TODO: consider 'L'-prefix for wide char literal
+      return raw_value;
+    } else if (type.GetName() == "double") {
+      return raw_value;
+    } else if (type.GetName() == "float") {
+      return raw_value;  // raw_value has 'f' suffix
+    } else if (type.GetName() == "int") {
+      return raw_value;
+    } else if (type.GetName() == "long") {
+      return raw_value + "L";
+    } else if (type.GetName() == "String") {
+      if (is_ndk || type.IsUtf8InCpp()) {
+        return raw_value;
+      } else {
+        return "::android::String16(" + raw_value + ")";
+      }
+    }
+    AIDL_FATAL(type) << "Unknown built-in type: " << type.GetName();
+  }
+
+  auto defined_type = type.GetDefinedType();
+  AIDL_FATAL_IF(!defined_type, type) << "Invalid type for \"" << raw_value << "\"";
+  auto enum_type = defined_type->AsEnumDeclaration();
+  AIDL_FATAL_IF(!enum_type, type) << "Invalid type for \"" << raw_value << "\"";
+
+  auto cpp_type_name = "::" + Join(Split(enum_type->GetCanonicalName(), "."), "::");
+  if (is_ndk) {
+    cpp_type_name = "::aidl" + cpp_type_name;
+  }
+  return cpp_type_name + "::" + raw_value.substr(raw_value.find_last_of('.') + 1);
+}
 }  // namespace cpp
 }  // namespace aidl
 }  // namespace android
