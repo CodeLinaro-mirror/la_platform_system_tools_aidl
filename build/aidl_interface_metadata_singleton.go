@@ -19,6 +19,7 @@ import (
 
 	"fmt"
 	"strings"
+    "strconv"
 
 	"github.com/google/blueprint"
 	"github.com/google/blueprint/proptools"
@@ -126,6 +127,7 @@ func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx androi
 	var metadataOutputs android.Paths
 	for _, name := range android.SortedStringKeys(moduleInfos) {
 		info := moduleInfos[name]
+        infoExt := moduleInfosExt[name]
 		metadataPath := android.PathForModuleOut(ctx, "metadata_"+name)
 		metadataOutputs = append(metadataOutputs, metadataPath)
 
@@ -158,6 +160,7 @@ func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx androi
 				"hashes":          readHashes,
 				"has_development": hasDevelopmentValue,
 				"versions":        strings.Join(info.Versions, ", "),
+                "vendor_available":  strconv.FormatBool(proptools.Bool(infoExt.VendorAvailable)),
 			},
 		})
 	}
