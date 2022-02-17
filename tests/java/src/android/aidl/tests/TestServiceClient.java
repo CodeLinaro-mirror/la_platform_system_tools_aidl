@@ -22,9 +22,11 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assume.assumeTrue;
 
+import android.aidl.tests.BadParcelable;
 import android.aidl.tests.ByteEnum;
 import android.aidl.tests.GenericStructuredParcelable;
 import android.aidl.tests.INamedCallback;
@@ -38,6 +40,7 @@ import android.aidl.versioned.tests.IFooInterface;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.os.BadParcelableException;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.ParcelFileDescriptor;
@@ -347,6 +350,19 @@ public class TestServiceClient {
     }
 
     @Test
+    public void testBadParcelable() throws RemoteException {
+      assumeTrue(cpp_java_tests != null);
+      BadParcelable bad = new BadParcelable(/*bad=*/true, "foo", 42);
+      Throwable error =
+          assertThrows(BadParcelableException.class, () -> cpp_java_tests.RepeatBadParcelable(bad));
+      assertTrue(error.getMessage().contains("Parcel data not fully consumed"));
+
+      BadParcelable notBad = new BadParcelable(/*bad=*/false, "foo", 42);
+      BadParcelable output = cpp_java_tests.RepeatBadParcelable(notBad);
+      assertThat(notBad, is(output));
+    }
+
+    @Test
     public void testRepeatParcelable() throws RemoteException {
         assumeTrue(cpp_java_tests != null);
 
@@ -639,7 +655,7 @@ public class TestServiceClient {
     }
 
     @Test
-    public void testStructurecParcelableEquality() {
+    public void testStructuredParcelableEquality() {
         StructuredParcelable p = new StructuredParcelable();
         p.shouldContainThreeFs = new int[] {1, 2, 3};
         p.shouldBeJerry = "Jerry";
@@ -661,7 +677,7 @@ public class TestServiceClient {
     }
 
     @Test
-    public void testStrucuturedParcelable() throws RemoteException {
+    public void testStructuredParcelable() throws RemoteException {
         final int kDesiredFValue = 17;
 
         StructuredParcelable p = new StructuredParcelable();
@@ -671,6 +687,7 @@ public class TestServiceClient {
         p.shouldContainTwoByteFoos = new byte[2];
         p.shouldContainTwoIntFoos = new int[2];
         p.shouldContainTwoLongFoos = new long[2];
+        p.empty = new StructuredParcelable.Empty();
 
         // Check the default values
         assertThat(p.stringDefaultsToFoo, is("foo"));
@@ -763,6 +780,7 @@ public class TestServiceClient {
             + "int64_max: 9223372036854775807, "
             + "hexInt32_neg_1: -1, "
             + "ibinder: null, "
+            + "empty: android.aidl.tests.StructuredParcelable.Empty{}, "
             + "int8_1: [1, 1, 1, 1, 1], "
             + "int32_1: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, "
             + "1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, "

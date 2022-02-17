@@ -98,16 +98,6 @@ func addCppLibrary(mctx android.LoadHookContext, i *aidlInterface, version strin
 	var hostSupported *bool
 	var addCflags []string
 	targetProp := ccTargetProperties{
-		// Currently necessary for host builds
-		// TODO(b/31559095): bionic on host should define this
-		// TODO(b/146436251): default isn't applied because the module is created
-		// in PreArchMutators, when import behavior becomes explicit, the logic can
-		// be moved back to LoadHook
-		Host: hostProperties{Cflags: []string{
-			"-D__INTRODUCED_IN(n)=",
-			"-D__assert(a,b,c)=",
-			// We want all the APIs to be available on the host.
-			"-D__ANDROID_API__=10000"}},
 		Darwin: darwinProperties{Enabled: proptools.BoolPtr(false)},
 	}
 
@@ -299,14 +289,15 @@ func addRustLibrary(mctx android.LoadHookContext, i *aidlInterface, version stri
 	rustCrateName := fixRustName(i.ModuleBase.Name())
 
 	mctx.CreateModule(wrapLibraryFactory(aidlRustLibraryFactory), &rustProperties{
-		Name:            proptools.StringPtr(rustModuleGen),
-		Crate_name:      rustCrateName,
-		Stem:            proptools.StringPtr("lib" + versionedRustName),
-		Defaults:        []string{"aidl-rust-module-defaults"},
-		Host_supported:  i.properties.Host_supported,
-		Apex_available:  i.properties.Backend.Rust.Apex_available,
-		Min_sdk_version: i.minSdkVersion(langRust),
-		Target:          rustTargetProperties{Darwin: darwinProperties{Enabled: proptools.BoolPtr(false)}},
+		Name:             proptools.StringPtr(rustModuleGen),
+		Crate_name:       rustCrateName,
+		Stem:             proptools.StringPtr("lib" + versionedRustName),
+		Defaults:         []string{"aidl-rust-module-defaults"},
+		Host_supported:   i.properties.Host_supported,
+		Vendor_available: i.properties.Vendor_available,
+		Apex_available:   i.properties.Backend.Rust.Apex_available,
+		Min_sdk_version:  i.minSdkVersion(langRust),
+		Target:           rustTargetProperties{Darwin: darwinProperties{Enabled: proptools.BoolPtr(false)}},
 	}, &rust.SourceProviderProperties{
 		Source_stem: proptools.StringPtr(versionedRustName),
 	}, &aidlRustSourceProviderProperties{

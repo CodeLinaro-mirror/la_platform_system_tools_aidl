@@ -310,7 +310,8 @@ void GenerateHeaderIncludes(CodeWriter& out, const AidlTypenames& types,
       includes.insert("android/binder_interface_utils.h");
       includes.insert("android/binder_parcelable_utils.h");
       includes.insert("android/binder_to_string.h");  // used by toString()
-      includes.insert(std::begin(cpp::UnionWriter::headers), std::end(cpp::UnionWriter::headers));
+      auto union_headers = cpp::UnionWriter::GetHeaders(union_decl);
+      includes.insert(std::begin(union_headers), std::end(union_headers));
     }
 
     void Visit(const AidlEnumDeclaration& enum_decl) override {
@@ -520,7 +521,7 @@ static void GenerateClientMethodDefinition(CodeWriter& out, const AidlTypenames&
       WriteToParcelFor({out, types, arg->GetType(), "_aidl_in.get()", prefix + var_name});
       out << ";\n";
       StatusCheckGoto(out);
-    } else if (arg->IsOut() && arg->GetType().IsArray()) {
+    } else if (arg->IsOut() && arg->GetType().IsDynamicArray()) {
       out << "_aidl_ret_status = ::ndk::AParcel_writeVectorSize(_aidl_in.get(), *" << var_name
           << ");\n";
       StatusCheckGoto(out);
@@ -625,7 +626,7 @@ static void GenerateServerCaseDefinition(CodeWriter& out, const AidlTypenames& t
       ReadFromParcelFor({out, types, arg->GetType(), "_aidl_in", "&" + var_name});
       out << ";\n";
       StatusCheckBreak(out);
-    } else if (arg->IsOut() && arg->GetType().IsArray()) {
+    } else if (arg->IsOut() && arg->GetType().IsDynamicArray()) {
       out << "_aidl_ret_status = ::ndk::AParcel_resizeVector(_aidl_in, &" << var_name << ");\n";
       StatusCheckBreak(out);
     }
@@ -1143,7 +1144,7 @@ void GenerateParcelClassDecl(CodeWriter& out, const AidlTypenames& types,
           << "}";
     }
     if (defined_type.IsFixedSize()) {
-      int alignment = NdkAlignmentOf(types, variable->GetType());
+      int alignment = cpp::AlignmentOf(variable->GetType(), types);
       if (alignment > 0) {
         out << " __attribute__((aligned (" << std::to_string(alignment) << ")))";
       }
@@ -1199,14 +1200,13 @@ void GenerateParcelSource(CodeWriter& out, const AidlTypenames& types,
   out << cpp::TemplateDecl(defined_type);
   out << "binder_status_t " << clazz << "::readFromParcel(const AParcel* _aidl_parcel) {\n";
   out.Indent();
-  out << "int32_t _aidl_parcelable_size;\n";
+  out << "binder_status_t _aidl_ret_status = STATUS_OK;\n";
   out << "int32_t _aidl_start_pos = AParcel_getDataPosition(_aidl_parcel);\n";
-  out << "binder_status_t _aidl_ret_status = AParcel_readInt32(_aidl_parcel, "
-         "&_aidl_parcelable_size);\n";
-  out << "if (_aidl_start_pos > INT32_MAX - _aidl_parcelable_size) return STATUS_BAD_VALUE;\n";
-  out << "if (_aidl_parcelable_size < 0) return STATUS_BAD_VALUE;\n";
+  out << "int32_t _aidl_parcelable_size = 0;\n";
+  out << "_aidl_ret_status = AParcel_readInt32(_aidl_parcel, &_aidl_parcelable_size);\n";
   StatusCheckReturn(out);
-
+  out << "if (_aidl_parcelable_size < 4) return STATUS_BAD_VALUE;\n";
+  out << "if (_aidl_start_pos > INT32_MAX - _aidl_parcelable_size) return STATUS_BAD_VALUE;\n";
   for (const auto& variable : defined_type.GetFields()) {
     out << "if (AParcel_getDataPosition(_aidl_parcel) - _aidl_start_pos >= _aidl_parcelable_size) "
            "{\n"

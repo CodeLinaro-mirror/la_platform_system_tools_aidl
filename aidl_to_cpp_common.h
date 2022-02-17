@@ -44,6 +44,12 @@ enum class ClassNames {
 
 string ClassName(const AidlDefinedType& defined_type, ClassNames type);
 
+// Return the alignment of known types and enum backing types.
+// If the alignment is unknown, or it is a FizedSize parcelable with its
+// own guaranteed alignment(so it does not need to be specified), 0 will be
+// returned.
+size_t AlignmentOf(const AidlTypeSpecifier& type, const AidlTypenames& typenames);
+
 // Generate the relative path to a header file.  If |use_os_sep| we'll use the
 // operating system specific path separator rather than C++'s expected '/' when
 // including headers.
@@ -114,7 +120,8 @@ struct UnionWriter {
   const AidlTypenames& typenames;
   const std::function<std::string(const AidlTypeSpecifier&, const AidlTypenames&)> name_of;
   const ::ConstantValueDecorator& decorator;
-  static const std::vector<std::string> headers;
+
+  static std::set<std::string> GetHeaders(const AidlUnionDecl&);
 
   void PrivateFields(CodeWriter& out) const;
   void PublicFields(CodeWriter& out) const;
@@ -122,8 +129,9 @@ struct UnionWriter {
   void WriteToParcel(CodeWriter& out, const ParcelWriterContext&) const;
 };
 
-std::string CppConstantValueDecorator(const AidlTypeSpecifier& type, const std::string& raw_value,
-                                      bool is_ndk);
+std::string CppConstantValueDecorator(
+    const AidlTypeSpecifier& type,
+    const std::variant<std::string, std::vector<std::string>>& raw_value, bool is_ndk);
 }  // namespace cpp
 }  // namespace aidl
 }  // namespace android
