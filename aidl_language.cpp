@@ -9,8 +9,12 @@
 #include <android-base/parseint.h>
 #include <android-base/strings.h>
 
+#ifdef USE_LE_MODE
+#include <aidl_language_y.hh>
+#else
 #include "aidl_language_y.h"
 #include "logging.h"
+#endif
 
 #ifdef _WIN32
 int isatty(int  fd)
@@ -100,8 +104,10 @@ AidlIntConstant::AidlIntConstant(std::string name,
   uint32_t unsigned_val;
   if (!android::base::ParseUint(value.c_str(), &unsigned_val)) {
     is_valid_ = false;
+#ifndef USE_LE_MODE
     LOG(ERROR) << "Found invalid int value '" << value
                << "' on line " << line_number;
+#endif
   } else {
     // Converting from unsigned to signed integer.
     value_ = unsigned_val;
@@ -120,9 +126,11 @@ AidlStringConstant::AidlStringConstant(std::string name,
     if (c <= 0x1f || // control characters are < 0x20
         c >= 0x7f || // DEL is 0x7f
         c == '\\') { // Disallow backslashes for future proofing.
+#ifndef USE_LE_MODE
       LOG(ERROR) << "Found invalid character at index " << i
                  << " in string constant '" << value_
                  << "' beginning on line " << line_number;
+#endif
       is_valid_ = false;
       break;
     }
@@ -205,7 +213,9 @@ AidlInterface::AidlInterface(const std::string& name, unsigned line,
     } else if (string_constant) {
       string_constants_.emplace_back(string_constant);
     } else {
+#ifndef USE_LE_MODE
       LOG(FATAL) << "Member is neither method nor constant!";
+#endif
     }
   }
 
@@ -234,7 +244,9 @@ AidlQualifiedName::AidlQualifiedName(std::string term,
     terms_ = Split(term, ".");
     for (const auto& term: terms_) {
       if (term.empty()) {
+#ifndef USE_LE_MODE
         LOG(FATAL) << "Malformed qualified identifier: '" << term << "'";
+#endif
       }
     }
   }
@@ -262,7 +274,9 @@ bool Parser::ParseFile(const string& filename) {
   // Make sure we can read the file first, before trashing previous state.
   unique_ptr<string> new_buffer = io_delegate_.GetFileContents(filename);
   if (!new_buffer) {
+#ifndef USE_LE_MODE
     LOG(ERROR) << "Error while opening file for parsing: '" << filename << "'";
+#endif
     return false;
   }
 
@@ -289,7 +303,9 @@ bool Parser::ParseFile(const string& filename) {
   if (document_.get() != nullptr)
     return true;
 
+#ifndef USE_LE_MODE
   LOG(ERROR) << "Parser succeeded but yielded no document!";
+#endif
   return false;
 }
 

@@ -28,8 +28,9 @@
 #endif
 
 #include <android-base/strings.h>
-
+#ifndef USE_LE_MODE
 #include "logging.h"
+#endif
 #include "os.h"
 
 using std::string;
@@ -47,7 +48,9 @@ bool IoDelegate::GetAbsolutePath(const string& path, string* absolute_path) {
   char buf[4096];
   DWORD path_len = GetFullPathName(path.c_str(), sizeof(buf), buf, nullptr);
   if (path_len <= 0 || path_len >= sizeof(buf)) {
+#ifndef USE_LE_MODE
     LOG(ERROR) << "Failed to GetFullPathName(" << path << ")";
+#endif
     return false;
   }
   *absolute_path = buf;
@@ -57,8 +60,10 @@ bool IoDelegate::GetAbsolutePath(const string& path, string* absolute_path) {
 #else
 
   if (path.empty()) {
+#ifndef USE_LE_MODE
     LOG(ERROR) << "Giving up on finding an absolute path to represent the "
                   "empty string.";
+#endif
     return false;
   }
   if (path[0] == OS_PATH_SEPARATOR) {
@@ -68,8 +73,10 @@ bool IoDelegate::GetAbsolutePath(const string& path, string* absolute_path) {
 
   char buf[4096];
   if (getcwd(buf, sizeof(buf)) == nullptr) {
+#ifndef USE_LE_MODE
     LOG(ERROR) << "Path of current working directory does not fit in "
                << sizeof(buf) << " bytes";
+#endif
     return false;
   }
 
@@ -138,8 +145,10 @@ bool IoDelegate::CreatedNestedDirs(
 #endif
     // On darwin when you try to mkdir("/", ...) we get EISDIR.
     if (!success && (errno != EEXIST && errno != EISDIR)) {
+#ifndef USE_LE_MODE
       LOG(ERROR) << "Error while creating " << base_dir << ": "
                  << strerror(errno);
+#endif
       return false;
     }
   }

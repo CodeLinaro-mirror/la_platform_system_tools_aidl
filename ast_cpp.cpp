@@ -290,7 +290,9 @@ SwitchStatement::SwitchStatement(const std::string& expression)
 StatementBlock* SwitchStatement::AddCase(const string& value_expression) {
   auto it = std::find(case_values_.begin(), case_values_.end(), value_expression);
   if (it != case_values_.end()) {
+#ifndef USE_LE_MODE
     LOG(ERROR) << "internal error: duplicate switch case labels";
+#endif
     return nullptr;
   }
   StatementBlock* ret = new StatementBlock();

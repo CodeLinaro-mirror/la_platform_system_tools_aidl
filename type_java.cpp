@@ -21,7 +21,9 @@
 #include <android-base/strings.h>
 
 #include "aidl_language.h"
+#ifndef USE_LE_MODE
 #include "logging.h"
+#endif
 
 using std::string;
 using android::base::Split;
@@ -899,7 +901,9 @@ bool JavaTypeNamespace::AddListType(const std::string& contained_type_name) {
 
 bool JavaTypeNamespace::AddMapType(const string& key_type_name,
                                    const string& value_type_name) {
+#ifndef USE_LE_MODE
   LOG(ERROR) << "Don't know how to create a Map<K,V> container.";
+#endif
   return false;
 }
 

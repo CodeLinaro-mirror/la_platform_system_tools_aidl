@@ -6,8 +6,11 @@
 #include <vector>
 
 #include <android-base/macros.h>
+#ifndef USE_LE_MODE
 #include <android-base/strings.h>
-
+#else
+#include <base/strings.h>
+#endif
 #include <io_delegate.h>
 
 struct yy_buffer_state;
@@ -278,7 +281,7 @@ class AidlQualifiedName : public AidlNode {
   const std::vector<std::string>& GetTerms() const { return terms_; }
   const std::string& GetComments() const { return comments_; }
   std::string GetDotName() const { return android::base::Join(terms_, '.'); }
-  std::string GetColonName() const { return android::base::Join(terms_, "::"); }
+  std::string GetColonName() const { return android::base::Join(terms_, '::'); }
 
   void AddTerm(const std::string& term);
 

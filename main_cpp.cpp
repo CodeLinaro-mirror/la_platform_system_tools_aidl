@@ -18,7 +18,9 @@
 
 #include "aidl.h"
 #include "io_delegate.h"
+#ifndef USE_LE_MODE
 #include "logging.h"
+#endif
 #include "options.h"
 
 using android::aidl::CppOptions;
@@ -29,8 +31,10 @@ extern "C" const char *__asan_default_options() {
 }
 
 int main(int argc, char** argv) {
+#ifndef USE_LE_MODE
   android::base::InitLogging(argv);
   LOG(DEBUG) << "aidl starting";
+#endif
 
   std::unique_ptr<CppOptions> options = CppOptions::Parse(argc, argv);
   if (!options) {

@@ -21,7 +21,9 @@
 #include <vector>
 
 #include <android-base/macros.h>
+#ifndef USE_LE_MODE
 #include <gtest/gtest_prod.h>
+#endif
 
 namespace android {
 namespace aidl {
@@ -59,12 +61,14 @@ class JavaOptions final {
  private:
   JavaOptions() = default;
 
+#ifndef USE_LE_MODE
   FRIEND_TEST(EndToEndTest, IExampleInterface);
   FRIEND_TEST(AidlTest, FailOnParcelable);
   FRIEND_TEST(AidlTest, WritePreprocessedFile);
   FRIEND_TEST(AidlTest, WritesCorrectDependencyFile);
   FRIEND_TEST(AidlTest, WritesCorrectDependencyFileNinja);
   FRIEND_TEST(AidlTest, WritesTrivialDependencyFileForParcelable);
+#endif
 
   DISALLOW_COPY_AND_ASSIGN(JavaOptions);
 };
@@ -97,8 +101,10 @@ class CppOptions final {
   std::string dep_file_name_;
   bool dep_file_ninja_{false};
 
+#ifndef USE_LE_MODE
   FRIEND_TEST(CppOptionsTests, ParsesCompileCpp);
   FRIEND_TEST(CppOptionsTests, ParsesCompileCppNinja);
+#endif
   DISALLOW_COPY_AND_ASSIGN(CppOptions);
 };
 

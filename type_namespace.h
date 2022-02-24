@@ -203,19 +203,23 @@ bool LanguageTypeNamespace<T>::Add(const T* type) {
   }
 
   if (existing->Kind() == ValidatableType::KIND_BUILT_IN) {
+#ifndef USE_LE_MODE
     LOG(ERROR) << type->DeclFile() << ":" << type->DeclLine()
                << " attempt to redefine built in class "
                << type->CanonicalName();
+#endif
     return false;
   }
 
   if (type->Kind() != existing->Kind()) {
+#ifndef USE_LE_MODE
     LOG(ERROR) << type->DeclFile() << ":" << type->DeclLine()
                << " attempt to redefine " << type->CanonicalName()
                << " as " << type->HumanReadableKind();
     LOG(ERROR) << existing->DeclFile() << ":" << existing->DeclLine()
                << " previously defined here as "
                << existing->HumanReadableKind();
+#endif
     return false;
   }
 
@@ -301,7 +305,9 @@ bool LanguageTypeNamespace<T>::MaybeAddContainerType(
       break;  // Should never get here, will FATAL below.
   }
 
+#ifndef USE_LE_MODE
   LOG(FATAL) << "aidl internal error";
+#endif
   return false;
 }
 
@@ -337,7 +343,9 @@ bool LanguageTypeNamespace<T>::CanonicalizeContainerType(
       closing_brace != name.rfind('>') ||
       closing_brace != name.length() - 1) {
     // Nested/invalid templates are forbidden.
+#ifndef USE_LE_MODE
     LOG(ERROR) << "Invalid template type '" << name << "'";
+#endif
     return false;
   }
 
@@ -378,8 +386,10 @@ bool LanguageTypeNamespace<T>::CanonicalizeContainerType(
     return true;
   }
 
+#ifndef USE_LE_MODE
   LOG(ERROR) << "Unknown find container with name " << container
              << " and " << args.size() << "contained types.";
+#endif
   return false;
 }
 

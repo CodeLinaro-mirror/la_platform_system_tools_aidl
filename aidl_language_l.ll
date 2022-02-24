@@ -3,8 +3,11 @@
 #include <stdlib.h>
 
 #include "aidl_language.h"
+#ifndef USE_LE_MODE
 #include "aidl_language_y.h"
-
+#else
+#include "aidl_language_y.hh"
+#endif
 #define YY_USER_ACTION yylloc->columns(yyleng);
 %}
 

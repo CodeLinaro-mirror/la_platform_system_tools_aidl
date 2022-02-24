@@ -20,9 +20,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#ifndef USE_LE_MODE
 #include <android-base/stringprintf.h>
-
+#else
+#include <base/stringprintf.h>
+#endif
 #include "code_writer.h"
 #include "type_java.h"
 

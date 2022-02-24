@@ -20,7 +20,9 @@
 #include <iostream>
 #include <stdio.h>
 
+#ifndef USE_LE_MODE
 #include "logging.h"
+#endif
 #include "os.h"
 
 using std::cerr;
@@ -156,7 +158,9 @@ unique_ptr<JavaOptions> JavaOptions::Parse(int argc, const char* const* argv) {
     options->output_file_name_= options->input_file_name_;
     if (!ReplaceSuffix(".aidl", ".java", &options->output_file_name_)) {
       // we should never get here since we validated the suffix.
+#ifndef USE_LE_MODE
       LOG(FATAL) << "Internal aidl error.";
+#endif
       return java_usage();
     }
   }

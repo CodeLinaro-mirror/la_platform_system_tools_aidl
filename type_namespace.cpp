@@ -21,7 +21,9 @@
 #include <vector>
 
 #include "aidl_language.h"
+#ifndef USE_LE_MODE
 #include "logging.h"
+#endif
 
 using android::base::StringPrintf;
 using android::base::Split;
@@ -104,10 +106,12 @@ const ValidatableType* TypeNamespace::GetReturnType(
   const ValidatableType* return_type = GetValidatableType(raw_type, &error_msg,
                                                           interface);
   if (return_type == nullptr) {
+#ifndef USE_LE_MODE
     LOG(ERROR) << StringPrintf("In file %s line %d return type %s:\n    ",
                                filename.c_str(), raw_type.GetLine(),
                                raw_type.ToString().c_str())
                << error_msg;
+#endif
     return nullptr;
   }
 
@@ -126,35 +130,45 @@ const ValidatableType* TypeNamespace::GetArgType(
   const ValidatableType* t = GetValidatableType(a.GetType(), &error_msg,
                                                 interface);
   if (t == nullptr) {
+#ifndef USE_LE_MODE
     LOG(ERROR) << error_prefix << error_msg;
+#endif
     return nullptr;
   }
 
   if (!a.DirectionWasSpecified() && t->CanBeOutParameter()) {
+#ifndef USE_LE_MODE
     LOG(ERROR) << error_prefix << StringPrintf(
         "'%s' can be an out type, so you must declare it as in,"
         " out or inout.",
         a.GetType().ToString().c_str());
+#endif
     return nullptr;
   }
 
   if (a.GetDirection() != AidlArgument::IN_DIR &&
       !t->CanBeOutParameter()) {
+#ifndef USE_LE_MODE
     LOG(ERROR) << error_prefix << StringPrintf(
         "'%s' can only be an in parameter.",
         a.ToString().c_str());
+#endif
     return nullptr;
   }
 
   // check that the name doesn't match a keyword
   if (is_java_keyword(a.GetName().c_str())) {
+#ifndef USE_LE_MODE
     LOG(ERROR) << error_prefix << "Argument name is a Java or aidl keyword";
+#endif
     return nullptr;
   }
 
   // Reserve a namespace for internal use
   if (a.GetName().substr(0, 5)  == "_aidl") {
+#ifndef USE_LE_MODE
     LOG(ERROR) << error_prefix << "Argument name cannot begin with '_aidl'";
+#endif
     return nullptr;
   }
 

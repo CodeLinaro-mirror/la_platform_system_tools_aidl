@@ -23,7 +23,9 @@
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
 
+#ifndef USE_LE_MODE
 #include "logging.h"
+#endif
 
 using std::cerr;
 using std::endl;
@@ -513,8 +515,10 @@ void TypeNamespace::Init() {
 bool TypeNamespace::AddParcelableType(const AidlParcelable& p,
                                       const string& filename) {
   if (p.GetCppHeader().empty()) {
+#ifndef USE_LE_MODE
     LOG(ERROR) << "Parcelable " << p.GetCanonicalName()
                << " has no C++ header defined.";
+#endif
     return false;
   }
   Add(new ParcelableType(p, filename));
@@ -530,14 +534,18 @@ bool TypeNamespace::AddBinderType(const AidlInterface& b,
 bool TypeNamespace::AddListType(const std::string& type_name) {
   const Type* contained_type = FindTypeByCanonicalName(type_name);
   if (!contained_type) {
+#ifndef USE_LE_MODE
     LOG(ERROR) << "Cannot create List<" << type_name << "> because contained "
                   "type cannot be found or is invalid.";
+#endif
     return false;
   }
   if (contained_type->IsCppPrimitive()) {
+#ifndef USE_LE_MODE
     LOG(ERROR) << "Cannot create List<" << type_name << "> because contained "
                   "type is a primitive in Java and Java List cannot hold "
                   "primitives.";
+#endif
     return false;
   }
 
@@ -549,14 +557,18 @@ bool TypeNamespace::AddListType(const std::string& type_name) {
 
   // TODO Support lists of parcelables b/23600712
 
+#ifndef USE_LE_MODE
   LOG(ERROR) << "aidl-cpp does not yet support List<" << type_name << ">";
+#endif
   return false;
 }
 
 bool TypeNamespace::AddMapType(const std::string& /* key_type_name */,
                                const std::string& /* value_type_name */) {
   // TODO Support list types b/25242025
+#ifndef USE_LE_MODE
   LOG(ERROR) << "aidl does not implement support for typed maps!";
+#endif
   return false;
 }
 

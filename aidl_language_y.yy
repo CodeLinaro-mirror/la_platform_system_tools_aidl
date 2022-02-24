@@ -1,6 +1,10 @@
 %{
 #include "aidl_language.h"
+#ifndef USE_LE_MODE
 #include "aidl_language_y.h"
+#else
+#include "aidl_language_y.hh"
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,7 +18,6 @@ int yylex(yy::parser::semantic_type *, yy::parser::location_type *, void *);
 %parse-param { Parser* ps }
 %lex-param { void *lex_scanner }
 
-%pure-parser
 %skeleton "glr.cc"
 
 %union {

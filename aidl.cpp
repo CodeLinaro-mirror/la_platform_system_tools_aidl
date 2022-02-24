@@ -12,7 +12,42 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *    * Redistributions of source code must retain the above copyright
+ *      notice, this list of conditions and the following disclaimer.
+ *
+ *    * Redistributions in binary form must reproduce the above
+ *      copyright notice, this list of conditions and the following
+ *      disclaimer in the documentation and/or other materials provided
+ *      with the distribution.
+ *
+ *    * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *      contributors may be used to endorse or promote products derived
+ *      from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 
 #include "aidl.h"
 
@@ -38,7 +73,9 @@
 #include "generate_cpp.h"
 #include "generate_java.h"
 #include "import_resolver.h"
+#ifndef USE_LE_MODE
 #include "logging.h"
+#endif
 #include "options.h"
 #include "os.h"
 #include "type_cpp.h"
@@ -274,7 +311,9 @@ bool write_java_dep_file(const JavaOptions& options,
   }
   CodeWriterPtr writer = io_delegate.GetCodeWriter(dep_file_name);
   if (!writer) {
+#ifndef USE_LE_MODE
     LOG(ERROR) << "Could not open dependency file: " << dep_file_name;
+#endif
     return false;
   }
 
@@ -304,7 +343,9 @@ bool write_cpp_dep_file(const CppOptions& options,
   }
   CodeWriterPtr writer = io_delegate.GetCodeWriter(dep_file_name);
   if (!writer) {
+#ifndef USE_LE_MODE
     LOG(ERROR) << "Could not open dependency file: " << dep_file_name;
+#endif
     return false;
   }
 
@@ -426,8 +467,10 @@ bool validate_constants(const AidlInterface& interface) {
   for (const std::unique_ptr<AidlIntConstant>& int_constant :
        interface.GetIntConstants()) {
     if (names.count(int_constant->GetName()) > 0) {
+#ifndef USE_LE_MODE
       LOG(ERROR) << "Found duplicate constant name '" << int_constant->GetName()
                  << "'";
+#endif
       success = false;
     }
     names.insert(int_constant->GetName());
@@ -437,8 +480,10 @@ bool validate_constants(const AidlInterface& interface) {
   for (const std::unique_ptr<AidlStringConstant>& string_constant :
        interface.GetStringConstants()) {
     if (names.count(string_constant->GetName()) > 0) {
+#ifndef USE_LE_MODE
       LOG(ERROR) << "Found duplicate constant name '" << string_constant->GetName()
                  << "'";
+#endif
       success = false;
     }
     names.insert(string_constant->GetName());
@@ -502,7 +547,9 @@ bool parse_preprocessed_file(const IoDelegate& io_delegate,
   bool success = true;
   unique_ptr<LineReader> line_reader = io_delegate.GetLineReader(filename);
   if (!line_reader) {
+#ifndef USE_LE_MODE
     LOG(ERROR) << "cannot open preprocessed file: " << filename;
+#endif
     success = false;
     return success;
   }
@@ -537,8 +584,10 @@ bool parse_preprocessed_file(const IoDelegate& io_delegate,
     }
   }
   if (!success) {
+#ifndef USE_LE_MODE
     LOG(ERROR) << filename << ':' << lineno
                << " malformed preprocessed file line: '" << line << "'";
+#endif
   }
 
   return success;
@@ -577,16 +626,20 @@ AidlError load_and_validate_aidl(
   unique_ptr<AidlInterface> interface(parsed_doc->ReleaseInterface());
 
   if (!interface) {
+#ifndef USE_LE_MODE
     LOG(ERROR) << "refusing to generate code from aidl file defining "
                   "parcelable";
+#endif
     return AidlError::FOUND_PARCELABLE;
   }
 
   if (!check_filename(input_file_name.c_str(), interface->GetPackage(),
                       interface->GetName(), interface->GetLine()) ||
       !types->IsValidPackage(interface->GetPackage())) {
+#ifndef USE_LE_MODE
     LOG(ERROR) << "Invalid package declaration '" << interface->GetPackage()
                << "'";
+#endif
     return AidlError::BAD_PACKAGE;
   }
 
@@ -600,6 +653,37 @@ AidlError load_and_validate_aidl(
       continue;
     }
     string import_path = import_resolver.FindImportFile(import->GetNeededClass());
+#ifdef USE_LE_MODE
+    if(import->GetNeededClass() == "android.brillo.IUpdateEngineStatusCallback") {
+       if(import_path.empty()){
+           import_path = "android/brillo/IUpdateEngineStatusCallback.aidl";
+           printf("\nimportpath set to %s:\n",import_path.c_str());
+       }
+       else {
+           printf("\nimport path was not empty %s\n",import_path.c_str());
+       }
+    }
+    
+    if(import->GetNeededClass() == "android.brillo.ParcelableUpdateEngineStatus") {
+       if(import_path.empty()){
+           import_path = "android/brillo/ParcelableUpdateEngineStatus.aidl";
+           printf("\nimportpath set to %s:\n",import_path.c_str());
+       }
+       else {
+           printf("\nimport path was not empty %s\n",import_path.c_str());
+       }
+    }
+
+    if(import->GetNeededClass() == "android.os.IUpdateEngineCallback") {
+       if(import_path.empty()){
+           import_path = "android/os/IUpdateEngineCallback.aidl";
+           printf("\nimportpath set to %s:\n",import_path.c_str());
+       }
+       else {
+           printf("\nimport path was not empty %s\n",import_path.c_str());
+       }
+    }
+#endif
     if (import_path.empty()) {
       cerr << import->GetFileFrom() << ":" << import->GetLine()
            << ": couldn't find import for class "

@@ -176,8 +176,10 @@ unique_ptr<CppNamespace> NestInNamespaces(
   if (package.empty()) {
     // We should also be checking this before we get this far, but do it again
     // for the sake of unit tests and meaningful errors.
+#ifndef USE_LE_MODE
     LOG(FATAL) << "C++ generation requires a package declaration "
                   "for namespacing";
+#endif
   }
   auto it = package.crbegin();  // Iterate over the namespaces inner to outer
   unique_ptr<CppNamespace> inner{new CppNamespace{*it, std::move(decls)}};
@@ -770,10 +772,16 @@ bool WriteHeader(const CppOptions& options,
       header = BuildServerHeader(types, interface);
       break;
     default:
+#ifndef USE_LE_MODE
       LOG(FATAL) << "aidl internal error";
+#else
+    printf("FATAL, aidl internal error");
+#endif
   }
   if (!header) {
+#ifndef USE_LE_MODE
     LOG(ERROR) << "aidl internal error: Failed to generate header.";
+#endif
     return false;
   }
 
@@ -826,7 +834,9 @@ bool GenerateCpp(const CppOptions& options,
 
   if (!io_delegate.CreatedNestedDirs(options.OutputHeaderDir(),
                                      interface.GetSplitPackage())) {
+#ifndef USE_LE_MODE
     LOG(ERROR) << "Failed to create directory structure for headers.";
+#endif
     return false;
   }
 
