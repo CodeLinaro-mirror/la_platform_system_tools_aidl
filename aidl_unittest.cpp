@@ -462,6 +462,28 @@ TEST_P(AidlTest, ParsesStabilityAnnotations) {
   ASSERT_TRUE(interface->IsVintfStability());
 }
 
+TEST_P(AidlTest, TypesShouldHaveVintfStabilityWhenCompilingWithTheVintfFlag) {
+  CaptureStderr();
+  string code =
+      "@VintfStability\n"
+      "parcelable Foo {\n"
+      "  interface INested {}"
+      "}";
+  EXPECT_NE(nullptr, Parse("Foo.aidl", code, typenames_, GetLanguage(), nullptr,
+                           {"--structured", "--stability", "vintf"}));
+  EXPECT_EQ(GetCapturedStderr(), "");
+  auto nested = typenames_.TryGetDefinedType("Foo.INested");
+  ASSERT_NE(nullptr, nested);
+  ASSERT_TRUE(nested->IsVintfStability());
+}
+
+TEST_P(AidlTest, VintfStabilityAppliesToNestedTypesAsWell) {
+  CaptureStderr();
+  EXPECT_EQ(nullptr, Parse("Foo.aidl", "parcelable Foo {}", typenames_, GetLanguage(), nullptr,
+                           {"--structured", "--stability", "vintf"}));
+  EXPECT_THAT(GetCapturedStderr(), HasSubstr("Foo does not have VINTF level stability"));
+}
+
 TEST_F(AidlTest, ParsesJavaOnlyStableParcelable) {
   Options java_options = Options::From("aidl -o out --structured a/Foo.aidl");
   Options cpp_options = Options::From("aidl --lang=cpp -o out -h out/include a/Foo.aidl");
@@ -1152,9 +1174,7 @@ TEST_P(AidlTest, ParseCompoundParcelableFromPreprocess) {
   preprocessed_files_.push_back("preprocessed");
   auto parse_result = Parse("p/IFoo.aidl", "package p; interface IFoo { void f(in Inner c); }",
                             typenames_, GetLanguage());
-  // TODO(wiley): This should actually return nullptr because we require
-  //              the outer class name.  However, for legacy reasons,
-  //              this behavior must be maintained.  b/17415692
+  // Require legacy behavior - inner class name can be used without outer class name.
   EXPECT_NE(nullptr, parse_result);
 }
 
@@ -1242,6 +1262,23 @@ TEST_P(AidlTest, FailOnDuplicateConstantNames) {
                       interface IFoo {
                         const String DUPLICATED = "d";
                         const int DUPLICATED = 1;
+                      }
+                   )",
+                           typenames_, GetLanguage(), &error));
+  EXPECT_EQ(expected_stderr, GetCapturedStderr());
+  EXPECT_EQ(AidlError::BAD_TYPE, error);
+}
+
+TEST_P(AidlTest, InvalidConstString) {
+  AidlError error;
+  const string expected_stderr =
+      "ERROR: p/IFoo.aidl:3.47-60: Found invalid character '\\' at index 4 in string constant "
+      "'\"test\\\"test\"'\n";
+  CaptureStderr();
+  EXPECT_EQ(nullptr, Parse("p/IFoo.aidl",
+                           R"(package p;
+                      interface IFoo {
+                        const String someVar = "test\"test";
                       }
                    )",
                            typenames_, GetLanguage(), &error));
@@ -4445,6 +4482,26 @@ TEST_F(AidlTest, AcceptMultiDimensionalFixedSizeArray) {
   EXPECT_EQ("", GetCapturedStderr());
 }
 
+TEST_F(AidlTest, AcceptBinarySizeArray) {
+  io_delegate_.SetFileContents(
+      "a/Bar.aidl", "package a; parcelable Bar { const int CONST = 3; String[CONST + 1] a; }");
+
+  Options options = Options::From("aidl a/Bar.aidl -I . -o out --lang=ndk");
+  CaptureStderr();
+  EXPECT_TRUE(compile_aidl(options, io_delegate_));
+  EXPECT_EQ("", GetCapturedStderr());
+}
+
+TEST_F(AidlTest, AcceptRefSizeArray) {
+  io_delegate_.SetFileContents(
+      "a/Bar.aidl", "package a; parcelable Bar { const int CONST = 3; String[CONST] a; }");
+
+  Options options = Options::From("aidl a/Bar.aidl -I . -o out --lang=ndk");
+  CaptureStderr();
+  EXPECT_TRUE(compile_aidl(options, io_delegate_));
+  EXPECT_EQ("", GetCapturedStderr());
+}
+
 TEST_F(AidlTest, RejectArrayOfFixedSizeArray) {
   io_delegate_.SetFileContents("a/Bar.aidl", "package a; parcelable Bar { String[2][] a; }");
 
@@ -5099,6 +5156,24 @@ TEST_F(AidlTest, InterfaceVectorIsAvailableAfterTiramisu) {
   EXPECT_EQ(GetCapturedStderr(), "");
 }
 
+TEST_F(AidlTest, PropagateBeforeTiramisu) {
+  io_delegate_.SetFileContents("p/IFoo.aidl",
+                               "interface IFoo{\n"
+                               "  @PropagateAllowBlocking IBinder foo();\n"
+                               "}");
+  CaptureStderr();
+  EXPECT_FALSE(compile_aidl(
+      Options::From("aidl --lang=java --min_sdk_version 30 -o out p/IFoo.aidl"), io_delegate_));
+  auto captured_stderr = GetCapturedStderr();
+  EXPECT_THAT(captured_stderr, HasSubstr("@PropagateAllowBlocking requires"));
+
+  CaptureStderr();
+  EXPECT_TRUE(
+      compile_aidl(Options::From("aidl --lang=java --min_sdk_version Tiramisu -o out p/IFoo.aidl"),
+                   io_delegate_));
+  EXPECT_EQ(GetCapturedStderr(), "");
+}
+
 TEST_F(AidlTest, RustNameOf_PfdFixedArray) {
   auto pfd = typenames_.MakeResolvedType(AIDL_LOCATION_HERE, "ParcelFileDescriptor", false);
   ASSERT_TRUE(pfd->MakeArray(FixedSizeArray{
@@ -5290,7 +5365,7 @@ const std::map<std::string, ExpectedResult> kFieldSupportExpectations = {
     {"ndk_primitiveArray", {"", ""}},
     {"rust_primitiveArray", {"", ""}},
     {"cpp_primitiveFixedArray", {"", ""}},
-    {"java_primitiveFixedArray", {"not supported yet", "not supported yet"}},
+    {"java_primitiveFixedArray", {"", ""}},
     {"ndk_primitiveFixedArray", {"", ""}},
     {"rust_primitiveFixedArray", {"", ""}},
     {"cpp_String", {"", ""}},
