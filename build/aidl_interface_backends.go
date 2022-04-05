@@ -75,7 +75,7 @@ func addCppLibrary(mctx android.LoadHookContext, i *aidlInterface, version strin
 	}, &aidlGenProperties{
 		Srcs:            srcs,
 		AidlRoot:        aidlRoot,
-		Imports:         i.properties.Imports,
+		Imports:         i.getImportsForVersion(version),
 		Stability:       i.properties.Stability,
 		Min_sdk_version: i.minSdkVersion(lang),
 		Lang:            lang,
@@ -122,7 +122,11 @@ func addCppLibrary(mctx android.LoadHookContext, i *aidlInterface, version strin
 		targetProp.Product = nonAppProps
 		hostSupported = i.properties.Host_supported
 		if lang == langNdk && i.shouldGenerateAppNdkBackend() {
-			sdkVersion = proptools.StringPtr("current")
+			sdkVersion = i.properties.Backend.Ndk.Sdk_version
+			if sdkVersion == nil {
+				sdkVersion = proptools.StringPtr("current")
+			}
+
 			// Don't worry! This maps to libc++.so for the platform variant.
 			stl = proptools.StringPtr("c++_shared")
 		}
@@ -156,7 +160,7 @@ func addCppLibrary(mctx android.LoadHookContext, i *aidlInterface, version strin
 		Lang:              lang,
 		AidlInterfaceName: i.ModuleBase.Name(),
 		Version:           version,
-		Imports:           i.properties.Imports,
+		Imports:           i.getImportsForVersion(version),
 		ModuleProperties: []interface{}{
 			&ccProperties{
 				Name:                      proptools.StringPtr(cppModuleGen),
@@ -219,7 +223,7 @@ func addJavaLibrary(mctx android.LoadHookContext, i *aidlInterface, version stri
 	}, &aidlGenProperties{
 		Srcs:            srcs,
 		AidlRoot:        aidlRoot,
-		Imports:         i.properties.Imports,
+		Imports:         i.getImportsForVersion(version),
 		Stability:       i.properties.Stability,
 		Min_sdk_version: minSdkVersion,
 		Platform_apis:   proptools.Bool(i.properties.Backend.Java.Platform_apis),
@@ -239,7 +243,7 @@ func addJavaLibrary(mctx android.LoadHookContext, i *aidlInterface, version stri
 		Lang:              langJava,
 		AidlInterfaceName: i.ModuleBase.Name(),
 		Version:           version,
-		Imports:           i.properties.Imports,
+		Imports:           i.getImportsForVersion(version),
 		ModuleProperties: []interface{}{&javaProperties{
 			Name:            proptools.StringPtr(javaModuleGen),
 			Installable:     proptools.BoolPtr(true),
@@ -271,7 +275,7 @@ func addRustLibrary(mctx android.LoadHookContext, i *aidlInterface, version stri
 	}, &aidlGenProperties{
 		Srcs:            srcs,
 		AidlRoot:        aidlRoot,
-		Imports:         i.properties.Imports,
+		Imports:         i.getImportsForVersion(version),
 		Stability:       i.properties.Stability,
 		Min_sdk_version: i.minSdkVersion(langRust),
 		Lang:            langRust,
@@ -299,7 +303,7 @@ func addRustLibrary(mctx android.LoadHookContext, i *aidlInterface, version stri
 		Source_stem: proptools.StringPtr(versionedRustName),
 	}, &aidlRustSourceProviderProperties{
 		SourceGen:         rustSourceGen,
-		Imports:           i.properties.Imports,
+		Imports:           i.getImportsForVersion(version),
 		Version:           version,
 		AidlInterfaceName: i.ModuleBase.Name(),
 	})
@@ -350,7 +354,7 @@ func (i *aidlInterface) flagsForAidlGenRule(version string) (flags []string) {
 	flags = append(flags, i.properties.Flags...)
 	// For ToT, turn on "-Weverything" (enable all warnings)
 	if version == i.nextVersion() {
-		flags = append(flags, "-Weverything")
+		flags = append(flags, "-Weverything -Wno-missing-permission-annotation")
 	}
 	return
 }

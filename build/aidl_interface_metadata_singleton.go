@@ -18,8 +18,8 @@ import (
 	"android/soong/android"
 
 	"fmt"
+	"strconv"
 	"strings"
-    "strconv"
 
 	"github.com/google/blueprint"
 	"github.com/google/blueprint/proptools"
@@ -31,7 +31,7 @@ var (
 			`echo '{' && ` +
 			`echo "\"name\": \"${name}\"," && ` +
 			`echo "\"stability\": \"${stability}\"," && ` +
- 			`echo "\"vendor_available\": \"${vendor_available}\"," && ` +
+			`echo "\"vendor_available\": \"${vendor_available}\"," && ` +
 			`echo "\"types\": [${types}]," && ` +
 			`echo "\"hashes\": [${hashes}]," && ` +
 			`echo "\"has_development\": ${has_development}," && ` +
@@ -39,7 +39,7 @@ var (
 			`echo '}' ` +
 			`;} >> ${out}`,
 		Description: "AIDL metadata: ${out}",
-	}, "name", "stability", "types", "hashes","vendor_available", "has_development", "versions")
+	}, "name", "stability", "types", "hashes", "vendor_available", "has_development", "versions")
 
 	joinJsonObjectsToArrayRule = pctx.StaticRule("joinJsonObjectsToArrayRule", blueprint.RuleParams{
 		Rspfile:        "$out.rsp",
@@ -89,12 +89,12 @@ func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx androi
 		Versions       []string
 	}
 
-        type ModuleInfoExt struct {
-               VendorAvailable   *bool
-        }
+	type ModuleInfoExt struct {
+		VendorAvailable *bool
+	}
 	// name -> ModuleInfo
 	moduleInfos := map[string]ModuleInfo{}
-        moduleInfosExt := map[string]ModuleInfoExt{}
+	moduleInfosExt := map[string]ModuleInfoExt{}
 	ctx.VisitDirectDeps(func(m android.Module) {
 		if !m.ExportedToMake() {
 			return
@@ -107,7 +107,7 @@ func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx androi
 			info.Stability = proptools.StringDefault(t.properties.Stability, "")
 			info.ComputedTypes = t.computedTypes
 			infoExt.VendorAvailable = t.properties.Vendor_available
-			info.Versions = t.properties.Versions
+			info.Versions = t.getVersions()
 			moduleInfos[t.ModuleBase.Name()] = info
 			moduleInfosExt[t.ModuleBase.Name()] = infoExt
 		case *aidlGenRule:
@@ -127,7 +127,7 @@ func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx androi
 	var metadataOutputs android.Paths
 	for _, name := range android.SortedStringKeys(moduleInfos) {
 		info := moduleInfos[name]
-        infoExt := moduleInfosExt[name]
+		infoExt := moduleInfosExt[name]
 		metadataPath := android.PathForModuleOut(ctx, "metadata_"+name)
 		metadataOutputs = append(metadataOutputs, metadataPath)
 
@@ -154,13 +154,13 @@ func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx androi
 			Input:     info.HasDevelopment,
 			Output:    metadataPath,
 			Args: map[string]string{
-				"name":            name,
-				"stability":       info.Stability,
-				"types":           strings.Join(wrap(`\"`, info.ComputedTypes, `\"`), ", "),
-				"hashes":          readHashes,
-				"has_development": hasDevelopmentValue,
-				"versions":        strings.Join(info.Versions, ", "),
-                "vendor_available":  strconv.FormatBool(proptools.Bool(infoExt.VendorAvailable)),
+				"name":             name,
+				"stability":        info.Stability,
+				"types":            strings.Join(wrap(`\"`, info.ComputedTypes, `\"`), ", "),
+				"hashes":           readHashes,
+				"has_development":  hasDevelopmentValue,
+				"versions":         strings.Join(info.Versions, ", "),
+				"vendor_available": strconv.FormatBool(proptools.Bool(infoExt.VendorAvailable)),
 			},
 		})
 	}
