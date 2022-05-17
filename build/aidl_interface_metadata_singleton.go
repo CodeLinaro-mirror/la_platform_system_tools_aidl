@@ -35,11 +35,12 @@ var (
 			`echo "\"types\": [${types}]," && ` +
 			`echo "\"hashes\": [${hashes}]," && ` +
 			`echo "\"has_development\": ${has_development}," && ` +
+			`echo "\"development_hash\": \"${development_hash}\"," && ` +
 			`echo "\"versions\": [${versions}]" && ` +
 			`echo '}' ` +
 			`;} >> ${out}`,
 		Description: "AIDL metadata: ${out}",
-	}, "name", "stability", "types", "hashes", "vendor_available", "has_development", "versions")
+	}, "name", "stability", "types", "hashes", "vendor_available", "has_development", "development_hash", "versions")
 
 	joinJsonObjectsToArrayRule = pctx.StaticRule("joinJsonObjectsToArrayRule", blueprint.RuleParams{
 		Rspfile:        "$out.rsp",
@@ -58,22 +59,33 @@ var (
 )
 
 func init() {
-	android.RegisterModuleType("aidl_interfaces_metadata", aidlInterfacesMetadataSingletonFactory)
+	android.InitRegistrationContext.RegisterSingletonModuleType("aidl_interfaces_metadata", aidlInterfacesMetadataSingletonFactory)
 }
 
-func aidlInterfacesMetadataSingletonFactory() android.Module {
+func aidlInterfacesMetadataSingletonFactory() android.SingletonModule {
 	i := &aidlInterfacesMetadataSingleton{}
 	android.InitAndroidModule(i)
 	return i
 }
 
 type aidlInterfacesMetadataSingleton struct {
-	android.ModuleBase
+	android.SingletonModuleBase
 
 	metadataPath android.WritablePath
 }
 
 var _ android.OutputFileProducer = (*aidlInterfacesMetadataSingleton)(nil)
+
+func (m *aidlInterfacesMetadataSingleton) GenerateSingletonBuildActions(android.SingletonContext) {
+	// Keep empty
+}
+
+func (m *aidlInterfacesMetadataSingleton) MakeVars(ctx android.MakeVarsContext) {
+	if m.metadataPath == nil {
+		return
+	}
+	ctx.DistForGoal("droidcore", m.metadataPath)
+}
 
 func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 	if m.Name() != aidlMetadataSingletonName {
@@ -82,11 +94,12 @@ func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx androi
 	}
 
 	type ModuleInfo struct {
-		Stability      string
-		ComputedTypes  []string
-		HashFiles      []string
-		HasDevelopment android.WritablePath
-		Versions       []string
+		Stability       string
+		ComputedTypes   []string
+		HashFiles       []string
+		HasDevelopment  android.WritablePath
+		DevelopmentHash android.WritablePath
+		Versions        []string
 	}
 
 	type ModuleInfoExt struct {
@@ -119,6 +132,7 @@ func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx androi
 		case *aidlApi:
 			info := moduleInfos[t.properties.BaseName]
 			info.HasDevelopment = t.hasDevelopment
+			info.DevelopmentHash = t.totHashFile
 			moduleInfos[t.properties.BaseName] = info
 		}
 
@@ -140,18 +154,25 @@ func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx androi
 			readHashes = "$$(sed 's/.*/\"&\",/' " + strings.Join(info.HashFiles, " ") +
 				"| tr '\\n' ' ' | sed 's/, $$//')"
 		}
-
+		inputs := []android.Path{}
 		implicits := android.PathsForSource(ctx, info.HashFiles)
 		hasDevelopmentValue := "true"
+		developmentHashValue := ""
+
 		if info.HasDevelopment != nil {
+			inputs = append(inputs, info.HasDevelopment)
 			hasDevelopmentValue = "$$(if [ \"$$(cat " + info.HasDevelopment.String() +
 				")\" = \"1\" ]; then echo true; else echo false; fi)"
+			if info.DevelopmentHash != nil {
+				inputs = append(inputs, info.DevelopmentHash)
+				developmentHashValue = "$$(if [ \"$$(cat " + info.HasDevelopment.String() +
+					")\" = \"1\" ]; then echo $$(cat " + info.DevelopmentHash.String() + "); else echo \"\"; fi)"
+			}
 		}
-
 		ctx.Build(pctx, android.BuildParams{
 			Rule:      aidlMetadataRule,
 			Implicits: implicits,
-			Input:     info.HasDevelopment,
+			Inputs:    inputs,
 			Output:    metadataPath,
 			Args: map[string]string{
 				"name":             name,
@@ -159,6 +180,7 @@ func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx androi
 				"types":            strings.Join(wrap(`\"`, info.ComputedTypes, `\"`), ", "),
 				"hashes":           readHashes,
 				"has_development":  hasDevelopmentValue,
+				"development_hash": developmentHashValue,
 				"versions":         strings.Join(info.Versions, ", "),
 				"vendor_available": strconv.FormatBool(proptools.Bool(infoExt.VendorAvailable)),
 			},
