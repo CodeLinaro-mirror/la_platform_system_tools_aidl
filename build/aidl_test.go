@@ -95,6 +95,12 @@ func _testAidl(t *testing.T, bp string, customizers ...android.FixturePreparer) 
 			name: "libbinder",
 			recovery_available: true,
 		}
+		cc_library_static {
+			name: "aidl-analyzer-main",
+			host_supported: true,
+			vendor_available: true,
+			recovery_available: true,
+		}
 		cc_library {
 			name: "libutils",
 			recovery_available: true,
@@ -173,7 +179,8 @@ func _testAidl(t *testing.T, bp string, customizers ...android.FixturePreparer) 
 	preparers = append(preparers,
 		rust.PrepareForTestWithRustBuildComponents,
 		android.FixtureRegisterWithContext(func(ctx android.RegistrationContext) {
-			ctx.RegisterModuleType("aidl_interface", aidlInterfaceFactory)
+			ctx.RegisterModuleType("aidl_interface", AidlInterfaceFactory)
+			ctx.RegisterModuleType("aidl_interface_headers", AidlInterfaceHeadersFactory)
 			ctx.RegisterSingletonModuleType("aidl_interfaces_metadata", aidlInterfacesMetadataSingletonFactory)
 			ctx.RegisterModuleType("rust_defaults", func() android.Module {
 				return rust.DefaultsFactory()
@@ -1097,6 +1104,7 @@ func TestAidlImportFlagsForImportedModules(t *testing.T) {
 				srcs: ["a/Foo.aidl"],
 				imports: ["bar-iface-V2"],
 				versions: ["1"],
+				headers: ["boq-iface-headers"],
 			}
 		`),
 		"foo/a/Foo.aidl": nil,
@@ -1129,13 +1137,21 @@ func TestAidlImportFlagsForImportedModules(t *testing.T) {
 		"baz/aidl_api/baz-iface/current/b/Baz.aidl": nil,
 		"baz/aidl_api/baz-iface/1/b/Baz.aidl":       nil,
 		"baz/aidl_api/baz-iface/1/.hash":            nil,
+
+		"boq/Android.bp": []byte(`
+			aidl_interface_headers {
+				name: "boq-iface-headers",
+				srcs: ["b/Boq.aidl"],
+			}
+		`),
+		"boq/b/Baz.aidl": nil,
 	})
 	ctx, _ := testAidl(t, ``, customizer)
 
 	// checkapidump rule is to compare "compatibility" between ToT(dump) and "current"
 	{
 		rule := ctx.ModuleForTests("foo-iface-api", "").Output("checkapi_dump.timestamp")
-		android.AssertStringEquals(t, "checkapi(dump == current) imports", "", rule.Args["imports"])
+		android.AssertStringEquals(t, "checkapi(dump == current) imports", "-Iboq", rule.Args["imports"])
 		android.AssertStringDoesContain(t, "checkapi(dump == current) optionalFlags",
 			rule.Args["optionalFlags"],
 			"-pout/soong/.intermediates/bar/bar-iface_interface/2/preprocessed.aidl")
@@ -1153,7 +1169,9 @@ func TestAidlImportFlagsForImportedModules(t *testing.T) {
 	// compile (v1)
 	{
 		rule := ctx.ModuleForTests("foo-iface-V1-cpp-source", "").Output("a/Foo.cpp")
-		android.AssertStringEquals(t, "compile(old=1) should import aidl_api/1", "-Ifoo/aidl_api/foo-iface/1", rule.Args["imports"])
+		android.AssertStringEquals(t, "compile(old=1) should import aidl_api/1",
+			"-Ifoo/aidl_api/foo-iface/1 -Iboq",
+			rule.Args["imports"])
 		android.AssertStringDoesContain(t, "compile(old=1) should import bar.preprocessed",
 			rule.Args["optionalFlags"],
 			"-pout/soong/.intermediates/bar/bar-iface_interface/2/preprocessed.aidl")
@@ -1161,7 +1179,7 @@ func TestAidlImportFlagsForImportedModules(t *testing.T) {
 	// compile ToT(v2)
 	{
 		rule := ctx.ModuleForTests("foo-iface-V2-cpp-source", "").Output("a/Foo.cpp")
-		android.AssertStringEquals(t, "compile(tot=2) should import base dirs of srcs", "-Ifoo", rule.Args["imports"])
+		android.AssertStringEquals(t, "compile(tot=2) should import base dirs of srcs", "-Ifoo -Iboq", rule.Args["imports"])
 		android.AssertStringDoesContain(t, "compile(tot=2) should import bar.preprocessed",
 			rule.Args["optionalFlags"],
 			"-pout/soong/.intermediates/bar/bar-iface_interface/2/preprocessed.aidl")
@@ -1591,6 +1609,7 @@ func TestDuplicateInterfacesWithTheSameNameInDifferentSoongNamespaces(t *testing
 		"vendor/a/foo/Android.bp": []byte(`
 			aidl_interface {
 				name: "foo",
+				owner: "vendor",
 				srcs: ["IFoo.aidl"],
 				imports: ["common-V1"],
 			}
@@ -1601,6 +1620,7 @@ func TestDuplicateInterfacesWithTheSameNameInDifferentSoongNamespaces(t *testing
 		"vendor/b/foo/Android.bp": []byte(`
 			aidl_interface {
 				name: "foo",
+				owner: "vendor",
 				srcs: ["IFoo.aidl"],
 				imports: ["common-V2"],
 			}
@@ -1622,6 +1642,7 @@ func TestUnstableChecksForAidlInterfacesInDifferentNamespaces(t *testing.T) {
 		"vendor/a/foo/Android.bp": []byte(`
 			aidl_interface {
 				name: "foo",
+				owner: "vendor",
 				srcs: ["IFoo.aidl"],
 				versions: ["1", "2"],
 			}
@@ -1640,6 +1661,7 @@ func TestUnstableChecksForAidlInterfacesInDifferentNamespaces(t *testing.T) {
 		"vendor/b/foo/Android.bp": []byte(`
 			aidl_interface {
 				name: "foo",
+				owner: "vendor",
 				srcs: ["IFoo.aidl"],
 				versions: ["1"],
 			}
