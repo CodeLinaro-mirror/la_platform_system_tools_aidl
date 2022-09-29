@@ -360,12 +360,13 @@ class AidlAnnotatable : public AidlCommentable {
   std::string GetDescriptor() const;
 
   const AidlAnnotation* UnsupportedAppUsage() const;
-  const AidlAnnotation* RustDerive() const;
+  std::vector<std::string> RustDerive() const;
   const AidlAnnotation* BackingType() const;
   std::vector<std::string> SuppressWarnings() const;
   std::unique_ptr<android::aidl::perm::Expression> EnforceExpression() const;
   bool IsPermissionManual() const;
   bool IsPermissionNone() const;
+  bool IsPermissionAnnotated() const;
   bool IsPropagateAllowBlocking() const;
 
   // ToString is for dumping AIDL.
@@ -391,6 +392,7 @@ struct DynamicArray {};
 struct FixedSizeArray {
   FixedSizeArray(std::unique_ptr<AidlConstantValue> dim) { dimensions.push_back(std::move(dim)); }
   std::vector<std::unique_ptr<AidlConstantValue>> dimensions;
+  std::vector<int32_t> GetDimensionInts() const;
 };
 // Represents `[]` or `[N]` part of type specifier
 using ArrayType = std::variant<DynamicArray, FixedSizeArray>;

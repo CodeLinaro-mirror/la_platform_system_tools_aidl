@@ -57,8 +57,11 @@ public:
       return os.str();
     }
   };  // class IntParcelable
+  class IRepeatFixedSizeArrayDelegator;
+
   class IRepeatFixedSizeArray : public ::android::IInterface {
   public:
+    typedef IRepeatFixedSizeArrayDelegator DefaultDelegator;
     DECLARE_META_INTERFACE(RepeatFixedSizeArray)
     virtual ::android::binder::Status RepeatBytes(const std::array<uint8_t, 3>& input, std::array<uint8_t, 3>* repeated, std::array<uint8_t, 3>* _aidl_return) = 0;
     virtual ::android::binder::Status RepeatInts(const std::array<int32_t, 3>& input, std::array<int32_t, 3>* repeated, std::array<int32_t, 3>* _aidl_return) = 0;
@@ -129,7 +132,7 @@ public:
 
   class IRepeatFixedSizeArrayDelegator : public BnRepeatFixedSizeArray {
   public:
-    explicit IRepeatFixedSizeArrayDelegator(::android::sp<IRepeatFixedSizeArray> &impl) : _aidl_delegate(impl) {}
+    explicit IRepeatFixedSizeArrayDelegator(const ::android::sp<IRepeatFixedSizeArray> &impl) : _aidl_delegate(impl) {}
 
     ::android::binder::Status RepeatBytes(const std::array<uint8_t, 3>& input, std::array<uint8_t, 3>* repeated, std::array<uint8_t, 3>* _aidl_return) override {
       return _aidl_delegate->RepeatBytes(input, repeated, _aidl_return);
@@ -167,8 +170,11 @@ public:
   enum class LongEnum : int64_t {
     A = 0L,
   };
+  class IEmptyInterfaceDelegator;
+
   class IEmptyInterface : public ::android::IInterface {
   public:
+    typedef IEmptyInterfaceDelegator DefaultDelegator;
     DECLARE_META_INTERFACE(EmptyInterface)
   };  // class IEmptyInterface
 
@@ -191,7 +197,7 @@ public:
 
   class IEmptyInterfaceDelegator : public BnEmptyInterface {
   public:
-    explicit IEmptyInterfaceDelegator(::android::sp<IEmptyInterface> &impl) : _aidl_delegate(impl) {}
+    explicit IEmptyInterfaceDelegator(const ::android::sp<IEmptyInterface> &impl) : _aidl_delegate(impl) {}
 
   private:
     ::android::sp<IEmptyInterface> _aidl_delegate;

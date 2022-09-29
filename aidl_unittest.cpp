@@ -457,7 +457,7 @@ TEST_P(AidlTest, TypesShouldHaveVintfStabilityWhenCompilingWithTheVintfFlag) {
   string code =
       "@VintfStability\n"
       "parcelable Foo {\n"
-      "  interface INested {}"
+      "  interface INested { interface INastyNester {} }"
       "}";
   EXPECT_NE(nullptr, Parse("Foo.aidl", code, typenames_, GetLanguage(), nullptr,
                            {"--structured", "--stability", "vintf"}));
@@ -465,6 +465,10 @@ TEST_P(AidlTest, TypesShouldHaveVintfStabilityWhenCompilingWithTheVintfFlag) {
   auto nested = typenames_.TryGetDefinedType("Foo.INested");
   ASSERT_NE(nullptr, nested);
   ASSERT_TRUE(nested->IsVintfStability());
+
+  auto nastyNester = typenames_.TryGetDefinedType("Foo.INested.INastyNester");
+  ASSERT_NE(nullptr, nastyNester);
+  ASSERT_TRUE(nastyNester->IsVintfStability());
 }
 
 TEST_P(AidlTest, VintfStabilityAppliesToNestedTypesAsWell) {
@@ -4011,6 +4015,20 @@ TEST_F(AidlTest, ParseRustDerive) {
   EXPECT_TRUE(compile_aidl(java_options, io_delegate_));
 }
 
+TEST_P(AidlTest, TypesShouldHaveRustDerive) {
+  CaptureStderr();
+  string code =
+      "@RustDerive(PartialEq=true)\n"
+      "parcelable Foo {\n"
+      "  parcelable Bar {}\n"
+      "  Bar bar;\n"
+      "}";
+  EXPECT_EQ(nullptr, Parse("Foo.aidl", code, typenames_, GetLanguage(), nullptr, {}));
+  EXPECT_THAT(
+      GetCapturedStderr(),
+      testing::HasSubstr("Field bar of type with @RustDerive PartialEq also needs to derive this"));
+}
+
 TEST_F(AidlTest, EmptyEnforceAnnotation) {
   io_delegate_.SetFileContents("a/IFoo.aidl", R"(package a;
     interface IFoo {
@@ -4066,7 +4084,10 @@ TEST_F(AidlTest, InterfaceAndMethodEnforceCondition) {
     })");
 
   Options options = Options::From("aidl --lang=java -o out a/IFoo.aidl");
-  EXPECT_TRUE(compile_aidl(options, io_delegate_));
+  CaptureStderr();
+  EXPECT_FALSE(compile_aidl(options, io_delegate_));
+  EXPECT_THAT(GetCapturedStderr(), HasSubstr("The interface IFoo uses a permission annotation but "
+                                             "the method Protected is also annotated"));
 }
 
 TEST_F(AidlTest, NoPermissionInterfaceEnforceMethod) {
@@ -4080,8 +4101,8 @@ TEST_F(AidlTest, NoPermissionInterfaceEnforceMethod) {
   Options options = Options::From("aidl --lang=java -o out a/IFoo.aidl");
   CaptureStderr();
   EXPECT_FALSE(compile_aidl(options, io_delegate_));
-  EXPECT_THAT(GetCapturedStderr(),
-              HasSubstr("The interface IFoo is annotated as requiring no permission"));
+  EXPECT_THAT(GetCapturedStderr(), HasSubstr("The interface IFoo uses a permission annotation but "
+                                             "the method Protected is also annotated"));
 }
 
 TEST_F(AidlTest, ManualPermissionInterfaceEnforceMethod) {
@@ -4095,9 +4116,8 @@ TEST_F(AidlTest, ManualPermissionInterfaceEnforceMethod) {
   Options options = Options::From("aidl --lang=java -o out a/IFoo.aidl");
   CaptureStderr();
   EXPECT_FALSE(compile_aidl(options, io_delegate_));
-  EXPECT_THAT(
-      GetCapturedStderr(),
-      HasSubstr("The interface IFoo is annotated as manually implementing permission checks"));
+  EXPECT_THAT(GetCapturedStderr(), HasSubstr("The interface IFoo uses a permission annotation but "
+                                             "the method Protected is also annotated"));
 }
 
 TEST_F(AidlTest, EnforceInterfaceNoPermissionsMethod) {
@@ -4111,8 +4131,8 @@ TEST_F(AidlTest, EnforceInterfaceNoPermissionsMethod) {
   Options options = Options::From("aidl --lang=java -o out a/IFoo.aidl");
   CaptureStderr();
   EXPECT_FALSE(compile_aidl(options, io_delegate_));
-  EXPECT_THAT(GetCapturedStderr(),
-              HasSubstr("The interface IFoo enforces permissions using annotations"));
+  EXPECT_THAT(GetCapturedStderr(), HasSubstr("The interface IFoo uses a permission annotation but "
+                                             "the method Protected is also annotated"));
 }
 
 TEST_F(AidlTest, EnforceInterfaceManualPermissionMethod) {
@@ -4126,8 +4146,8 @@ TEST_F(AidlTest, EnforceInterfaceManualPermissionMethod) {
   Options options = Options::From("aidl --lang=java -o out a/IFoo.aidl");
   CaptureStderr();
   EXPECT_FALSE(compile_aidl(options, io_delegate_));
-  EXPECT_THAT(GetCapturedStderr(),
-              HasSubstr("The interface IFoo enforces permissions using annotations"));
+  EXPECT_THAT(GetCapturedStderr(), HasSubstr("The interface IFoo uses a permission annotation but "
+                                             "the method Protected is also annotated"));
 }
 
 TEST_F(AidlTest, JavaSuppressLint) {

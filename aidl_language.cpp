@@ -468,8 +468,16 @@ const AidlAnnotation* AidlAnnotatable::UnsupportedAppUsage() const {
   return GetAnnotation(annotations_, AidlAnnotation::Type::UNSUPPORTED_APP_USAGE);
 }
 
-const AidlAnnotation* AidlAnnotatable::RustDerive() const {
-  return GetAnnotation(annotations_, AidlAnnotation::Type::RUST_DERIVE);
+std::vector<std::string> AidlAnnotatable::RustDerive() const {
+  std::vector<std::string> ret;
+  if (const auto* ann = GetAnnotation(annotations_, AidlAnnotation::Type::RUST_DERIVE)) {
+    for (const auto& name_and_param : ann->AnnotationParams(AidlConstantValueDecorator)) {
+      if (name_and_param.second == "true") {
+        ret.push_back(name_and_param.first);
+      }
+    }
+  }
+  return ret;
 }
 
 const AidlAnnotation* AidlAnnotatable::BackingType() const {
@@ -506,6 +514,10 @@ bool AidlAnnotatable::IsPermissionManual() const {
 
 bool AidlAnnotatable::IsPermissionNone() const {
   return GetAnnotation(annotations_, AidlAnnotation::Type::PERMISSION_NONE);
+}
+
+bool AidlAnnotatable::IsPermissionAnnotated() const {
+  return IsPermissionNone() || IsPermissionManual() || EnforceExpression();
 }
 
 bool AidlAnnotatable::IsPropagateAllowBlocking() const {
@@ -623,13 +635,17 @@ bool AidlTypeSpecifier::MakeArray(ArrayType array_type) {
   return false;
 }
 
+std::vector<int32_t> FixedSizeArray::GetDimensionInts() const {
+  std::vector<int32_t> ints;
+  for (const auto& dim : dimensions) {
+    ints.push_back(dim->EvaluatedValue<int32_t>());
+  }
+  return ints;
+}
+
 std::vector<int32_t> AidlTypeSpecifier::GetFixedSizeArrayDimensions() const {
   AIDL_FATAL_IF(!IsFixedSizeArray(), "not a fixed-size array");
-  std::vector<int32_t> dimensions;
-  for (const auto& dim : std::get<FixedSizeArray>(GetArray()).dimensions) {
-    dimensions.push_back(dim->EvaluatedValue<int32_t>());
-  }
-  return dimensions;
+  return std::get<FixedSizeArray>(GetArray()).GetDimensionInts();
 }
 
 string AidlTypeSpecifier::Signature() const {
@@ -1284,6 +1300,26 @@ bool AidlDefinedType::CheckValidWithMembers(const AidlTypenames& typenames) cons
     }
   }
 
+  // Rust derive fields must be transitive
+  const std::vector<std::string> rust_derives = RustDerive();
+  for (const auto& v : GetFields()) {
+    const AidlDefinedType* field = typenames.TryGetDefinedType(v->GetType().GetName());
+    if (!field) continue;
+
+    // could get this from CONTEXT_*, but we don't currently save this info when we validated
+    // contexts
+    if (!field->AsStructuredParcelable() && !field->AsUnionDeclaration()) continue;
+
+    auto subs = field->RustDerive();
+    for (const std::string& derive : rust_derives) {
+      if (std::find(subs.begin(), subs.end(), derive) == subs.end()) {
+        AIDL_ERROR(v) << "Field " << v->GetName() << " of type with @RustDerive " << derive
+                      << " also needs to derive this";
+        success = false;
+      }
+    }
+  }
+
   set<string> constant_names;
   for (const auto& constant : GetConstantDeclarations()) {
     if (constant_names.count(constant->GetName()) > 0) {
@@ -1712,26 +1748,12 @@ bool AidlInterface::CheckValid(const AidlTypenames& typenames) const {
 }
 
 bool AidlInterface::CheckValidPermissionAnnotations(const AidlMethod& m) const {
-  if (IsPermissionNone() || IsPermissionManual()) {
-    if (m.GetType().IsPermissionNone() || m.GetType().IsPermissionManual() ||
-        m.GetType().EnforceExpression()) {
-      std::string interface_annotation = IsPermissionNone()
-                                             ? "requiring no permission"
-                                             : "manually implementing permission checks";
-      AIDL_ERROR(m) << "The interface " << GetName() << " is annotated as " << interface_annotation
-                    << " but the method " << m.GetName() << " is also annotated.\n"
-                    << "Consider distributing the annotation to each method.";
-      return false;
-    }
-  } else if (EnforceExpression()) {
-    if (m.GetType().IsPermissionNone() || m.GetType().IsPermissionManual()) {
-      AIDL_ERROR(m) << "The interface " << GetName()
-                    << " enforces permissions using annotations"
-                       " but the method "
-                    << m.GetName() << " is also annotated.\n"
-                    << "Consider distributing the annotation to each method.";
-      return false;
-    }
+  if (IsPermissionAnnotated() && m.GetType().IsPermissionAnnotated()) {
+    AIDL_ERROR(m) << "The interface " << GetName()
+                  << " uses a permission annotation but the method " << m.GetName()
+                  << " is also annotated.\n"
+                  << "Consider distributing the annotation to each method.";
+    return false;
   }
   return true;
 }

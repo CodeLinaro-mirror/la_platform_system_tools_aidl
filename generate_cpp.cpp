@@ -813,8 +813,9 @@ void GenerateServerClassDecl(CodeWriter& out, const AidlInterface& interface,
   out << " " << d_name << " : public " << bn_name << " {\n";
   out << "public:\n";
   out.Indent();
-  out << "explicit " << d_name << "(" << StringPrintf("::android::sp<%s> &impl", iface.c_str())
-      << ") " << StringPrintf(": %s(impl)", kDelegateImplVarName) << " {}\n\n";
+  out << "explicit " << d_name << "("
+      << StringPrintf("const ::android::sp<%s> &impl", iface.c_str()) << ") "
+      << StringPrintf(": %s(impl)", kDelegateImplVarName) << " {}\n\n";
 
   for (const auto& method : interface.GetMethods()) {
     if (method->IsUserDefined()) {
@@ -889,12 +890,13 @@ void GenerateNestedTypeDecls(CodeWriter& out, const AidlDefinedType& type,
 void GenerateInterfaceClassDecl(CodeWriter& out, const AidlInterface& interface,
                                 const AidlTypenames& typenames, const Options& options) {
   const string i_name = ClassName(interface, ClassNames::INTERFACE);
-
+  out << "class " << ClassName(interface, ClassNames::DELEGATOR_IMPL) << ";\n\n";
   out << "class";
   GenerateDeprecated(out, interface);
   out << " " << i_name << " : public ::android::IInterface {\n";
   out << "public:\n";
   out.Indent();
+  out << "typedef " << ClassName(interface, ClassNames::DELEGATOR_IMPL) << " DefaultDelegator;\n";
   out << "DECLARE_META_INTERFACE(" << ClassName(interface, ClassNames::BASE) << ")\n";
   if (options.Version() > 0) {
     out << "const int32_t VERSION = " << std::to_string(options.Version()) << ";\n";
@@ -980,7 +982,7 @@ void GenerateReadFromParcel(CodeWriter& out, const AidlStructuredParcelable& par
   out << "}\n";
   out << "if (_aidl_parcelable_raw_size < 4) return ::android::BAD_VALUE;\n";
   out << "size_t _aidl_parcelable_size = static_cast<size_t>(_aidl_parcelable_raw_size);\n";
-  out << "if (_aidl_start_pos > SIZE_MAX - _aidl_parcelable_size) return ::android::BAD_VALUE;\n";
+  out << "if (_aidl_start_pos > INT32_MAX - _aidl_parcelable_size) return ::android::BAD_VALUE;\n";
   for (const auto& variable : parcel.GetFields()) {
     string method = ParcelReadMethodOf(variable->GetType(), typenames);
     string arg = ParcelReadCastOf(variable->GetType(), typenames, "&" + variable->GetName());

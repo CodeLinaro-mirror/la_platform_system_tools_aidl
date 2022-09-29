@@ -17,11 +17,17 @@
 namespace android {
 namespace aidl {
 namespace loggable {
+class ILoggableInterfaceDelegator;
+
 class ILoggableInterface : public ::android::IInterface {
 public:
+  typedef ILoggableInterfaceDelegator DefaultDelegator;
   DECLARE_META_INTERFACE(LoggableInterface)
+  class ISubDelegator;
+
   class ISub : public ::android::IInterface {
   public:
+    typedef ISubDelegator DefaultDelegator;
     DECLARE_META_INTERFACE(Sub)
     virtual ::android::binder::Status Log(int32_t value) = 0;
   };  // class ISub
@@ -80,7 +86,7 @@ public:
 
   class ISubDelegator : public BnSub {
   public:
-    explicit ISubDelegator(::android::sp<ISub> &impl) : _aidl_delegate(impl) {}
+    explicit ISubDelegator(const ::android::sp<ISub> &impl) : _aidl_delegate(impl) {}
 
     ::android::binder::Status Log(int32_t value) override {
       return _aidl_delegate->Log(value);
