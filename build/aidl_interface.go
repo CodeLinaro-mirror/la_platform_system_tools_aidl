@@ -498,6 +498,12 @@ func (i *aidlInterface) genTrace(lang string) bool {
 		}
 	case langJava:
 		ver = i.properties.Backend.Java.Gen_trace
+		if ver == nil && proptools.Bool(i.properties.Backend.Java.Platform_apis) {
+			// Enable tracing for all Java backends using platform APIs
+			// TODO(161393989) Once we generate ATRACE_TAG_APP instead of ATRACE_TAG_AIDL,
+			// this can be removed and we can start generating traces in all apps.
+			ver = proptools.BoolPtr(true)
+		}
 	case langNdk, langNdkPlatform:
 		ver = i.properties.Backend.Ndk.Gen_trace
 	case langRust: // unsupported b/236880829
@@ -895,7 +901,7 @@ func aidlInterfaceHook(mctx android.LoadHookContext, i *aidlInterface) {
 
 	// In the future, we may want to force the -cpp backend to be on host,
 	// and limit its visibility, even if it's not created normally
-	if i.shouldGenerateCppBackend() {
+	if i.shouldGenerateCppBackend() && len(i.properties.Imports) == 0 {
 		libs = append(libs, addLibrary(mctx, i, nextVersion, langCppAnalyzer, false))
 	}
 
@@ -1123,11 +1129,11 @@ func (i *aidlInterface) ConvertWithBp2build(ctx android.TopDownMutatorContext) {
 
 	var backends bazel.StringListAttribute
 	backendList := []string{}
+	// TODO(b/246803961): Convert backend.rust to Bazel
 	shouldGenerateLangBackendMap := map[string]bool{
 		langCpp:  i.shouldGenerateCppBackend(),
 		langNdk:  i.shouldGenerateNdkBackend(),
-		langJava: i.shouldGenerateJavaBackend(),
-		langRust: i.shouldGenerateRustBackend()}
+		langJava: i.shouldGenerateJavaBackend()}
 	for backend, shouldGen := range shouldGenerateLangBackendMap {
 		if shouldGen {
 			backendList = append(backendList, backend)
@@ -1157,17 +1163,23 @@ func (i *aidlInterface) ConvertWithBp2build(ctx android.TopDownMutatorContext) {
 		}
 	}
 
+	srcsAttr := bazel.MakeLabelListAttribute(android.BazelLabelForModuleSrc(ctx, i.properties.Srcs))
+	var stripImportPrefixAttr *string = nil
+	if i.properties.Local_include_dir != "" && !srcsAttr.IsEmpty() {
+		stripImportPrefixAttr = &i.properties.Local_include_dir
+	}
+
 	attrs := &aidlInterfaceAttributes{
 		aidlLibraryAttributes: aidlLibraryAttributes{
-			//TODO(b/229251008) support "current" interface srcs
-			Flags: i.properties.Flags,
-			Deps:  deps,
+			Srcs:                srcsAttr,
+			Flags:               i.properties.Flags,
+			Deps:                deps,
+			Strip_import_prefix: stripImportPrefixAttr,
 		},
 		Versions:           versions,
 		Backends:           backends,
 		Stability:          i.properties.Stability,
 		Versions_with_info: versionsWithInfos,
-		//TODO(b/229251008) support local_include_dir for "current" interface srcs
 	}
 
 	interfaceName := strings.TrimSuffix(i.Name(), "_interface")
