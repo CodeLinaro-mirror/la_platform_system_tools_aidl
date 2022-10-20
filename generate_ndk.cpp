@@ -879,6 +879,16 @@ void GenerateParcelHeader(CodeWriter& out, const AidlTypenames& types,
     out << NdkNameOf(types, variable->GetType(), StorageMode::STACK) << " " << variable->GetName();
     if (variable->GetDefaultValue()) {
       out << " = " << variable->ValueString(ConstantValueDecorator);
+    } else if (auto type = types.TryGetDefinedType(variable->GetType().GetName()); type) {
+      if (auto enum_type = type->AsEnumDeclaration(); enum_type) {
+        if (!variable->GetType().IsArray()) {
+          // if an enum doesn't have explicit default value, do zero-initialization
+          out << " = " << NdkNameOf(types, variable->GetType(), StorageMode::STACK) << "(0)";
+        }
+      }
+    } else if (AidlTypenames::IsPrimitiveTypename(variable->GetType().GetName()) &&
+               !variable->GetType().IsArray()) {
+      out << " = {}";
     }
     out << ";\n";
   }
