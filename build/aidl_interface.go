@@ -244,7 +244,9 @@ func isRelativePath(path string) bool {
 
 type CommonBackendProperties struct {
 	// Whether to generate code in the corresponding backend.
-	// Default: true
+	// Default:
+	//   - for Java/NDK/CPP backends - True
+	//   - for Rust backend - False
 	Enabled        *bool
 	Apex_available []string
 
@@ -262,6 +264,11 @@ type CommonNativeBackendProperties struct {
 
 	// Must be NDK libraries, for stable types.
 	Additional_shared_libraries []string
+
+	// cflags to forward to native compilation. This is expected to be
+	// used more for AIDL compiler developers than being actually
+	// practical.
+	Cflags []string
 
 	// Whether to generate additional code for gathering information
 	// about the transactions.
@@ -428,6 +435,7 @@ type aidlInterfaceProperties struct {
 type aidlInterface struct {
 	android.ModuleBase
 	android.BazelModuleBase
+	android.DefaultableModuleBase
 
 	properties aidlInterfaceProperties
 
@@ -678,7 +686,7 @@ func checkImports(mctx android.BottomUpMutatorContext) {
 					"Rust backend not enabled in the imported AIDL interface %q", anImport)
 			}
 
-			if other.properties.Frozen != nil && proptools.Bool(i.properties.Frozen) && !proptools.Bool(other.properties.Frozen) && version == "" {
+			if i.isFrozen() && other.isExplicitlyUnFrozen() && version == "" {
 				mctx.PropertyErrorf("frozen",
 					"%q imports %q which is not frozen. Either %q must set 'frozen: false' or must explicitly import %q",
 					i.ModuleBase.Name(), anImport, i.ModuleBase.Name(), anImport+"-V"+other.properties.Versions[len(other.properties.Versions)-1])
@@ -687,7 +695,7 @@ func checkImports(mctx android.BottomUpMutatorContext) {
 	}
 }
 
-func (i *aidlInterface) checkGenTrace(mctx android.LoadHookContext) {
+func (i *aidlInterface) checkGenTrace(mctx android.DefaultableHookContext) {
 	if !proptools.Bool(i.properties.Gen_trace) {
 		return
 	}
@@ -696,7 +704,7 @@ func (i *aidlInterface) checkGenTrace(mctx android.LoadHookContext) {
 	}
 }
 
-func (i *aidlInterface) checkStability(mctx android.LoadHookContext) {
+func (i *aidlInterface) checkStability(mctx android.DefaultableHookContext) {
 	if i.properties.Stability == nil {
 		return
 	}
@@ -712,7 +720,7 @@ func (i *aidlInterface) checkStability(mctx android.LoadHookContext) {
 		mctx.PropertyErrorf("stability", "must be empty or \"vintf\"")
 	}
 }
-func (i *aidlInterface) checkVersions(mctx android.LoadHookContext) {
+func (i *aidlInterface) checkVersions(mctx android.DefaultableHookContext) {
 	if len(i.properties.Versions) > 0 && len(i.properties.Versions_with_info) > 0 {
 		mctx.ModuleErrorf("versions:%q and versions_with_info:%q cannot be used at the same time. Use versions_with_info instead of versions.", i.properties.Versions, i.properties.Versions_with_info)
 	}
@@ -757,7 +765,7 @@ func (i *aidlInterface) checkVersions(mctx android.LoadHookContext) {
 		mctx.PropertyErrorf("versions", "should be sorted, but is %v", i.getVersions())
 	}
 }
-func (i *aidlInterface) checkVndkUseVersion(mctx android.LoadHookContext) {
+func (i *aidlInterface) checkVndkUseVersion(mctx android.DefaultableHookContext) {
 	if i.properties.Vndk_use_version == nil {
 		return
 	}
@@ -810,6 +818,16 @@ func (i *aidlInterface) getVersions() []string {
 	return i.properties.VersionsInternal
 }
 
+func (i *aidlInterface) isFrozen() bool {
+	return proptools.Bool(i.properties.Frozen)
+}
+
+// in order to keep original behavior for certain operations, we may want to
+// check if frozen is set.
+func (i *aidlInterface) isExplicitlyUnFrozen() bool {
+	return i.properties.Frozen != nil && !proptools.Bool(i.properties.Frozen)
+}
+
 func hasVersionSuffix(moduleName string) bool {
 	hasVersionSuffix, _ := regexp.MatchString("-V\\d+$", moduleName)
 	return hasVersionSuffix
@@ -833,7 +851,7 @@ func trimVersionSuffixInList(moduleNames []string) []string {
 	})
 }
 
-func aidlInterfaceHook(mctx android.LoadHookContext, i *aidlInterface) {
+func aidlInterfaceHook(mctx android.DefaultableHookContext, i *aidlInterface) {
 	if hasVersionSuffix(i.ModuleBase.Name()) {
 		mctx.PropertyErrorf("name", "aidl_interface should not have '-V<number> suffix")
 	}
@@ -865,9 +883,7 @@ func aidlInterfaceHook(mctx android.LoadHookContext, i *aidlInterface) {
 		}
 	}
 
-	frozen := proptools.Bool(i.properties.Frozen)
-
-	if frozen {
+	if i.isFrozen() {
 		if !i.hasVersion() {
 			mctx.PropertyErrorf("frozen", "cannot be frozen without versions")
 			return
@@ -1068,7 +1084,8 @@ func AidlInterfaceFactory() android.Module {
 	i.AddProperties(&i.properties)
 	android.InitAndroidModule(i)
 	android.InitBazelModule(i)
-	android.AddLoadHook(i, func(ctx android.LoadHookContext) { aidlInterfaceHook(ctx, i) })
+	android.InitDefaultableModule(i)
+	i.SetDefaultableHook(func(ctx android.DefaultableHookContext) { aidlInterfaceHook(ctx, i) })
 	return i
 }
 
