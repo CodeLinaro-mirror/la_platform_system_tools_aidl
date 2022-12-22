@@ -528,6 +528,29 @@ TEST_F(AidlTest, ParsesNdkOnlyStableParcelable) {
   EXPECT_THAT(GetCapturedStderr(), HasSubstr("Cannot declare unstructured"));
 }
 
+TEST_P(AidlTest, NdkAndJavaStabilityIsVintfStable) {
+  CaptureStderr();
+
+  io_delegate_.SetFileContents("NonPortableThing.aidl",
+                               "@NdkOnlyStableParcelable @JavaOnlyStableParcelable parcelable "
+                               "NonPortableThing ndk_header \"lol.h\" cpp_header \"lolol.h\";");
+  import_paths_.emplace("");
+
+  auto result =
+      Parse("IFoo.aidl",
+            "import NonPortableThing; @VintfStability interface IFoo { NonPortableThing get(); }",
+            typenames_, GetLanguage(), nullptr, {"--structured", "--stability", "vintf"});
+
+  if (GetLanguage() == Options::Language::NDK || GetLanguage() == Options::Language::JAVA) {
+    EXPECT_NE(result, nullptr);
+    EXPECT_EQ(GetCapturedStderr(), "");
+  } else {
+    EXPECT_EQ(result, nullptr);
+    EXPECT_THAT(GetCapturedStderr(),
+                HasSubstr("NonPortableThing does not have VINTF level stability"));
+  }
+}
+
 TEST_F(AidlTest, ParcelableSupportJavaDeriveToString) {
   io_delegate_.SetFileContents("a/Foo.aidl", R"(package a;
     @JavaDerive(toString=true) parcelable Foo { int a; float b; })");
@@ -1266,8 +1289,7 @@ TEST_P(AidlTest, ImportingJavaStyleBuiltinTypesIsAllowed) {
 
 TEST_P(AidlTest, StructuredFailOnUnstructuredParcelable) {
   const string expected_stderr =
-      "ERROR: o/WhoKnowsWhat.aidl:1.22-35: o.WhoKnowsWhat is not structured, but this is a "
-      "structured interface.\n";
+      "o.WhoKnowsWhat is not structured, but this is a structured interface";
   io_delegate_.SetFileContents("o/WhoKnowsWhat.aidl",
                                "package o; parcelable WhoKnowsWhat cpp_header \"who_knows.h\" "
                                "ndk_header \"ndk/who_knows.h\";");
@@ -1279,7 +1301,7 @@ TEST_P(AidlTest, StructuredFailOnUnstructuredParcelable) {
       Parse("p/IFoo.aidl",
             "package p; import o.WhoKnowsWhat; interface IFoo { void f(in WhoKnowsWhat thisIs); }",
             typenames_, GetLanguage(), &error, {"--structured"}));
-  EXPECT_EQ(expected_stderr, GetCapturedStderr());
+  EXPECT_THAT(GetCapturedStderr(), HasSubstr(expected_stderr));
   EXPECT_EQ(AidlError::NOT_STRUCTURED, error);
 }
 
@@ -3501,6 +3523,24 @@ TEST_F(AidlTestIncompatibleChanges, ChangedBackingTypeOfEnum) {
   EXPECT_EQ(expected_stderr, GetCapturedStderr());
 }
 
+TEST_F(AidlTestIncompatibleChanges, ChangedFixedSizeArraySize) {
+  const string expected_stderr =
+      "ERROR: new/p/Data.aidl:1.28-33: Type changed: int[8] to int[9].\n";
+  io_delegate_.SetFileContents("old/p/Data.aidl",
+                               "package p;"
+                               "parcelable Data {"
+                               "  int[8] bar;"
+                               "}");
+  io_delegate_.SetFileContents("new/p/Data.aidl",
+                               "package p;"
+                               "parcelable Data {"
+                               "  int[9] bar;"
+                               "}");
+  CaptureStderr();
+  EXPECT_FALSE(::android::aidl::check_api(options_, io_delegate_));
+  EXPECT_EQ(expected_stderr, GetCapturedStderr());
+}
+
 TEST_F(AidlTestIncompatibleChanges, ChangedAnnatationParams) {
   const string expected_stderr =
       "ERROR: new/p/Foo.aidl:1.55-59: Changed annotations: @JavaPassthrough(annotation=\"Alice\") "
@@ -4898,8 +4938,8 @@ parcelable Foo {
   EXPECT_THAT(code, testing::HasSubstr(R"(
   fn default() -> Self {
     Self {
-      n: 42,
-      e: crate::mangled::_1_p_4_Enum::BAR,
+      r#n: 42,
+      r#e: crate::mangled::_1_p_4_Enum::BAR,
     }
   })"));
 }

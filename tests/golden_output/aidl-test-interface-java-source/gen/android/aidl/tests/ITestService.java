@@ -294,6 +294,10 @@ public interface ITestService extends android.os.IInterface
     {
       return 0;
     }
+    @Override public android.aidl.tests.ICircular GetCircular() throws android.os.RemoteException
+    {
+      return null;
+    }
     @Override
     public android.os.IBinder asBinder() {
       return null;
@@ -600,6 +604,10 @@ public interface ITestService extends android.os.IInterface
     {
       return mImpl.getBackendType();
     }
+    @Override public android.aidl.tests.ICircular GetCircular() throws android.os.RemoteException
+    {
+      return mImpl.GetCircular();
+    }
     android.aidl.tests.ITestService mImpl;
   }
   /** Local-side IPC implementation stub class. */
@@ -628,6 +636,294 @@ public interface ITestService extends android.os.IInterface
     @Override public android.os.IBinder asBinder()
     {
       return this;
+    }
+    /** @hide */
+    public static java.lang.String getDefaultTransactionName(int transactionCode)
+    {
+      switch (transactionCode)
+      {
+        case TRANSACTION_UnimplementedMethod:
+        {
+          return "UnimplementedMethod";
+        }
+        case TRANSACTION_Deprecated:
+        {
+          return "Deprecated";
+        }
+        case TRANSACTION_TestOneway:
+        {
+          return "TestOneway";
+        }
+        case TRANSACTION_RepeatBoolean:
+        {
+          return "RepeatBoolean";
+        }
+        case TRANSACTION_RepeatByte:
+        {
+          return "RepeatByte";
+        }
+        case TRANSACTION_RepeatChar:
+        {
+          return "RepeatChar";
+        }
+        case TRANSACTION_RepeatInt:
+        {
+          return "RepeatInt";
+        }
+        case TRANSACTION_RepeatLong:
+        {
+          return "RepeatLong";
+        }
+        case TRANSACTION_RepeatFloat:
+        {
+          return "RepeatFloat";
+        }
+        case TRANSACTION_RepeatDouble:
+        {
+          return "RepeatDouble";
+        }
+        case TRANSACTION_RepeatString:
+        {
+          return "RepeatString";
+        }
+        case TRANSACTION_RepeatByteEnum:
+        {
+          return "RepeatByteEnum";
+        }
+        case TRANSACTION_RepeatIntEnum:
+        {
+          return "RepeatIntEnum";
+        }
+        case TRANSACTION_RepeatLongEnum:
+        {
+          return "RepeatLongEnum";
+        }
+        case TRANSACTION_ReverseBoolean:
+        {
+          return "ReverseBoolean";
+        }
+        case TRANSACTION_ReverseByte:
+        {
+          return "ReverseByte";
+        }
+        case TRANSACTION_ReverseChar:
+        {
+          return "ReverseChar";
+        }
+        case TRANSACTION_ReverseInt:
+        {
+          return "ReverseInt";
+        }
+        case TRANSACTION_ReverseLong:
+        {
+          return "ReverseLong";
+        }
+        case TRANSACTION_ReverseFloat:
+        {
+          return "ReverseFloat";
+        }
+        case TRANSACTION_ReverseDouble:
+        {
+          return "ReverseDouble";
+        }
+        case TRANSACTION_ReverseString:
+        {
+          return "ReverseString";
+        }
+        case TRANSACTION_ReverseByteEnum:
+        {
+          return "ReverseByteEnum";
+        }
+        case TRANSACTION_ReverseIntEnum:
+        {
+          return "ReverseIntEnum";
+        }
+        case TRANSACTION_ReverseLongEnum:
+        {
+          return "ReverseLongEnum";
+        }
+        case TRANSACTION_GetOtherTestService:
+        {
+          return "GetOtherTestService";
+        }
+        case TRANSACTION_SetOtherTestService:
+        {
+          return "SetOtherTestService";
+        }
+        case TRANSACTION_VerifyName:
+        {
+          return "VerifyName";
+        }
+        case TRANSACTION_GetInterfaceArray:
+        {
+          return "GetInterfaceArray";
+        }
+        case TRANSACTION_VerifyNamesWithInterfaceArray:
+        {
+          return "VerifyNamesWithInterfaceArray";
+        }
+        case TRANSACTION_GetNullableInterfaceArray:
+        {
+          return "GetNullableInterfaceArray";
+        }
+        case TRANSACTION_VerifyNamesWithNullableInterfaceArray:
+        {
+          return "VerifyNamesWithNullableInterfaceArray";
+        }
+        case TRANSACTION_GetInterfaceList:
+        {
+          return "GetInterfaceList";
+        }
+        case TRANSACTION_VerifyNamesWithInterfaceList:
+        {
+          return "VerifyNamesWithInterfaceList";
+        }
+        case TRANSACTION_ReverseStringList:
+        {
+          return "ReverseStringList";
+        }
+        case TRANSACTION_RepeatParcelFileDescriptor:
+        {
+          return "RepeatParcelFileDescriptor";
+        }
+        case TRANSACTION_ReverseParcelFileDescriptorArray:
+        {
+          return "ReverseParcelFileDescriptorArray";
+        }
+        case TRANSACTION_ThrowServiceException:
+        {
+          return "ThrowServiceException";
+        }
+        case TRANSACTION_RepeatNullableIntArray:
+        {
+          return "RepeatNullableIntArray";
+        }
+        case TRANSACTION_RepeatNullableByteEnumArray:
+        {
+          return "RepeatNullableByteEnumArray";
+        }
+        case TRANSACTION_RepeatNullableIntEnumArray:
+        {
+          return "RepeatNullableIntEnumArray";
+        }
+        case TRANSACTION_RepeatNullableLongEnumArray:
+        {
+          return "RepeatNullableLongEnumArray";
+        }
+        case TRANSACTION_RepeatNullableString:
+        {
+          return "RepeatNullableString";
+        }
+        case TRANSACTION_RepeatNullableStringList:
+        {
+          return "RepeatNullableStringList";
+        }
+        case TRANSACTION_RepeatNullableParcelable:
+        {
+          return "RepeatNullableParcelable";
+        }
+        case TRANSACTION_RepeatNullableParcelableArray:
+        {
+          return "RepeatNullableParcelableArray";
+        }
+        case TRANSACTION_RepeatNullableParcelableList:
+        {
+          return "RepeatNullableParcelableList";
+        }
+        case TRANSACTION_TakesAnIBinder:
+        {
+          return "TakesAnIBinder";
+        }
+        case TRANSACTION_TakesANullableIBinder:
+        {
+          return "TakesANullableIBinder";
+        }
+        case TRANSACTION_TakesAnIBinderList:
+        {
+          return "TakesAnIBinderList";
+        }
+        case TRANSACTION_TakesANullableIBinderList:
+        {
+          return "TakesANullableIBinderList";
+        }
+        case TRANSACTION_RepeatUtf8CppString:
+        {
+          return "RepeatUtf8CppString";
+        }
+        case TRANSACTION_RepeatNullableUtf8CppString:
+        {
+          return "RepeatNullableUtf8CppString";
+        }
+        case TRANSACTION_ReverseUtf8CppString:
+        {
+          return "ReverseUtf8CppString";
+        }
+        case TRANSACTION_ReverseNullableUtf8CppString:
+        {
+          return "ReverseNullableUtf8CppString";
+        }
+        case TRANSACTION_ReverseUtf8CppStringList:
+        {
+          return "ReverseUtf8CppStringList";
+        }
+        case TRANSACTION_GetCallback:
+        {
+          return "GetCallback";
+        }
+        case TRANSACTION_FillOutStructuredParcelable:
+        {
+          return "FillOutStructuredParcelable";
+        }
+        case TRANSACTION_RepeatExtendableParcelable:
+        {
+          return "RepeatExtendableParcelable";
+        }
+        case TRANSACTION_ReverseList:
+        {
+          return "ReverseList";
+        }
+        case TRANSACTION_ReverseIBinderArray:
+        {
+          return "ReverseIBinderArray";
+        }
+        case TRANSACTION_ReverseNullableIBinderArray:
+        {
+          return "ReverseNullableIBinderArray";
+        }
+        case TRANSACTION_GetOldNameInterface:
+        {
+          return "GetOldNameInterface";
+        }
+        case TRANSACTION_GetNewNameInterface:
+        {
+          return "GetNewNameInterface";
+        }
+        case TRANSACTION_GetUnionTags:
+        {
+          return "GetUnionTags";
+        }
+        case TRANSACTION_GetCppJavaTests:
+        {
+          return "GetCppJavaTests";
+        }
+        case TRANSACTION_getBackendType:
+        {
+          return "getBackendType";
+        }
+        case TRANSACTION_GetCircular:
+        {
+          return "GetCircular";
+        }
+        default:
+        {
+          return null;
+        }
+      }
+    }
+    /** @hide */
+    public java.lang.String getTransactionName(int transactionCode)
+    {
+      return this.getDefaultTransactionName(transactionCode);
     }
     @Override public boolean onTransact(int code, android.os.Parcel data, android.os.Parcel reply, int flags) throws android.os.RemoteException
     {
@@ -1433,6 +1729,13 @@ public interface ITestService extends android.os.IInterface
           byte _result = this.getBackendType();
           reply.writeNoException();
           reply.writeByte(_result);
+          break;
+        }
+        case TRANSACTION_GetCircular:
+        {
+          android.aidl.tests.ICircular _result = this.GetCircular();
+          reply.writeNoException();
+          reply.writeStrongInterface(_result);
           break;
         }
         default:
@@ -3111,6 +3414,29 @@ public interface ITestService extends android.os.IInterface
         }
         return _result;
       }
+      @Override public android.aidl.tests.ICircular GetCircular() throws android.os.RemoteException
+      {
+        android.os.Parcel _data = android.os.Parcel.obtain(asBinder());
+        _data.markSensitive();
+        android.os.Parcel _reply = android.os.Parcel.obtain();
+        android.aidl.tests.ICircular _result;
+        try {
+          _data.writeInterfaceToken(DESCRIPTOR);
+          boolean _status = mRemote.transact(Stub.TRANSACTION_GetCircular, _data, _reply, android.os.IBinder.FLAG_CLEAR_BUF);
+          if (!_status) {
+            if (getDefaultImpl() != null) {
+              return getDefaultImpl().GetCircular();
+            }
+          }
+          _reply.readException();
+          _result = android.aidl.tests.ICircular.Stub.asInterface(_reply.readStrongBinder());
+        }
+        finally {
+          _reply.recycle();
+          _data.recycle();
+        }
+        return _result;
+      }
       public static android.aidl.tests.ITestService sDefaultImpl;
     }
     static final int TRANSACTION_UnimplementedMethod = (android.os.IBinder.FIRST_CALL_TRANSACTION + 0);
@@ -3180,6 +3506,12 @@ public interface ITestService extends android.os.IInterface
     static final int TRANSACTION_GetUnionTags = (android.os.IBinder.FIRST_CALL_TRANSACTION + 64);
     static final int TRANSACTION_GetCppJavaTests = (android.os.IBinder.FIRST_CALL_TRANSACTION + 65);
     static final int TRANSACTION_getBackendType = (android.os.IBinder.FIRST_CALL_TRANSACTION + 66);
+    static final int TRANSACTION_GetCircular = (android.os.IBinder.FIRST_CALL_TRANSACTION + 67);
+    /** @hide */
+    public int getMaxTransactionId()
+    {
+      return 67;
+    }
     public static boolean setDefaultImpl(android.aidl.tests.ITestService impl) {
       // Only one user of this interface can use this function
       // at a time. This is a heuristic to detect if two different
@@ -3375,6 +3707,7 @@ public interface ITestService extends android.os.IInterface
   // Retrieve the ICppJavaTests if the server supports it
   public android.os.IBinder GetCppJavaTests() throws android.os.RemoteException;
   public byte getBackendType() throws android.os.RemoteException;
+  public android.aidl.tests.ICircular GetCircular() throws android.os.RemoteException;
   // Small empty parcelable for nullability check
   public static class Empty implements android.os.Parcelable
   {
@@ -3579,6 +3912,103 @@ public interface ITestService extends android.os.IInterface
         return ((android.os.Parcelable) _v).describeContents();
       }
       return 0;
+    }
+    // interface without I-
+    public interface Foo extends android.os.IInterface
+    {
+      /** Default implementation for Foo. */
+      public static class Default implements android.aidl.tests.ITestService.CompilerChecks.Foo
+      {
+        @Override
+        public android.os.IBinder asBinder() {
+          return null;
+        }
+      }
+      /** Local-side IPC implementation stub class. */
+      public static abstract class Stub extends android.os.Binder implements android.aidl.tests.ITestService.CompilerChecks.Foo
+      {
+        /** Construct the stub at attach it to the interface. */
+        public Stub()
+        {
+          this.attachInterface(this, DESCRIPTOR);
+        }
+        /**
+         * Cast an IBinder object into an android.aidl.tests.ITestService.CompilerChecks.Foo interface,
+         * generating a proxy if needed.
+         */
+        public static android.aidl.tests.ITestService.CompilerChecks.Foo asInterface(android.os.IBinder obj)
+        {
+          if ((obj==null)) {
+            return null;
+          }
+          android.os.IInterface iin = obj.queryLocalInterface(DESCRIPTOR);
+          if (((iin!=null)&&(iin instanceof android.aidl.tests.ITestService.CompilerChecks.Foo))) {
+            return ((android.aidl.tests.ITestService.CompilerChecks.Foo)iin);
+          }
+          return new android.aidl.tests.ITestService.CompilerChecks.Foo.Stub.Proxy(obj);
+        }
+        @Override public android.os.IBinder asBinder()
+        {
+          return this;
+        }
+        /** @hide */
+        public static java.lang.String getDefaultTransactionName(int transactionCode)
+        {
+          switch (transactionCode)
+          {
+            default:
+            {
+              return null;
+            }
+          }
+        }
+        /** @hide */
+        public java.lang.String getTransactionName(int transactionCode)
+        {
+          return this.getDefaultTransactionName(transactionCode);
+        }
+        @Override public boolean onTransact(int code, android.os.Parcel data, android.os.Parcel reply, int flags) throws android.os.RemoteException
+        {
+          java.lang.String descriptor = DESCRIPTOR;
+          switch (code)
+          {
+            case INTERFACE_TRANSACTION:
+            {
+              reply.writeString(descriptor);
+              return true;
+            }
+          }
+          switch (code)
+          {
+            default:
+            {
+              return super.onTransact(code, data, reply, flags);
+            }
+          }
+        }
+        private static class Proxy implements android.aidl.tests.ITestService.CompilerChecks.Foo
+        {
+          private android.os.IBinder mRemote;
+          Proxy(android.os.IBinder remote)
+          {
+            mRemote = remote;
+          }
+          @Override public android.os.IBinder asBinder()
+          {
+            return mRemote;
+          }
+          public java.lang.String getInterfaceDescriptor()
+          {
+            return DESCRIPTOR;
+          }
+        }
+        /** @hide */
+        public int getMaxTransactionId()
+        {
+          return 0;
+        }
+      }
+      public static final java.lang.String DESCRIPTOR = "android$aidl$tests$ITestService$CompilerChecks$Foo".replace('$', '.');
     }
   }
 }

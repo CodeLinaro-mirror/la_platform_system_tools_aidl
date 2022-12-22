@@ -27,10 +27,21 @@ public interface IProtected extends android.os.IInterface
   /** Local-side IPC implementation stub class. */
   public static abstract class Stub extends android.os.Binder implements android.aidl.tests.permission.IProtected
   {
-    /** Construct the stub at attach it to the interface. */
-    public Stub()
+    private final android.os.PermissionEnforcer mEnforcer;
+    /** Construct the stub using the Enforcer provided. */
+    public Stub(android.os.PermissionEnforcer enforcer)
     {
       this.attachInterface(this, DESCRIPTOR);
+      if (enforcer == null) {
+        throw new IllegalArgumentException("enforcer cannot be null");
+      }
+      mEnforcer = enforcer;
+    }
+    @Deprecated
+    /** Default constructor. */
+    public Stub() {
+      this(android.os.PermissionEnforcer.fromContext(
+         android.app.ActivityThread.currentActivityThread().getSystemContext()));
     }
     /**
      * Cast an IBinder object into an android.aidl.tests.permission.IProtected interface,
@@ -51,6 +62,38 @@ public interface IProtected extends android.os.IInterface
     {
       return this;
     }
+    /** @hide */
+    public static java.lang.String getDefaultTransactionName(int transactionCode)
+    {
+      switch (transactionCode)
+      {
+        case TRANSACTION_PermissionProtected:
+        {
+          return "PermissionProtected";
+        }
+        case TRANSACTION_MultiplePermissionsAll:
+        {
+          return "MultiplePermissionsAll";
+        }
+        case TRANSACTION_MultiplePermissionsAny:
+        {
+          return "MultiplePermissionsAny";
+        }
+        case TRANSACTION_NonManifestPermission:
+        {
+          return "NonManifestPermission";
+        }
+        default:
+        {
+          return null;
+        }
+      }
+    }
+    /** @hide */
+    public java.lang.String getTransactionName(int transactionCode)
+    {
+      return this.getDefaultTransactionName(transactionCode);
+    }
     @Override public boolean onTransact(int code, android.os.Parcel data, android.os.Parcel reply, int flags) throws android.os.RemoteException
     {
       java.lang.String descriptor = DESCRIPTOR;
@@ -69,36 +112,32 @@ public interface IProtected extends android.os.IInterface
       {
         case TRANSACTION_PermissionProtected:
         {
-          if ((this.permissionCheckerWrapper(android.Manifest.permission.READ_PHONE_STATE, this.getCallingPid(), new android.content.AttributionSource(getCallingUid(), null, null))!=true)) {
-            throw new SecurityException("Access denied, requires: android.Manifest.permission.READ_PHONE_STATE");
-          }
+          android.content.AttributionSource source = new android.content.AttributionSource(getCallingUid(), null, null);
+          mEnforcer.enforcePermission(android.Manifest.permission.READ_PHONE_STATE, source);
           this.PermissionProtected();
           reply.writeNoException();
           break;
         }
         case TRANSACTION_MultiplePermissionsAll:
         {
-          if (((this.permissionCheckerWrapper(android.Manifest.permission.INTERNET, this.getCallingPid(), new android.content.AttributionSource(getCallingUid(), null, null))&&this.permissionCheckerWrapper(android.Manifest.permission.VIBRATE, this.getCallingPid(), new android.content.AttributionSource(getCallingUid(), null, null)))!=true)) {
-            throw new SecurityException("Access denied, requires: allOf = {android.Manifest.permission.INTERNET, android.Manifest.permission.VIBRATE}");
-          }
+          android.content.AttributionSource source = new android.content.AttributionSource(getCallingUid(), null, null);
+          mEnforcer.enforcePermissionAllOf(new String[]{android.Manifest.permission.INTERNET, android.Manifest.permission.VIBRATE}, source);
           this.MultiplePermissionsAll();
           reply.writeNoException();
           break;
         }
         case TRANSACTION_MultiplePermissionsAny:
         {
-          if (((this.permissionCheckerWrapper(android.Manifest.permission.INTERNET, this.getCallingPid(), new android.content.AttributionSource(getCallingUid(), null, null))||this.permissionCheckerWrapper(android.Manifest.permission.VIBRATE, this.getCallingPid(), new android.content.AttributionSource(getCallingUid(), null, null)))!=true)) {
-            throw new SecurityException("Access denied, requires: anyOf = {android.Manifest.permission.INTERNET, android.Manifest.permission.VIBRATE}");
-          }
+          android.content.AttributionSource source = new android.content.AttributionSource(getCallingUid(), null, null);
+          mEnforcer.enforcePermissionAnyOf(new String[]{android.Manifest.permission.INTERNET, android.Manifest.permission.VIBRATE}, source);
           this.MultiplePermissionsAny();
           reply.writeNoException();
           break;
         }
         case TRANSACTION_NonManifestPermission:
         {
-          if ((this.permissionCheckerWrapper(android.net.NetworkStack.PERMISSION_MAINLINE_NETWORK_STACK, this.getCallingPid(), new android.content.AttributionSource(getCallingUid(), null, null))!=true)) {
-            throw new SecurityException("Access denied, requires: android.net.NetworkStack.PERMISSION_MAINLINE_NETWORK_STACK");
-          }
+          android.content.AttributionSource source = new android.content.AttributionSource(getCallingUid(), null, null);
+          mEnforcer.enforcePermission(android.net.NetworkStack.PERMISSION_MAINLINE_NETWORK_STACK, source);
           this.NonManifestPermission();
           reply.writeNoException();
           break;
@@ -127,7 +166,7 @@ public interface IProtected extends android.os.IInterface
       }
       @Override public void PermissionProtected() throws android.os.RemoteException
       {
-        android.os.Parcel _data = android.os.Parcel.obtain();
+        android.os.Parcel _data = android.os.Parcel.obtain(asBinder());
         android.os.Parcel _reply = android.os.Parcel.obtain();
         try {
           _data.writeInterfaceToken(DESCRIPTOR);
@@ -141,7 +180,7 @@ public interface IProtected extends android.os.IInterface
       }
       @Override public void MultiplePermissionsAll() throws android.os.RemoteException
       {
-        android.os.Parcel _data = android.os.Parcel.obtain();
+        android.os.Parcel _data = android.os.Parcel.obtain(asBinder());
         android.os.Parcel _reply = android.os.Parcel.obtain();
         try {
           _data.writeInterfaceToken(DESCRIPTOR);
@@ -155,7 +194,7 @@ public interface IProtected extends android.os.IInterface
       }
       @Override public void MultiplePermissionsAny() throws android.os.RemoteException
       {
-        android.os.Parcel _data = android.os.Parcel.obtain();
+        android.os.Parcel _data = android.os.Parcel.obtain(asBinder());
         android.os.Parcel _reply = android.os.Parcel.obtain();
         try {
           _data.writeInterfaceToken(DESCRIPTOR);
@@ -169,7 +208,7 @@ public interface IProtected extends android.os.IInterface
       }
       @Override public void NonManifestPermission() throws android.os.RemoteException
       {
-        android.os.Parcel _data = android.os.Parcel.obtain();
+        android.os.Parcel _data = android.os.Parcel.obtain(asBinder());
         android.os.Parcel _reply = android.os.Parcel.obtain();
         try {
           _data.writeInterfaceToken(DESCRIPTOR);
@@ -182,18 +221,23 @@ public interface IProtected extends android.os.IInterface
         }
       }
     }
-    private boolean permissionCheckerWrapper(
-        String permission, int pid, android.content.AttributionSource attributionSource) {
-      android.content.Context ctx =
-          android.app.ActivityThread.currentActivityThread().getSystemContext();
-      return (android.content.PermissionChecker.checkPermissionForDataDelivery(
-              ctx, permission, pid, attributionSource, "" /*message*/) ==
-          android.content.PermissionChecker.PERMISSION_GRANTED);
-    }
     static final int TRANSACTION_PermissionProtected = (android.os.IBinder.FIRST_CALL_TRANSACTION + 0);
+    /** Helper method to enforce permissions for PermissionProtected */
+    protected void PermissionProtected_enforcePermission() throws SecurityException { }
     static final int TRANSACTION_MultiplePermissionsAll = (android.os.IBinder.FIRST_CALL_TRANSACTION + 1);
+    /** Helper method to enforce permissions for MultiplePermissionsAll */
+    protected void MultiplePermissionsAll_enforcePermission() throws SecurityException { }
     static final int TRANSACTION_MultiplePermissionsAny = (android.os.IBinder.FIRST_CALL_TRANSACTION + 2);
+    /** Helper method to enforce permissions for MultiplePermissionsAny */
+    protected void MultiplePermissionsAny_enforcePermission() throws SecurityException { }
     static final int TRANSACTION_NonManifestPermission = (android.os.IBinder.FIRST_CALL_TRANSACTION + 3);
+    /** Helper method to enforce permissions for NonManifestPermission */
+    protected void NonManifestPermission_enforcePermission() throws SecurityException { }
+    /** @hide */
+    public int getMaxTransactionId()
+    {
+      return 3;
+    }
   }
   public static final java.lang.String DESCRIPTOR = "android$aidl$tests$permission$IProtected".replace('$', '.');
   @android.annotation.EnforcePermission(android.Manifest.permission.READ_PHONE_STATE)

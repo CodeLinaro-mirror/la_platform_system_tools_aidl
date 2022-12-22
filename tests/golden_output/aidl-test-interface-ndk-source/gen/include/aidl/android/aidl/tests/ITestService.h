@@ -5,6 +5,7 @@
 #include <optional>
 #include <string>
 #include <vector>
+#include <android/binder_ibinder.h>
 #include <android/binder_ibinder_platform.h>
 #include <android/binder_interface_utils.h>
 #include <android/binder_parcel_platform.h>
@@ -12,6 +13,7 @@
 #include <android/binder_to_string.h>
 #include <aidl/android/aidl/tests/BackendType.h>
 #include <aidl/android/aidl/tests/ByteEnum.h>
+#include <aidl/android/aidl/tests/ICircular.h>
 #include <aidl/android/aidl/tests/INamedCallback.h>
 #include <aidl/android/aidl/tests/INewName.h>
 #include <aidl/android/aidl/tests/IOldName.h>
@@ -26,6 +28,12 @@
 #include <android/binder_stability.h>
 #endif  // BINDER_STABILITY_SUPPORT
 
+namespace aidl::android::aidl::tests {
+class ICircular;
+class INamedCallback;
+class INewName;
+class IOldName;
+}  // namespace aidl::android::aidl::tests
 namespace aidl {
 namespace android {
 namespace aidl {
@@ -80,6 +88,43 @@ public:
     typedef std::false_type fixed_size;
     static const char* descriptor;
 
+    class IFooDelegator;
+
+    class IFoo : public ::ndk::ICInterface {
+    public:
+      typedef IFooDelegator DefaultDelegator;
+      static const char* descriptor;
+      IFoo();
+      virtual ~IFoo();
+
+
+      static std::shared_ptr<IFoo> fromBinder(const ::ndk::SpAIBinder& binder);
+      static binder_status_t writeToParcel(AParcel* parcel, const std::shared_ptr<IFoo>& instance);
+      static binder_status_t readFromParcel(const AParcel* parcel, std::shared_ptr<IFoo>* instance);
+      static bool setDefaultImpl(const std::shared_ptr<IFoo>& impl);
+      static const std::shared_ptr<IFoo>& getDefaultImpl();
+    private:
+      static std::shared_ptr<IFoo> default_impl;
+    };
+    class IFooDefault : public IFoo {
+    public:
+      ::ndk::SpAIBinder asBinder() override;
+      bool isRemote() override;
+    };
+    class BpFoo : public ::ndk::BpCInterface<IFoo> {
+    public:
+      explicit BpFoo(const ::ndk::SpAIBinder& binder);
+      virtual ~BpFoo();
+
+    };
+    class BnFoo : public ::ndk::BnCInterface<IFoo> {
+    public:
+      BnFoo();
+      virtual ~BnFoo();
+    protected:
+      ::ndk::SpAIBinder createBinder() override;
+    private:
+    };
     ::ndk::SpAIBinder binder;
     ::ndk::SpAIBinder nullable_binder;
     std::vector<::ndk::SpAIBinder> binder_array;
@@ -288,6 +333,7 @@ public:
   static constexpr uint32_t TRANSACTION_GetUnionTags = FIRST_CALL_TRANSACTION + 64;
   static constexpr uint32_t TRANSACTION_GetCppJavaTests = FIRST_CALL_TRANSACTION + 65;
   static constexpr uint32_t TRANSACTION_getBackendType = FIRST_CALL_TRANSACTION + 66;
+  static constexpr uint32_t TRANSACTION_GetCircular = FIRST_CALL_TRANSACTION + 67;
 
   static std::shared_ptr<ITestService> fromBinder(const ::ndk::SpAIBinder& binder);
   static binder_status_t writeToParcel(AParcel* parcel, const std::shared_ptr<ITestService>& instance);
@@ -361,6 +407,7 @@ public:
   virtual ::ndk::ScopedAStatus GetUnionTags(const std::vector<::aidl::android::aidl::tests::Union>& in_input, std::vector<::aidl::android::aidl::tests::Union::Tag>* _aidl_return) = 0;
   virtual ::ndk::ScopedAStatus GetCppJavaTests(::ndk::SpAIBinder* _aidl_return) = 0;
   virtual ::ndk::ScopedAStatus getBackendType(::aidl::android::aidl::tests::BackendType* _aidl_return) = 0;
+  virtual ::ndk::ScopedAStatus GetCircular(std::shared_ptr<::aidl::android::aidl::tests::ICircular>* _aidl_return) = 0;
 private:
   static std::shared_ptr<ITestService> default_impl;
 };
@@ -433,6 +480,7 @@ public:
   ::ndk::ScopedAStatus GetUnionTags(const std::vector<::aidl::android::aidl::tests::Union>& in_input, std::vector<::aidl::android::aidl::tests::Union::Tag>* _aidl_return) override;
   ::ndk::ScopedAStatus GetCppJavaTests(::ndk::SpAIBinder* _aidl_return) override;
   ::ndk::ScopedAStatus getBackendType(::aidl::android::aidl::tests::BackendType* _aidl_return) override;
+  ::ndk::ScopedAStatus GetCircular(std::shared_ptr<::aidl::android::aidl::tests::ICircular>* _aidl_return) override;
   ::ndk::SpAIBinder asBinder() override;
   bool isRemote() override;
 };

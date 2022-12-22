@@ -18,6 +18,7 @@ package android.aidl.tests;
 
 import android.aidl.tests.BackendType;
 import android.aidl.tests.ByteEnum;
+import android.aidl.tests.ICircular;
 import android.aidl.tests.INamedCallback;
 import android.aidl.tests.INewName;
 import android.aidl.tests.IOldName;
@@ -31,7 +32,7 @@ import android.aidl.tests.extension.ExtendableParcelable;
 /**
  * interface comment
  */
-@SuppressWarnings(value={"inout-parameter", "mixed-oneway", "out-array"})
+@SuppressWarnings(value={"inout-parameter", "mixed-oneway", "out-array", "interface-name"})
 @SensitiveData
 @JavaDefault
 @JavaDelegator
@@ -293,5 +294,10 @@ interface ITestService {
         @nullable Empty[] nullable_parcel_array;
         List<Empty> parcel_list;
         @nullable List<Empty> nullable_parcel_list;
+
+        // interface without I-
+        interface Foo {}
     }
+
+    ICircular GetCircular();
 }

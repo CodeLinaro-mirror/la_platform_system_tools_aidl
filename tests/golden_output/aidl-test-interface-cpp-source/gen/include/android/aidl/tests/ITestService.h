@@ -2,6 +2,7 @@
 
 #include <android/aidl/tests/BackendType.h>
 #include <android/aidl/tests/ByteEnum.h>
+#include <android/aidl/tests/ICircular.h>
 #include <android/aidl/tests/INamedCallback.h>
 #include <android/aidl/tests/INewName.h>
 #include <android/aidl/tests/IOldName.h>
@@ -13,11 +14,13 @@
 #include <android/aidl/tests/Union.h>
 #include <android/aidl/tests/extension/ExtendableParcelable.h>
 #include <android/binder_to_string.h>
+#include <binder/Delegate.h>
 #include <binder/IBinder.h>
 #include <binder/IInterface.h>
 #include <binder/Parcel.h>
 #include <binder/ParcelFileDescriptor.h>
 #include <binder/Status.h>
+#include <binder/Trace.h>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -26,6 +29,12 @@
 #include <utils/StrongPointer.h>
 #include <vector>
 
+namespace android::aidl::tests {
+class ICircular;
+class INamedCallback;
+class INewName;
+class IOldName;
+}  // namespace android::aidl::tests
 namespace android {
 namespace aidl {
 namespace tests {
@@ -71,6 +80,39 @@ public:
   };  // class Empty
   class CompilerChecks : public ::android::Parcelable {
   public:
+    class IFooDelegator;
+
+    class IFoo : public ::android::IInterface {
+    public:
+      typedef IFooDelegator DefaultDelegator;
+      DECLARE_META_INTERFACE(Foo)
+    };  // class IFoo
+
+    class IFooDefault : public IFoo {
+    public:
+      ::android::IBinder* onAsBinder() override {
+        return nullptr;
+      }
+    };  // class IFooDefault
+    class BpFoo : public ::android::BpInterface<IFoo> {
+    public:
+      explicit BpFoo(const ::android::sp<::android::IBinder>& _aidl_impl);
+      virtual ~BpFoo() = default;
+    };  // class BpFoo
+    class BnFoo : public ::android::BnInterface<IFoo> {
+    public:
+      explicit BnFoo();
+      ::android::status_t onTransact(uint32_t _aidl_code, const ::android::Parcel& _aidl_data, ::android::Parcel* _aidl_reply, uint32_t _aidl_flags) override;
+    };  // class BnFoo
+
+    class IFooDelegator : public BnFoo {
+    public:
+      explicit IFooDelegator(const ::android::sp<IFoo> &impl) : _aidl_delegate(impl) {}
+
+      ::android::sp<IFoo> getImpl() { return _aidl_delegate; }
+    private:
+      ::android::sp<IFoo> _aidl_delegate;
+    };  // class IFooDelegator
     ::android::sp<::android::IBinder> binder;
     ::android::sp<::android::IBinder> nullable_binder;
     ::std::vector<::android::sp<::android::IBinder>> binder_array;
@@ -280,6 +322,7 @@ public:
   virtual ::android::binder::Status GetUnionTags(const ::std::vector<::android::aidl::tests::Union>& input, ::std::vector<::android::aidl::tests::Union::Tag>* _aidl_return) = 0;
   virtual ::android::binder::Status GetCppJavaTests(::android::sp<::android::IBinder>* _aidl_return) = 0;
   virtual ::android::binder::Status getBackendType(::android::aidl::tests::BackendType* _aidl_return) = 0;
+  virtual ::android::binder::Status GetCircular(::android::sp<::android::aidl::tests::ICircular>* _aidl_return) = 0;
 };  // class ITestService
 
 class ITestServiceDefault : public ITestService {
@@ -486,6 +529,9 @@ public:
     return ::android::binder::Status::fromStatusT(::android::UNKNOWN_TRANSACTION);
   }
   ::android::binder::Status getBackendType(::android::aidl::tests::BackendType* /*_aidl_return*/) override {
+    return ::android::binder::Status::fromStatusT(::android::UNKNOWN_TRANSACTION);
+  }
+  ::android::binder::Status GetCircular(::android::sp<::android::aidl::tests::ICircular>* /*_aidl_return*/) override {
     return ::android::binder::Status::fromStatusT(::android::UNKNOWN_TRANSACTION);
   }
 };  // class ITestServiceDefault
