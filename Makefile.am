@@ -58,23 +58,3 @@ libaidl_common_la_LIBADD := -lm -lpthread -lbase -lcutils
 libaidl_common_la_LDFLAGS := -shared -version-info 1:0:0
 endif
 
-library_includedir = $(includedir)
-library_include_HEADERS = aidl_language_y.hh
-library_include_HEADERS += aidl_language_l.ll
-library_include_HEADERS += aidl_language.h
-library_include_HEADERS += aidl.h
-library_include_HEADERS += io_delegate.h
-library_include_HEADERS += line_reader.h
-library_include_HEADERS += ast_cpp.h
-library_include_HEADERS += code_writer.h
-library_include_HEADERS += generate_cpp.h
-library_include_HEADERS += import_resolver.h
-library_include_HEADERS += ast_java.h
-library_include_HEADERS += logging.h
-library_include_HEADERS += generate_java.h
-library_include_HEADERS += type_java.h
-library_include_HEADERS += options.h
-library_include_HEADERS += os.h
-library_include_HEADERS += type_cpp.h
-library_include_HEADERS += type_namespace.h
-
