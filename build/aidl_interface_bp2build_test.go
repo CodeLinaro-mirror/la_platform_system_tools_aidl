@@ -102,6 +102,21 @@ func TestAidlInterface(t *testing.T) {
 	})
 }
 
+func TestAidlInterfaceWithIncludeDirsNotGenerated(t *testing.T) {
+	runAidlInterfaceTestCase(t,
+		bp2build.Bp2buildTestCase{
+			Description: `aidl_interface with include_dirs property does not generate a Bazel target`,
+			Blueprint: `
+				aidl_interface {
+					name: "aidl-interface1",
+					include_dirs: ["dir1"],
+				}
+			`,
+			ExpectedBazelTargets: []string{},
+		},
+	)
+}
+
 func TestAidlInterfaceWithNoProperties(t *testing.T) {
 	runAidlInterfaceTestCase(t, bp2build.Bp2buildTestCase{
 		Description: `aidl_interface no properties set`,
