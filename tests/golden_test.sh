@@ -39,6 +39,11 @@ function _golden_test() {
   modules=(
     "aidl-test-interface-cpp-source"
     "aidl-test-interface-java-source"
+    "aidl-test-interface-ndk-source"
+    "aidl-test-interface-rust-source"
+    "aidl-test-extras-java-source"
+    "aidl-cpp-java-test-interface-cpp-source"
+    "aidl-cpp-java-test-interface-java-source"
     "aidl-test-versioned-interface-V1-cpp-source"
     "aidl-test-versioned-interface-V1-java-source"
     "aidl-test-versioned-interface-V1-ndk-source"
@@ -51,8 +56,6 @@ function _golden_test() {
     "aidl-test-versioned-interface-V3-java-source"
     "aidl-test-versioned-interface-V3-ndk-source"
     "aidl-test-versioned-interface-V3-rust-source"
-    "aidl-test-interface-ndk-source"
-    "aidl-test-interface-rust-source"
     "aidl_test_loggable_interface-cpp-source"
     "aidl_test_loggable_interface-java-source"
     "aidl_test_loggable_interface-ndk-source"
@@ -81,6 +84,10 @@ function _golden_test() {
     if [ "$override_unfrozen" == true ]; then
       export AIDL_USE_UNFROZEN_OVERRIDE="$use_unfrozen"
     fi
+    # clean up intermediates before building these modules
+    for module in "${modules[@]}"; do
+      rm -rf "$root/out/soong/.intermediates/system/tools/aidl/$module/gen"
+    done
     "$root"/build/soong/soong_ui.bash --make-mode \
       $(for i in "${modules[@]}"; do
           echo "out/soong/.intermediates/system/tools/aidl/$i/timestamp"
