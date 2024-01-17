@@ -20,23 +20,23 @@ class MyExt : public ::android::Parcelable {
 public:
   int32_t a = 0;
   ::std::string b;
-  inline bool operator!=(const MyExt& rhs) const {
-    return std::tie(a, b) != std::tie(rhs.a, rhs.b);
+  inline bool operator==(const MyExt& _rhs) const {
+    return std::tie(a, b) == std::tie(_rhs.a, _rhs.b);
   }
-  inline bool operator<(const MyExt& rhs) const {
-    return std::tie(a, b) < std::tie(rhs.a, rhs.b);
+  inline bool operator<(const MyExt& _rhs) const {
+    return std::tie(a, b) < std::tie(_rhs.a, _rhs.b);
   }
-  inline bool operator<=(const MyExt& rhs) const {
-    return std::tie(a, b) <= std::tie(rhs.a, rhs.b);
+  inline bool operator!=(const MyExt& _rhs) const {
+    return !(*this == _rhs);
   }
-  inline bool operator==(const MyExt& rhs) const {
-    return std::tie(a, b) == std::tie(rhs.a, rhs.b);
+  inline bool operator>(const MyExt& _rhs) const {
+    return _rhs < *this;
   }
-  inline bool operator>(const MyExt& rhs) const {
-    return std::tie(a, b) > std::tie(rhs.a, rhs.b);
+  inline bool operator>=(const MyExt& _rhs) const {
+    return !(*this < _rhs);
   }
-  inline bool operator>=(const MyExt& rhs) const {
-    return std::tie(a, b) >= std::tie(rhs.a, rhs.b);
+  inline bool operator<=(const MyExt& _rhs) const {
+    return !(_rhs < *this);
   }
 
   ::android::status_t readFromParcel(const ::android::Parcel* _aidl_parcel) final;
@@ -46,12 +46,12 @@ public:
     return DESCRIPTOR;
   }
   inline std::string toString() const {
-    std::ostringstream os;
-    os << "MyExt{";
-    os << "a: " << ::android::internal::ToString(a);
-    os << ", b: " << ::android::internal::ToString(b);
-    os << "}";
-    return os.str();
+    std::ostringstream _aidl_os;
+    _aidl_os << "MyExt{";
+    _aidl_os << "a: " << ::android::internal::ToString(a);
+    _aidl_os << ", b: " << ::android::internal::ToString(b);
+    _aidl_os << "}";
+    return _aidl_os.str();
   }
 };  // class MyExt
 }  // namespace extension

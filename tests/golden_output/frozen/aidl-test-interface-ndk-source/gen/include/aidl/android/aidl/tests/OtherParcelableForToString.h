@@ -30,32 +30,32 @@ public:
   binder_status_t readFromParcel(const AParcel* parcel);
   binder_status_t writeToParcel(AParcel* parcel) const;
 
-  inline bool operator!=(const OtherParcelableForToString& rhs) const {
-    return std::tie(field) != std::tie(rhs.field);
+  inline bool operator==(const OtherParcelableForToString& _rhs) const {
+    return std::tie(field) == std::tie(_rhs.field);
   }
-  inline bool operator<(const OtherParcelableForToString& rhs) const {
-    return std::tie(field) < std::tie(rhs.field);
+  inline bool operator<(const OtherParcelableForToString& _rhs) const {
+    return std::tie(field) < std::tie(_rhs.field);
   }
-  inline bool operator<=(const OtherParcelableForToString& rhs) const {
-    return std::tie(field) <= std::tie(rhs.field);
+  inline bool operator!=(const OtherParcelableForToString& _rhs) const {
+    return !(*this == _rhs);
   }
-  inline bool operator==(const OtherParcelableForToString& rhs) const {
-    return std::tie(field) == std::tie(rhs.field);
+  inline bool operator>(const OtherParcelableForToString& _rhs) const {
+    return _rhs < *this;
   }
-  inline bool operator>(const OtherParcelableForToString& rhs) const {
-    return std::tie(field) > std::tie(rhs.field);
+  inline bool operator>=(const OtherParcelableForToString& _rhs) const {
+    return !(*this < _rhs);
   }
-  inline bool operator>=(const OtherParcelableForToString& rhs) const {
-    return std::tie(field) >= std::tie(rhs.field);
+  inline bool operator<=(const OtherParcelableForToString& _rhs) const {
+    return !(_rhs < *this);
   }
 
   static const ::ndk::parcelable_stability_t _aidl_stability = ::ndk::STABILITY_LOCAL;
   inline std::string toString() const {
-    std::ostringstream os;
-    os << "OtherParcelableForToString{";
-    os << "field: " << ::android::internal::ToString(field);
-    os << "}";
-    return os.str();
+    std::ostringstream _aidl_os;
+    _aidl_os << "OtherParcelableForToString{";
+    _aidl_os << "field: " << ::android::internal::ToString(field);
+    _aidl_os << "}";
+    return _aidl_os.str();
   }
 };
 }  // namespace tests

@@ -25,23 +25,23 @@ public:
   int32_t a = 0;
   ::android::aidl::tests::extension::MyExt b;
   ::std::string c;
-  inline bool operator!=(const MyExt2& rhs) const {
-    return std::tie(a, b, c) != std::tie(rhs.a, rhs.b, rhs.c);
+  inline bool operator==(const MyExt2& _rhs) const {
+    return std::tie(a, b, c) == std::tie(_rhs.a, _rhs.b, _rhs.c);
   }
-  inline bool operator<(const MyExt2& rhs) const {
-    return std::tie(a, b, c) < std::tie(rhs.a, rhs.b, rhs.c);
+  inline bool operator<(const MyExt2& _rhs) const {
+    return std::tie(a, b, c) < std::tie(_rhs.a, _rhs.b, _rhs.c);
   }
-  inline bool operator<=(const MyExt2& rhs) const {
-    return std::tie(a, b, c) <= std::tie(rhs.a, rhs.b, rhs.c);
+  inline bool operator!=(const MyExt2& _rhs) const {
+    return !(*this == _rhs);
   }
-  inline bool operator==(const MyExt2& rhs) const {
-    return std::tie(a, b, c) == std::tie(rhs.a, rhs.b, rhs.c);
+  inline bool operator>(const MyExt2& _rhs) const {
+    return _rhs < *this;
   }
-  inline bool operator>(const MyExt2& rhs) const {
-    return std::tie(a, b, c) > std::tie(rhs.a, rhs.b, rhs.c);
+  inline bool operator>=(const MyExt2& _rhs) const {
+    return !(*this < _rhs);
   }
-  inline bool operator>=(const MyExt2& rhs) const {
-    return std::tie(a, b, c) >= std::tie(rhs.a, rhs.b, rhs.c);
+  inline bool operator<=(const MyExt2& _rhs) const {
+    return !(_rhs < *this);
   }
 
   ::android::status_t readFromParcel(const ::android::Parcel* _aidl_parcel) final;
@@ -51,13 +51,13 @@ public:
     return DESCRIPTOR;
   }
   inline std::string toString() const {
-    std::ostringstream os;
-    os << "MyExt2{";
-    os << "a: " << ::android::internal::ToString(a);
-    os << ", b: " << ::android::internal::ToString(b);
-    os << ", c: " << ::android::internal::ToString(c);
-    os << "}";
-    return os.str();
+    std::ostringstream _aidl_os;
+    _aidl_os << "MyExt2{";
+    _aidl_os << "a: " << ::android::internal::ToString(a);
+    _aidl_os << ", b: " << ::android::internal::ToString(b);
+    _aidl_os << ", c: " << ::android::internal::ToString(c);
+    _aidl_os << "}";
+    return _aidl_os.str();
   }
 };  // class MyExt2
 }  // namespace extension

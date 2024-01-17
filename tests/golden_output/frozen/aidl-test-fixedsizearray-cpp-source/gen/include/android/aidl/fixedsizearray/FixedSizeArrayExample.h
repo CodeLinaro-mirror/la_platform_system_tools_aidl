@@ -30,23 +30,23 @@ public:
   class IntParcelable : public ::android::Parcelable {
   public:
     int32_t value = 0;
-    inline bool operator!=(const IntParcelable& rhs) const {
-      return std::tie(value) != std::tie(rhs.value);
+    inline bool operator==(const IntParcelable& _rhs) const {
+      return std::tie(value) == std::tie(_rhs.value);
     }
-    inline bool operator<(const IntParcelable& rhs) const {
-      return std::tie(value) < std::tie(rhs.value);
+    inline bool operator<(const IntParcelable& _rhs) const {
+      return std::tie(value) < std::tie(_rhs.value);
     }
-    inline bool operator<=(const IntParcelable& rhs) const {
-      return std::tie(value) <= std::tie(rhs.value);
+    inline bool operator!=(const IntParcelable& _rhs) const {
+      return !(*this == _rhs);
     }
-    inline bool operator==(const IntParcelable& rhs) const {
-      return std::tie(value) == std::tie(rhs.value);
+    inline bool operator>(const IntParcelable& _rhs) const {
+      return _rhs < *this;
     }
-    inline bool operator>(const IntParcelable& rhs) const {
-      return std::tie(value) > std::tie(rhs.value);
+    inline bool operator>=(const IntParcelable& _rhs) const {
+      return !(*this < _rhs);
     }
-    inline bool operator>=(const IntParcelable& rhs) const {
-      return std::tie(value) >= std::tie(rhs.value);
+    inline bool operator<=(const IntParcelable& _rhs) const {
+      return !(_rhs < *this);
     }
 
     ::android::status_t readFromParcel(const ::android::Parcel* _aidl_parcel) final;
@@ -56,11 +56,11 @@ public:
       return DESCRIPTOR;
     }
     inline std::string toString() const {
-      std::ostringstream os;
-      os << "IntParcelable{";
-      os << "value: " << ::android::internal::ToString(value);
-      os << "}";
-      return os.str();
+      std::ostringstream _aidl_os;
+      _aidl_os << "IntParcelable{";
+      _aidl_os << "value: " << ::android::internal::ToString(value);
+      _aidl_os << "}";
+      return _aidl_os.str();
     }
   };  // class IntParcelable
   class IRepeatFixedSizeArrayDelegator;
@@ -265,23 +265,23 @@ public:
   ::std::optional<std::array<std::array<::std::optional<::android::os::ParcelFileDescriptor>, 2>, 2>> pfdNullableMatrix;
   ::std::optional<std::array<std::array<::std::optional<::android::aidl::fixedsizearray::FixedSizeArrayExample::IntParcelable>, 2>, 2>> parcelableNullableMatrix;
   ::std::optional<std::array<std::array<::android::sp<::android::aidl::fixedsizearray::FixedSizeArrayExample::IEmptyInterface>, 2>, 2>> interfaceNullableMatrix;
-  inline bool operator!=(const FixedSizeArrayExample& rhs) const {
-    return std::tie(int2x3, boolArray, byteArray, charArray, intArray, longArray, floatArray, doubleArray, stringArray, byteEnumArray, intEnumArray, longEnumArray, parcelableArray, boolMatrix, byteMatrix, charMatrix, intMatrix, longMatrix, floatMatrix, doubleMatrix, stringMatrix, byteEnumMatrix, intEnumMatrix, longEnumMatrix, parcelableMatrix, boolNullableArray, byteNullableArray, charNullableArray, intNullableArray, longNullableArray, floatNullableArray, doubleNullableArray, stringNullableArray, byteEnumNullableArray, intEnumNullableArray, longEnumNullableArray, binderNullableArray, pfdNullableArray, parcelableNullableArray, interfaceNullableArray, boolNullableMatrix, byteNullableMatrix, charNullableMatrix, intNullableMatrix, longNullableMatrix, floatNullableMatrix, doubleNullableMatrix, stringNullableMatrix, byteEnumNullableMatrix, intEnumNullableMatrix, longEnumNullableMatrix, binderNullableMatrix, pfdNullableMatrix, parcelableNullableMatrix, interfaceNullableMatrix) != std::tie(rhs.int2x3, rhs.boolArray, rhs.byteArray, rhs.charArray, rhs.intArray, rhs.longArray, rhs.floatArray, rhs.doubleArray, rhs.stringArray, rhs.byteEnumArray, rhs.intEnumArray, rhs.longEnumArray, rhs.parcelableArray, rhs.boolMatrix, rhs.byteMatrix, rhs.charMatrix, rhs.intMatrix, rhs.longMatrix, rhs.floatMatrix, rhs.doubleMatrix, rhs.stringMatrix, rhs.byteEnumMatrix, rhs.intEnumMatrix, rhs.longEnumMatrix, rhs.parcelableMatrix, rhs.boolNullableArray, rhs.byteNullableArray, rhs.charNullableArray, rhs.intNullableArray, rhs.longNullableArray, rhs.floatNullableArray, rhs.doubleNullableArray, rhs.stringNullableArray, rhs.byteEnumNullableArray, rhs.intEnumNullableArray, rhs.longEnumNullableArray, rhs.binderNullableArray, rhs.pfdNullableArray, rhs.parcelableNullableArray, rhs.interfaceNullableArray, rhs.boolNullableMatrix, rhs.byteNullableMatrix, rhs.charNullableMatrix, rhs.intNullableMatrix, rhs.longNullableMatrix, rhs.floatNullableMatrix, rhs.doubleNullableMatrix, rhs.stringNullableMatrix, rhs.byteEnumNullableMatrix, rhs.intEnumNullableMatrix, rhs.longEnumNullableMatrix, rhs.binderNullableMatrix, rhs.pfdNullableMatrix, rhs.parcelableNullableMatrix, rhs.interfaceNullableMatrix);
+  inline bool operator==(const FixedSizeArrayExample& _rhs) const {
+    return std::tie(int2x3, boolArray, byteArray, charArray, intArray, longArray, floatArray, doubleArray, stringArray, byteEnumArray, intEnumArray, longEnumArray, parcelableArray, boolMatrix, byteMatrix, charMatrix, intMatrix, longMatrix, floatMatrix, doubleMatrix, stringMatrix, byteEnumMatrix, intEnumMatrix, longEnumMatrix, parcelableMatrix, boolNullableArray, byteNullableArray, charNullableArray, intNullableArray, longNullableArray, floatNullableArray, doubleNullableArray, stringNullableArray, byteEnumNullableArray, intEnumNullableArray, longEnumNullableArray, binderNullableArray, pfdNullableArray, parcelableNullableArray, interfaceNullableArray, boolNullableMatrix, byteNullableMatrix, charNullableMatrix, intNullableMatrix, longNullableMatrix, floatNullableMatrix, doubleNullableMatrix, stringNullableMatrix, byteEnumNullableMatrix, intEnumNullableMatrix, longEnumNullableMatrix, binderNullableMatrix, pfdNullableMatrix, parcelableNullableMatrix, interfaceNullableMatrix) == std::tie(_rhs.int2x3, _rhs.boolArray, _rhs.byteArray, _rhs.charArray, _rhs.intArray, _rhs.longArray, _rhs.floatArray, _rhs.doubleArray, _rhs.stringArray, _rhs.byteEnumArray, _rhs.intEnumArray, _rhs.longEnumArray, _rhs.parcelableArray, _rhs.boolMatrix, _rhs.byteMatrix, _rhs.charMatrix, _rhs.intMatrix, _rhs.longMatrix, _rhs.floatMatrix, _rhs.doubleMatrix, _rhs.stringMatrix, _rhs.byteEnumMatrix, _rhs.intEnumMatrix, _rhs.longEnumMatrix, _rhs.parcelableMatrix, _rhs.boolNullableArray, _rhs.byteNullableArray, _rhs.charNullableArray, _rhs.intNullableArray, _rhs.longNullableArray, _rhs.floatNullableArray, _rhs.doubleNullableArray, _rhs.stringNullableArray, _rhs.byteEnumNullableArray, _rhs.intEnumNullableArray, _rhs.longEnumNullableArray, _rhs.binderNullableArray, _rhs.pfdNullableArray, _rhs.parcelableNullableArray, _rhs.interfaceNullableArray, _rhs.boolNullableMatrix, _rhs.byteNullableMatrix, _rhs.charNullableMatrix, _rhs.intNullableMatrix, _rhs.longNullableMatrix, _rhs.floatNullableMatrix, _rhs.doubleNullableMatrix, _rhs.stringNullableMatrix, _rhs.byteEnumNullableMatrix, _rhs.intEnumNullableMatrix, _rhs.longEnumNullableMatrix, _rhs.binderNullableMatrix, _rhs.pfdNullableMatrix, _rhs.parcelableNullableMatrix, _rhs.interfaceNullableMatrix);
   }
-  inline bool operator<(const FixedSizeArrayExample& rhs) const {
-    return std::tie(int2x3, boolArray, byteArray, charArray, intArray, longArray, floatArray, doubleArray, stringArray, byteEnumArray, intEnumArray, longEnumArray, parcelableArray, boolMatrix, byteMatrix, charMatrix, intMatrix, longMatrix, floatMatrix, doubleMatrix, stringMatrix, byteEnumMatrix, intEnumMatrix, longEnumMatrix, parcelableMatrix, boolNullableArray, byteNullableArray, charNullableArray, intNullableArray, longNullableArray, floatNullableArray, doubleNullableArray, stringNullableArray, byteEnumNullableArray, intEnumNullableArray, longEnumNullableArray, binderNullableArray, pfdNullableArray, parcelableNullableArray, interfaceNullableArray, boolNullableMatrix, byteNullableMatrix, charNullableMatrix, intNullableMatrix, longNullableMatrix, floatNullableMatrix, doubleNullableMatrix, stringNullableMatrix, byteEnumNullableMatrix, intEnumNullableMatrix, longEnumNullableMatrix, binderNullableMatrix, pfdNullableMatrix, parcelableNullableMatrix, interfaceNullableMatrix) < std::tie(rhs.int2x3, rhs.boolArray, rhs.byteArray, rhs.charArray, rhs.intArray, rhs.longArray, rhs.floatArray, rhs.doubleArray, rhs.stringArray, rhs.byteEnumArray, rhs.intEnumArray, rhs.longEnumArray, rhs.parcelableArray, rhs.boolMatrix, rhs.byteMatrix, rhs.charMatrix, rhs.intMatrix, rhs.longMatrix, rhs.floatMatrix, rhs.doubleMatrix, rhs.stringMatrix, rhs.byteEnumMatrix, rhs.intEnumMatrix, rhs.longEnumMatrix, rhs.parcelableMatrix, rhs.boolNullableArray, rhs.byteNullableArray, rhs.charNullableArray, rhs.intNullableArray, rhs.longNullableArray, rhs.floatNullableArray, rhs.doubleNullableArray, rhs.stringNullableArray, rhs.byteEnumNullableArray, rhs.intEnumNullableArray, rhs.longEnumNullableArray, rhs.binderNullableArray, rhs.pfdNullableArray, rhs.parcelableNullableArray, rhs.interfaceNullableArray, rhs.boolNullableMatrix, rhs.byteNullableMatrix, rhs.charNullableMatrix, rhs.intNullableMatrix, rhs.longNullableMatrix, rhs.floatNullableMatrix, rhs.doubleNullableMatrix, rhs.stringNullableMatrix, rhs.byteEnumNullableMatrix, rhs.intEnumNullableMatrix, rhs.longEnumNullableMatrix, rhs.binderNullableMatrix, rhs.pfdNullableMatrix, rhs.parcelableNullableMatrix, rhs.interfaceNullableMatrix);
+  inline bool operator<(const FixedSizeArrayExample& _rhs) const {
+    return std::tie(int2x3, boolArray, byteArray, charArray, intArray, longArray, floatArray, doubleArray, stringArray, byteEnumArray, intEnumArray, longEnumArray, parcelableArray, boolMatrix, byteMatrix, charMatrix, intMatrix, longMatrix, floatMatrix, doubleMatrix, stringMatrix, byteEnumMatrix, intEnumMatrix, longEnumMatrix, parcelableMatrix, boolNullableArray, byteNullableArray, charNullableArray, intNullableArray, longNullableArray, floatNullableArray, doubleNullableArray, stringNullableArray, byteEnumNullableArray, intEnumNullableArray, longEnumNullableArray, binderNullableArray, pfdNullableArray, parcelableNullableArray, interfaceNullableArray, boolNullableMatrix, byteNullableMatrix, charNullableMatrix, intNullableMatrix, longNullableMatrix, floatNullableMatrix, doubleNullableMatrix, stringNullableMatrix, byteEnumNullableMatrix, intEnumNullableMatrix, longEnumNullableMatrix, binderNullableMatrix, pfdNullableMatrix, parcelableNullableMatrix, interfaceNullableMatrix) < std::tie(_rhs.int2x3, _rhs.boolArray, _rhs.byteArray, _rhs.charArray, _rhs.intArray, _rhs.longArray, _rhs.floatArray, _rhs.doubleArray, _rhs.stringArray, _rhs.byteEnumArray, _rhs.intEnumArray, _rhs.longEnumArray, _rhs.parcelableArray, _rhs.boolMatrix, _rhs.byteMatrix, _rhs.charMatrix, _rhs.intMatrix, _rhs.longMatrix, _rhs.floatMatrix, _rhs.doubleMatrix, _rhs.stringMatrix, _rhs.byteEnumMatrix, _rhs.intEnumMatrix, _rhs.longEnumMatrix, _rhs.parcelableMatrix, _rhs.boolNullableArray, _rhs.byteNullableArray, _rhs.charNullableArray, _rhs.intNullableArray, _rhs.longNullableArray, _rhs.floatNullableArray, _rhs.doubleNullableArray, _rhs.stringNullableArray, _rhs.byteEnumNullableArray, _rhs.intEnumNullableArray, _rhs.longEnumNullableArray, _rhs.binderNullableArray, _rhs.pfdNullableArray, _rhs.parcelableNullableArray, _rhs.interfaceNullableArray, _rhs.boolNullableMatrix, _rhs.byteNullableMatrix, _rhs.charNullableMatrix, _rhs.intNullableMatrix, _rhs.longNullableMatrix, _rhs.floatNullableMatrix, _rhs.doubleNullableMatrix, _rhs.stringNullableMatrix, _rhs.byteEnumNullableMatrix, _rhs.intEnumNullableMatrix, _rhs.longEnumNullableMatrix, _rhs.binderNullableMatrix, _rhs.pfdNullableMatrix, _rhs.parcelableNullableMatrix, _rhs.interfaceNullableMatrix);
   }
-  inline bool operator<=(const FixedSizeArrayExample& rhs) const {
-    return std::tie(int2x3, boolArray, byteArray, charArray, intArray, longArray, floatArray, doubleArray, stringArray, byteEnumArray, intEnumArray, longEnumArray, parcelableArray, boolMatrix, byteMatrix, charMatrix, intMatrix, longMatrix, floatMatrix, doubleMatrix, stringMatrix, byteEnumMatrix, intEnumMatrix, longEnumMatrix, parcelableMatrix, boolNullableArray, byteNullableArray, charNullableArray, intNullableArray, longNullableArray, floatNullableArray, doubleNullableArray, stringNullableArray, byteEnumNullableArray, intEnumNullableArray, longEnumNullableArray, binderNullableArray, pfdNullableArray, parcelableNullableArray, interfaceNullableArray, boolNullableMatrix, byteNullableMatrix, charNullableMatrix, intNullableMatrix, longNullableMatrix, floatNullableMatrix, doubleNullableMatrix, stringNullableMatrix, byteEnumNullableMatrix, intEnumNullableMatrix, longEnumNullableMatrix, binderNullableMatrix, pfdNullableMatrix, parcelableNullableMatrix, interfaceNullableMatrix) <= std::tie(rhs.int2x3, rhs.boolArray, rhs.byteArray, rhs.charArray, rhs.intArray, rhs.longArray, rhs.floatArray, rhs.doubleArray, rhs.stringArray, rhs.byteEnumArray, rhs.intEnumArray, rhs.longEnumArray, rhs.parcelableArray, rhs.boolMatrix, rhs.byteMatrix, rhs.charMatrix, rhs.intMatrix, rhs.longMatrix, rhs.floatMatrix, rhs.doubleMatrix, rhs.stringMatrix, rhs.byteEnumMatrix, rhs.intEnumMatrix, rhs.longEnumMatrix, rhs.parcelableMatrix, rhs.boolNullableArray, rhs.byteNullableArray, rhs.charNullableArray, rhs.intNullableArray, rhs.longNullableArray, rhs.floatNullableArray, rhs.doubleNullableArray, rhs.stringNullableArray, rhs.byteEnumNullableArray, rhs.intEnumNullableArray, rhs.longEnumNullableArray, rhs.binderNullableArray, rhs.pfdNullableArray, rhs.parcelableNullableArray, rhs.interfaceNullableArray, rhs.boolNullableMatrix, rhs.byteNullableMatrix, rhs.charNullableMatrix, rhs.intNullableMatrix, rhs.longNullableMatrix, rhs.floatNullableMatrix, rhs.doubleNullableMatrix, rhs.stringNullableMatrix, rhs.byteEnumNullableMatrix, rhs.intEnumNullableMatrix, rhs.longEnumNullableMatrix, rhs.binderNullableMatrix, rhs.pfdNullableMatrix, rhs.parcelableNullableMatrix, rhs.interfaceNullableMatrix);
+  inline bool operator!=(const FixedSizeArrayExample& _rhs) const {
+    return !(*this == _rhs);
   }
-  inline bool operator==(const FixedSizeArrayExample& rhs) const {
-    return std::tie(int2x3, boolArray, byteArray, charArray, intArray, longArray, floatArray, doubleArray, stringArray, byteEnumArray, intEnumArray, longEnumArray, parcelableArray, boolMatrix, byteMatrix, charMatrix, intMatrix, longMatrix, floatMatrix, doubleMatrix, stringMatrix, byteEnumMatrix, intEnumMatrix, longEnumMatrix, parcelableMatrix, boolNullableArray, byteNullableArray, charNullableArray, intNullableArray, longNullableArray, floatNullableArray, doubleNullableArray, stringNullableArray, byteEnumNullableArray, intEnumNullableArray, longEnumNullableArray, binderNullableArray, pfdNullableArray, parcelableNullableArray, interfaceNullableArray, boolNullableMatrix, byteNullableMatrix, charNullableMatrix, intNullableMatrix, longNullableMatrix, floatNullableMatrix, doubleNullableMatrix, stringNullableMatrix, byteEnumNullableMatrix, intEnumNullableMatrix, longEnumNullableMatrix, binderNullableMatrix, pfdNullableMatrix, parcelableNullableMatrix, interfaceNullableMatrix) == std::tie(rhs.int2x3, rhs.boolArray, rhs.byteArray, rhs.charArray, rhs.intArray, rhs.longArray, rhs.floatArray, rhs.doubleArray, rhs.stringArray, rhs.byteEnumArray, rhs.intEnumArray, rhs.longEnumArray, rhs.parcelableArray, rhs.boolMatrix, rhs.byteMatrix, rhs.charMatrix, rhs.intMatrix, rhs.longMatrix, rhs.floatMatrix, rhs.doubleMatrix, rhs.stringMatrix, rhs.byteEnumMatrix, rhs.intEnumMatrix, rhs.longEnumMatrix, rhs.parcelableMatrix, rhs.boolNullableArray, rhs.byteNullableArray, rhs.charNullableArray, rhs.intNullableArray, rhs.longNullableArray, rhs.floatNullableArray, rhs.doubleNullableArray, rhs.stringNullableArray, rhs.byteEnumNullableArray, rhs.intEnumNullableArray, rhs.longEnumNullableArray, rhs.binderNullableArray, rhs.pfdNullableArray, rhs.parcelableNullableArray, rhs.interfaceNullableArray, rhs.boolNullableMatrix, rhs.byteNullableMatrix, rhs.charNullableMatrix, rhs.intNullableMatrix, rhs.longNullableMatrix, rhs.floatNullableMatrix, rhs.doubleNullableMatrix, rhs.stringNullableMatrix, rhs.byteEnumNullableMatrix, rhs.intEnumNullableMatrix, rhs.longEnumNullableMatrix, rhs.binderNullableMatrix, rhs.pfdNullableMatrix, rhs.parcelableNullableMatrix, rhs.interfaceNullableMatrix);
+  inline bool operator>(const FixedSizeArrayExample& _rhs) const {
+    return _rhs < *this;
   }
-  inline bool operator>(const FixedSizeArrayExample& rhs) const {
-    return std::tie(int2x3, boolArray, byteArray, charArray, intArray, longArray, floatArray, doubleArray, stringArray, byteEnumArray, intEnumArray, longEnumArray, parcelableArray, boolMatrix, byteMatrix, charMatrix, intMatrix, longMatrix, floatMatrix, doubleMatrix, stringMatrix, byteEnumMatrix, intEnumMatrix, longEnumMatrix, parcelableMatrix, boolNullableArray, byteNullableArray, charNullableArray, intNullableArray, longNullableArray, floatNullableArray, doubleNullableArray, stringNullableArray, byteEnumNullableArray, intEnumNullableArray, longEnumNullableArray, binderNullableArray, pfdNullableArray, parcelableNullableArray, interfaceNullableArray, boolNullableMatrix, byteNullableMatrix, charNullableMatrix, intNullableMatrix, longNullableMatrix, floatNullableMatrix, doubleNullableMatrix, stringNullableMatrix, byteEnumNullableMatrix, intEnumNullableMatrix, longEnumNullableMatrix, binderNullableMatrix, pfdNullableMatrix, parcelableNullableMatrix, interfaceNullableMatrix) > std::tie(rhs.int2x3, rhs.boolArray, rhs.byteArray, rhs.charArray, rhs.intArray, rhs.longArray, rhs.floatArray, rhs.doubleArray, rhs.stringArray, rhs.byteEnumArray, rhs.intEnumArray, rhs.longEnumArray, rhs.parcelableArray, rhs.boolMatrix, rhs.byteMatrix, rhs.charMatrix, rhs.intMatrix, rhs.longMatrix, rhs.floatMatrix, rhs.doubleMatrix, rhs.stringMatrix, rhs.byteEnumMatrix, rhs.intEnumMatrix, rhs.longEnumMatrix, rhs.parcelableMatrix, rhs.boolNullableArray, rhs.byteNullableArray, rhs.charNullableArray, rhs.intNullableArray, rhs.longNullableArray, rhs.floatNullableArray, rhs.doubleNullableArray, rhs.stringNullableArray, rhs.byteEnumNullableArray, rhs.intEnumNullableArray, rhs.longEnumNullableArray, rhs.binderNullableArray, rhs.pfdNullableArray, rhs.parcelableNullableArray, rhs.interfaceNullableArray, rhs.boolNullableMatrix, rhs.byteNullableMatrix, rhs.charNullableMatrix, rhs.intNullableMatrix, rhs.longNullableMatrix, rhs.floatNullableMatrix, rhs.doubleNullableMatrix, rhs.stringNullableMatrix, rhs.byteEnumNullableMatrix, rhs.intEnumNullableMatrix, rhs.longEnumNullableMatrix, rhs.binderNullableMatrix, rhs.pfdNullableMatrix, rhs.parcelableNullableMatrix, rhs.interfaceNullableMatrix);
+  inline bool operator>=(const FixedSizeArrayExample& _rhs) const {
+    return !(*this < _rhs);
   }
-  inline bool operator>=(const FixedSizeArrayExample& rhs) const {
-    return std::tie(int2x3, boolArray, byteArray, charArray, intArray, longArray, floatArray, doubleArray, stringArray, byteEnumArray, intEnumArray, longEnumArray, parcelableArray, boolMatrix, byteMatrix, charMatrix, intMatrix, longMatrix, floatMatrix, doubleMatrix, stringMatrix, byteEnumMatrix, intEnumMatrix, longEnumMatrix, parcelableMatrix, boolNullableArray, byteNullableArray, charNullableArray, intNullableArray, longNullableArray, floatNullableArray, doubleNullableArray, stringNullableArray, byteEnumNullableArray, intEnumNullableArray, longEnumNullableArray, binderNullableArray, pfdNullableArray, parcelableNullableArray, interfaceNullableArray, boolNullableMatrix, byteNullableMatrix, charNullableMatrix, intNullableMatrix, longNullableMatrix, floatNullableMatrix, doubleNullableMatrix, stringNullableMatrix, byteEnumNullableMatrix, intEnumNullableMatrix, longEnumNullableMatrix, binderNullableMatrix, pfdNullableMatrix, parcelableNullableMatrix, interfaceNullableMatrix) >= std::tie(rhs.int2x3, rhs.boolArray, rhs.byteArray, rhs.charArray, rhs.intArray, rhs.longArray, rhs.floatArray, rhs.doubleArray, rhs.stringArray, rhs.byteEnumArray, rhs.intEnumArray, rhs.longEnumArray, rhs.parcelableArray, rhs.boolMatrix, rhs.byteMatrix, rhs.charMatrix, rhs.intMatrix, rhs.longMatrix, rhs.floatMatrix, rhs.doubleMatrix, rhs.stringMatrix, rhs.byteEnumMatrix, rhs.intEnumMatrix, rhs.longEnumMatrix, rhs.parcelableMatrix, rhs.boolNullableArray, rhs.byteNullableArray, rhs.charNullableArray, rhs.intNullableArray, rhs.longNullableArray, rhs.floatNullableArray, rhs.doubleNullableArray, rhs.stringNullableArray, rhs.byteEnumNullableArray, rhs.intEnumNullableArray, rhs.longEnumNullableArray, rhs.binderNullableArray, rhs.pfdNullableArray, rhs.parcelableNullableArray, rhs.interfaceNullableArray, rhs.boolNullableMatrix, rhs.byteNullableMatrix, rhs.charNullableMatrix, rhs.intNullableMatrix, rhs.longNullableMatrix, rhs.floatNullableMatrix, rhs.doubleNullableMatrix, rhs.stringNullableMatrix, rhs.byteEnumNullableMatrix, rhs.intEnumNullableMatrix, rhs.longEnumNullableMatrix, rhs.binderNullableMatrix, rhs.pfdNullableMatrix, rhs.parcelableNullableMatrix, rhs.interfaceNullableMatrix);
+  inline bool operator<=(const FixedSizeArrayExample& _rhs) const {
+    return !(_rhs < *this);
   }
 
   ::android::status_t readFromParcel(const ::android::Parcel* _aidl_parcel) final;
@@ -291,65 +291,65 @@ public:
     return DESCRIPTOR;
   }
   inline std::string toString() const {
-    std::ostringstream os;
-    os << "FixedSizeArrayExample{";
-    os << "int2x3: " << ::android::internal::ToString(int2x3);
-    os << ", boolArray: " << ::android::internal::ToString(boolArray);
-    os << ", byteArray: " << ::android::internal::ToString(byteArray);
-    os << ", charArray: " << ::android::internal::ToString(charArray);
-    os << ", intArray: " << ::android::internal::ToString(intArray);
-    os << ", longArray: " << ::android::internal::ToString(longArray);
-    os << ", floatArray: " << ::android::internal::ToString(floatArray);
-    os << ", doubleArray: " << ::android::internal::ToString(doubleArray);
-    os << ", stringArray: " << ::android::internal::ToString(stringArray);
-    os << ", byteEnumArray: " << ::android::internal::ToString(byteEnumArray);
-    os << ", intEnumArray: " << ::android::internal::ToString(intEnumArray);
-    os << ", longEnumArray: " << ::android::internal::ToString(longEnumArray);
-    os << ", parcelableArray: " << ::android::internal::ToString(parcelableArray);
-    os << ", boolMatrix: " << ::android::internal::ToString(boolMatrix);
-    os << ", byteMatrix: " << ::android::internal::ToString(byteMatrix);
-    os << ", charMatrix: " << ::android::internal::ToString(charMatrix);
-    os << ", intMatrix: " << ::android::internal::ToString(intMatrix);
-    os << ", longMatrix: " << ::android::internal::ToString(longMatrix);
-    os << ", floatMatrix: " << ::android::internal::ToString(floatMatrix);
-    os << ", doubleMatrix: " << ::android::internal::ToString(doubleMatrix);
-    os << ", stringMatrix: " << ::android::internal::ToString(stringMatrix);
-    os << ", byteEnumMatrix: " << ::android::internal::ToString(byteEnumMatrix);
-    os << ", intEnumMatrix: " << ::android::internal::ToString(intEnumMatrix);
-    os << ", longEnumMatrix: " << ::android::internal::ToString(longEnumMatrix);
-    os << ", parcelableMatrix: " << ::android::internal::ToString(parcelableMatrix);
-    os << ", boolNullableArray: " << ::android::internal::ToString(boolNullableArray);
-    os << ", byteNullableArray: " << ::android::internal::ToString(byteNullableArray);
-    os << ", charNullableArray: " << ::android::internal::ToString(charNullableArray);
-    os << ", intNullableArray: " << ::android::internal::ToString(intNullableArray);
-    os << ", longNullableArray: " << ::android::internal::ToString(longNullableArray);
-    os << ", floatNullableArray: " << ::android::internal::ToString(floatNullableArray);
-    os << ", doubleNullableArray: " << ::android::internal::ToString(doubleNullableArray);
-    os << ", stringNullableArray: " << ::android::internal::ToString(stringNullableArray);
-    os << ", byteEnumNullableArray: " << ::android::internal::ToString(byteEnumNullableArray);
-    os << ", intEnumNullableArray: " << ::android::internal::ToString(intEnumNullableArray);
-    os << ", longEnumNullableArray: " << ::android::internal::ToString(longEnumNullableArray);
-    os << ", binderNullableArray: " << ::android::internal::ToString(binderNullableArray);
-    os << ", pfdNullableArray: " << ::android::internal::ToString(pfdNullableArray);
-    os << ", parcelableNullableArray: " << ::android::internal::ToString(parcelableNullableArray);
-    os << ", interfaceNullableArray: " << ::android::internal::ToString(interfaceNullableArray);
-    os << ", boolNullableMatrix: " << ::android::internal::ToString(boolNullableMatrix);
-    os << ", byteNullableMatrix: " << ::android::internal::ToString(byteNullableMatrix);
-    os << ", charNullableMatrix: " << ::android::internal::ToString(charNullableMatrix);
-    os << ", intNullableMatrix: " << ::android::internal::ToString(intNullableMatrix);
-    os << ", longNullableMatrix: " << ::android::internal::ToString(longNullableMatrix);
-    os << ", floatNullableMatrix: " << ::android::internal::ToString(floatNullableMatrix);
-    os << ", doubleNullableMatrix: " << ::android::internal::ToString(doubleNullableMatrix);
-    os << ", stringNullableMatrix: " << ::android::internal::ToString(stringNullableMatrix);
-    os << ", byteEnumNullableMatrix: " << ::android::internal::ToString(byteEnumNullableMatrix);
-    os << ", intEnumNullableMatrix: " << ::android::internal::ToString(intEnumNullableMatrix);
-    os << ", longEnumNullableMatrix: " << ::android::internal::ToString(longEnumNullableMatrix);
-    os << ", binderNullableMatrix: " << ::android::internal::ToString(binderNullableMatrix);
-    os << ", pfdNullableMatrix: " << ::android::internal::ToString(pfdNullableMatrix);
-    os << ", parcelableNullableMatrix: " << ::android::internal::ToString(parcelableNullableMatrix);
-    os << ", interfaceNullableMatrix: " << ::android::internal::ToString(interfaceNullableMatrix);
-    os << "}";
-    return os.str();
+    std::ostringstream _aidl_os;
+    _aidl_os << "FixedSizeArrayExample{";
+    _aidl_os << "int2x3: " << ::android::internal::ToString(int2x3);
+    _aidl_os << ", boolArray: " << ::android::internal::ToString(boolArray);
+    _aidl_os << ", byteArray: " << ::android::internal::ToString(byteArray);
+    _aidl_os << ", charArray: " << ::android::internal::ToString(charArray);
+    _aidl_os << ", intArray: " << ::android::internal::ToString(intArray);
+    _aidl_os << ", longArray: " << ::android::internal::ToString(longArray);
+    _aidl_os << ", floatArray: " << ::android::internal::ToString(floatArray);
+    _aidl_os << ", doubleArray: " << ::android::internal::ToString(doubleArray);
+    _aidl_os << ", stringArray: " << ::android::internal::ToString(stringArray);
+    _aidl_os << ", byteEnumArray: " << ::android::internal::ToString(byteEnumArray);
+    _aidl_os << ", intEnumArray: " << ::android::internal::ToString(intEnumArray);
+    _aidl_os << ", longEnumArray: " << ::android::internal::ToString(longEnumArray);
+    _aidl_os << ", parcelableArray: " << ::android::internal::ToString(parcelableArray);
+    _aidl_os << ", boolMatrix: " << ::android::internal::ToString(boolMatrix);
+    _aidl_os << ", byteMatrix: " << ::android::internal::ToString(byteMatrix);
+    _aidl_os << ", charMatrix: " << ::android::internal::ToString(charMatrix);
+    _aidl_os << ", intMatrix: " << ::android::internal::ToString(intMatrix);
+    _aidl_os << ", longMatrix: " << ::android::internal::ToString(longMatrix);
+    _aidl_os << ", floatMatrix: " << ::android::internal::ToString(floatMatrix);
+    _aidl_os << ", doubleMatrix: " << ::android::internal::ToString(doubleMatrix);
+    _aidl_os << ", stringMatrix: " << ::android::internal::ToString(stringMatrix);
+    _aidl_os << ", byteEnumMatrix: " << ::android::internal::ToString(byteEnumMatrix);
+    _aidl_os << ", intEnumMatrix: " << ::android::internal::ToString(intEnumMatrix);
+    _aidl_os << ", longEnumMatrix: " << ::android::internal::ToString(longEnumMatrix);
+    _aidl_os << ", parcelableMatrix: " << ::android::internal::ToString(parcelableMatrix);
+    _aidl_os << ", boolNullableArray: " << ::android::internal::ToString(boolNullableArray);
+    _aidl_os << ", byteNullableArray: " << ::android::internal::ToString(byteNullableArray);
+    _aidl_os << ", charNullableArray: " << ::android::internal::ToString(charNullableArray);
+    _aidl_os << ", intNullableArray: " << ::android::internal::ToString(intNullableArray);
+    _aidl_os << ", longNullableArray: " << ::android::internal::ToString(longNullableArray);
+    _aidl_os << ", floatNullableArray: " << ::android::internal::ToString(floatNullableArray);
+    _aidl_os << ", doubleNullableArray: " << ::android::internal::ToString(doubleNullableArray);
+    _aidl_os << ", stringNullableArray: " << ::android::internal::ToString(stringNullableArray);
+    _aidl_os << ", byteEnumNullableArray: " << ::android::internal::ToString(byteEnumNullableArray);
+    _aidl_os << ", intEnumNullableArray: " << ::android::internal::ToString(intEnumNullableArray);
+    _aidl_os << ", longEnumNullableArray: " << ::android::internal::ToString(longEnumNullableArray);
+    _aidl_os << ", binderNullableArray: " << ::android::internal::ToString(binderNullableArray);
+    _aidl_os << ", pfdNullableArray: " << ::android::internal::ToString(pfdNullableArray);
+    _aidl_os << ", parcelableNullableArray: " << ::android::internal::ToString(parcelableNullableArray);
+    _aidl_os << ", interfaceNullableArray: " << ::android::internal::ToString(interfaceNullableArray);
+    _aidl_os << ", boolNullableMatrix: " << ::android::internal::ToString(boolNullableMatrix);
+    _aidl_os << ", byteNullableMatrix: " << ::android::internal::ToString(byteNullableMatrix);
+    _aidl_os << ", charNullableMatrix: " << ::android::internal::ToString(charNullableMatrix);
+    _aidl_os << ", intNullableMatrix: " << ::android::internal::ToString(intNullableMatrix);
+    _aidl_os << ", longNullableMatrix: " << ::android::internal::ToString(longNullableMatrix);
+    _aidl_os << ", floatNullableMatrix: " << ::android::internal::ToString(floatNullableMatrix);
+    _aidl_os << ", doubleNullableMatrix: " << ::android::internal::ToString(doubleNullableMatrix);
+    _aidl_os << ", stringNullableMatrix: " << ::android::internal::ToString(stringNullableMatrix);
+    _aidl_os << ", byteEnumNullableMatrix: " << ::android::internal::ToString(byteEnumNullableMatrix);
+    _aidl_os << ", intEnumNullableMatrix: " << ::android::internal::ToString(intEnumNullableMatrix);
+    _aidl_os << ", longEnumNullableMatrix: " << ::android::internal::ToString(longEnumNullableMatrix);
+    _aidl_os << ", binderNullableMatrix: " << ::android::internal::ToString(binderNullableMatrix);
+    _aidl_os << ", pfdNullableMatrix: " << ::android::internal::ToString(pfdNullableMatrix);
+    _aidl_os << ", parcelableNullableMatrix: " << ::android::internal::ToString(parcelableNullableMatrix);
+    _aidl_os << ", interfaceNullableMatrix: " << ::android::internal::ToString(interfaceNullableMatrix);
+    _aidl_os << "}";
+    return _aidl_os.str();
   }
 };  // class FixedSizeArrayExample
 }  // namespace fixedsizearray

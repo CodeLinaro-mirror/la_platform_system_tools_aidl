@@ -16,23 +16,23 @@ namespace versioned {
 namespace tests {
 class Foo : public ::android::Parcelable {
 public:
-  inline bool operator!=(const Foo&) const {
-    return std::tie() != std::tie();
+  inline bool operator==(const Foo&) const {
+    return std::tie() == std::tie();
   }
   inline bool operator<(const Foo&) const {
     return std::tie() < std::tie();
   }
-  inline bool operator<=(const Foo&) const {
-    return std::tie() <= std::tie();
+  inline bool operator!=(const Foo& _rhs) const {
+    return !(*this == _rhs);
   }
-  inline bool operator==(const Foo&) const {
-    return std::tie() == std::tie();
+  inline bool operator>(const Foo& _rhs) const {
+    return _rhs < *this;
   }
-  inline bool operator>(const Foo&) const {
-    return std::tie() > std::tie();
+  inline bool operator>=(const Foo& _rhs) const {
+    return !(*this < _rhs);
   }
-  inline bool operator>=(const Foo&) const {
-    return std::tie() >= std::tie();
+  inline bool operator<=(const Foo& _rhs) const {
+    return !(_rhs < *this);
   }
 
   ::android::status_t readFromParcel(const ::android::Parcel* _aidl_parcel) final;
@@ -42,10 +42,10 @@ public:
     return DESCRIPTOR;
   }
   inline std::string toString() const {
-    std::ostringstream os;
-    os << "Foo{";
-    os << "}";
-    return os.str();
+    std::ostringstream _aidl_os;
+    _aidl_os << "Foo{";
+    _aidl_os << "}";
+    return _aidl_os.str();
   }
 };  // class Foo
 }  // namespace tests

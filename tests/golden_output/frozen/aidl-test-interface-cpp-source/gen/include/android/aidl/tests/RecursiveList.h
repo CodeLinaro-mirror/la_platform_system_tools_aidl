@@ -23,23 +23,23 @@ class RecursiveList : public ::android::Parcelable {
 public:
   int32_t value = 0;
   ::std::unique_ptr<::android::aidl::tests::RecursiveList> next;
-  inline bool operator!=(const RecursiveList& rhs) const {
-    return std::tie(value, next) != std::tie(rhs.value, rhs.next);
+  inline bool operator==(const RecursiveList& _rhs) const {
+    return std::tie(value, next) == std::tie(_rhs.value, _rhs.next);
   }
-  inline bool operator<(const RecursiveList& rhs) const {
-    return std::tie(value, next) < std::tie(rhs.value, rhs.next);
+  inline bool operator<(const RecursiveList& _rhs) const {
+    return std::tie(value, next) < std::tie(_rhs.value, _rhs.next);
   }
-  inline bool operator<=(const RecursiveList& rhs) const {
-    return std::tie(value, next) <= std::tie(rhs.value, rhs.next);
+  inline bool operator!=(const RecursiveList& _rhs) const {
+    return !(*this == _rhs);
   }
-  inline bool operator==(const RecursiveList& rhs) const {
-    return std::tie(value, next) == std::tie(rhs.value, rhs.next);
+  inline bool operator>(const RecursiveList& _rhs) const {
+    return _rhs < *this;
   }
-  inline bool operator>(const RecursiveList& rhs) const {
-    return std::tie(value, next) > std::tie(rhs.value, rhs.next);
+  inline bool operator>=(const RecursiveList& _rhs) const {
+    return !(*this < _rhs);
   }
-  inline bool operator>=(const RecursiveList& rhs) const {
-    return std::tie(value, next) >= std::tie(rhs.value, rhs.next);
+  inline bool operator<=(const RecursiveList& _rhs) const {
+    return !(_rhs < *this);
   }
 
   ::android::status_t readFromParcel(const ::android::Parcel* _aidl_parcel) final;
@@ -49,12 +49,12 @@ public:
     return DESCRIPTOR;
   }
   inline std::string toString() const {
-    std::ostringstream os;
-    os << "RecursiveList{";
-    os << "value: " << ::android::internal::ToString(value);
-    os << ", next: " << ::android::internal::ToString(next);
-    os << "}";
-    return os.str();
+    std::ostringstream _aidl_os;
+    _aidl_os << "RecursiveList{";
+    _aidl_os << "value: " << ::android::internal::ToString(value);
+    _aidl_os << ", next: " << ::android::internal::ToString(next);
+    _aidl_os << "}";
+    return _aidl_os.str();
   }
 };  // class RecursiveList
 }  // namespace tests

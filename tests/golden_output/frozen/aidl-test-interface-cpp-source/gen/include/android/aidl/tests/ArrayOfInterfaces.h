@@ -124,23 +124,23 @@ public:
     ::android::sp<::android::aidl::tests::ArrayOfInterfaces::IEmptyInterface> nullable_iface;
     ::std::vector<::android::sp<::android::aidl::tests::ArrayOfInterfaces::IEmptyInterface>> iface_array;
     ::std::optional<::std::vector<::android::sp<::android::aidl::tests::ArrayOfInterfaces::IEmptyInterface>>> nullable_iface_array;
-    inline bool operator!=(const MyParcelable& rhs) const {
-      return std::tie(iface, nullable_iface, iface_array, nullable_iface_array) != std::tie(rhs.iface, rhs.nullable_iface, rhs.iface_array, rhs.nullable_iface_array);
+    inline bool operator==(const MyParcelable& _rhs) const {
+      return std::tie(iface, nullable_iface, iface_array, nullable_iface_array) == std::tie(_rhs.iface, _rhs.nullable_iface, _rhs.iface_array, _rhs.nullable_iface_array);
     }
-    inline bool operator<(const MyParcelable& rhs) const {
-      return std::tie(iface, nullable_iface, iface_array, nullable_iface_array) < std::tie(rhs.iface, rhs.nullable_iface, rhs.iface_array, rhs.nullable_iface_array);
+    inline bool operator<(const MyParcelable& _rhs) const {
+      return std::tie(iface, nullable_iface, iface_array, nullable_iface_array) < std::tie(_rhs.iface, _rhs.nullable_iface, _rhs.iface_array, _rhs.nullable_iface_array);
     }
-    inline bool operator<=(const MyParcelable& rhs) const {
-      return std::tie(iface, nullable_iface, iface_array, nullable_iface_array) <= std::tie(rhs.iface, rhs.nullable_iface, rhs.iface_array, rhs.nullable_iface_array);
+    inline bool operator!=(const MyParcelable& _rhs) const {
+      return !(*this == _rhs);
     }
-    inline bool operator==(const MyParcelable& rhs) const {
-      return std::tie(iface, nullable_iface, iface_array, nullable_iface_array) == std::tie(rhs.iface, rhs.nullable_iface, rhs.iface_array, rhs.nullable_iface_array);
+    inline bool operator>(const MyParcelable& _rhs) const {
+      return _rhs < *this;
     }
-    inline bool operator>(const MyParcelable& rhs) const {
-      return std::tie(iface, nullable_iface, iface_array, nullable_iface_array) > std::tie(rhs.iface, rhs.nullable_iface, rhs.iface_array, rhs.nullable_iface_array);
+    inline bool operator>=(const MyParcelable& _rhs) const {
+      return !(*this < _rhs);
     }
-    inline bool operator>=(const MyParcelable& rhs) const {
-      return std::tie(iface, nullable_iface, iface_array, nullable_iface_array) >= std::tie(rhs.iface, rhs.nullable_iface, rhs.iface_array, rhs.nullable_iface_array);
+    inline bool operator<=(const MyParcelable& _rhs) const {
+      return !(_rhs < *this);
     }
 
     ::android::status_t readFromParcel(const ::android::Parcel* _aidl_parcel) final;
@@ -150,14 +150,14 @@ public:
       return DESCRIPTOR;
     }
     inline std::string toString() const {
-      std::ostringstream os;
-      os << "MyParcelable{";
-      os << "iface: " << ::android::internal::ToString(iface);
-      os << ", nullable_iface: " << ::android::internal::ToString(nullable_iface);
-      os << ", iface_array: " << ::android::internal::ToString(iface_array);
-      os << ", nullable_iface_array: " << ::android::internal::ToString(nullable_iface_array);
-      os << "}";
-      return os.str();
+      std::ostringstream _aidl_os;
+      _aidl_os << "MyParcelable{";
+      _aidl_os << "iface: " << ::android::internal::ToString(iface);
+      _aidl_os << ", nullable_iface: " << ::android::internal::ToString(nullable_iface);
+      _aidl_os << ", iface_array: " << ::android::internal::ToString(iface_array);
+      _aidl_os << ", nullable_iface_array: " << ::android::internal::ToString(nullable_iface_array);
+      _aidl_os << "}";
+      return _aidl_os.str();
     }
   };  // class MyParcelable
   class MyUnion : public ::android::Parcelable {
@@ -219,23 +219,23 @@ public:
       _value.emplace<static_cast<size_t>(_tag)>(std::forward<_Tp>(_args)...);
     }
 
-    inline bool operator!=(const MyUnion& rhs) const {
-      return _value != rhs._value;
+    inline bool operator==(const MyUnion& _rhs) const {
+      return _value == _rhs._value;
     }
-    inline bool operator<(const MyUnion& rhs) const {
-      return _value < rhs._value;
+    inline bool operator<(const MyUnion& _rhs) const {
+      return _value < _rhs._value;
     }
-    inline bool operator<=(const MyUnion& rhs) const {
-      return _value <= rhs._value;
+    inline bool operator!=(const MyUnion& _rhs) const {
+      return !(*this == _rhs);
     }
-    inline bool operator==(const MyUnion& rhs) const {
-      return _value == rhs._value;
+    inline bool operator>(const MyUnion& _rhs) const {
+      return _rhs < *this;
     }
-    inline bool operator>(const MyUnion& rhs) const {
-      return _value > rhs._value;
+    inline bool operator>=(const MyUnion& _rhs) const {
+      return !(*this < _rhs);
     }
-    inline bool operator>=(const MyUnion& rhs) const {
-      return _value >= rhs._value;
+    inline bool operator<=(const MyUnion& _rhs) const {
+      return !(_rhs < *this);
     }
 
     ::android::status_t readFromParcel(const ::android::Parcel* _aidl_parcel) final;
@@ -259,23 +259,23 @@ public:
   private:
     std::variant<::android::sp<::android::aidl::tests::ArrayOfInterfaces::IEmptyInterface>, ::android::sp<::android::aidl::tests::ArrayOfInterfaces::IEmptyInterface>, ::std::vector<::android::sp<::android::aidl::tests::ArrayOfInterfaces::IEmptyInterface>>, ::std::optional<::std::vector<::android::sp<::android::aidl::tests::ArrayOfInterfaces::IEmptyInterface>>>> _value;
   };  // class MyUnion
-  inline bool operator!=(const ArrayOfInterfaces&) const {
-    return std::tie() != std::tie();
+  inline bool operator==(const ArrayOfInterfaces&) const {
+    return std::tie() == std::tie();
   }
   inline bool operator<(const ArrayOfInterfaces&) const {
     return std::tie() < std::tie();
   }
-  inline bool operator<=(const ArrayOfInterfaces&) const {
-    return std::tie() <= std::tie();
+  inline bool operator!=(const ArrayOfInterfaces& _rhs) const {
+    return !(*this == _rhs);
   }
-  inline bool operator==(const ArrayOfInterfaces&) const {
-    return std::tie() == std::tie();
+  inline bool operator>(const ArrayOfInterfaces& _rhs) const {
+    return _rhs < *this;
   }
-  inline bool operator>(const ArrayOfInterfaces&) const {
-    return std::tie() > std::tie();
+  inline bool operator>=(const ArrayOfInterfaces& _rhs) const {
+    return !(*this < _rhs);
   }
-  inline bool operator>=(const ArrayOfInterfaces&) const {
-    return std::tie() >= std::tie();
+  inline bool operator<=(const ArrayOfInterfaces& _rhs) const {
+    return !(_rhs < *this);
   }
 
   ::android::status_t readFromParcel(const ::android::Parcel* _aidl_parcel) final;
@@ -285,10 +285,10 @@ public:
     return DESCRIPTOR;
   }
   inline std::string toString() const {
-    std::ostringstream os;
-    os << "ArrayOfInterfaces{";
-    os << "}";
-    return os.str();
+    std::ostringstream _aidl_os;
+    _aidl_os << "ArrayOfInterfaces{";
+    _aidl_os << "}";
+    return _aidl_os.str();
   }
 };  // class ArrayOfInterfaces
 }  // namespace tests

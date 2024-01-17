@@ -19,23 +19,23 @@ class MyExtLike : public ::android::Parcelable {
 public:
   int32_t a = 0;
   ::android::String16 b;
-  inline bool operator!=(const MyExtLike& rhs) const {
-    return std::tie(a, b) != std::tie(rhs.a, rhs.b);
+  inline bool operator==(const MyExtLike& _rhs) const {
+    return std::tie(a, b) == std::tie(_rhs.a, _rhs.b);
   }
-  inline bool operator<(const MyExtLike& rhs) const {
-    return std::tie(a, b) < std::tie(rhs.a, rhs.b);
+  inline bool operator<(const MyExtLike& _rhs) const {
+    return std::tie(a, b) < std::tie(_rhs.a, _rhs.b);
   }
-  inline bool operator<=(const MyExtLike& rhs) const {
-    return std::tie(a, b) <= std::tie(rhs.a, rhs.b);
+  inline bool operator!=(const MyExtLike& _rhs) const {
+    return !(*this == _rhs);
   }
-  inline bool operator==(const MyExtLike& rhs) const {
-    return std::tie(a, b) == std::tie(rhs.a, rhs.b);
+  inline bool operator>(const MyExtLike& _rhs) const {
+    return _rhs < *this;
   }
-  inline bool operator>(const MyExtLike& rhs) const {
-    return std::tie(a, b) > std::tie(rhs.a, rhs.b);
+  inline bool operator>=(const MyExtLike& _rhs) const {
+    return !(*this < _rhs);
   }
-  inline bool operator>=(const MyExtLike& rhs) const {
-    return std::tie(a, b) >= std::tie(rhs.a, rhs.b);
+  inline bool operator<=(const MyExtLike& _rhs) const {
+    return !(_rhs < *this);
   }
 
   ::android::status_t readFromParcel(const ::android::Parcel* _aidl_parcel) final;
@@ -45,12 +45,12 @@ public:
     return DESCRIPTOR;
   }
   inline std::string toString() const {
-    std::ostringstream os;
-    os << "MyExtLike{";
-    os << "a: " << ::android::internal::ToString(a);
-    os << ", b: " << ::android::internal::ToString(b);
-    os << "}";
-    return os.str();
+    std::ostringstream _aidl_os;
+    _aidl_os << "MyExtLike{";
+    _aidl_os << "a: " << ::android::internal::ToString(a);
+    _aidl_os << ", b: " << ::android::internal::ToString(b);
+    _aidl_os << "}";
+    return _aidl_os.str();
   }
 };  // class MyExtLike
 }  // namespace extension

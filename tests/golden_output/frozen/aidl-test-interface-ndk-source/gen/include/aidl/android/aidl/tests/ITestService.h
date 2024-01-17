@@ -78,31 +78,31 @@ public:
     binder_status_t readFromParcel(const AParcel* parcel);
     binder_status_t writeToParcel(AParcel* parcel) const;
 
-    inline bool operator!=(const Empty&) const {
-      return std::tie() != std::tie();
+    inline bool operator==(const Empty&) const {
+      return std::tie() == std::tie();
     }
     inline bool operator<(const Empty&) const {
       return std::tie() < std::tie();
     }
-    inline bool operator<=(const Empty&) const {
-      return std::tie() <= std::tie();
+    inline bool operator!=(const Empty& _rhs) const {
+      return !(*this == _rhs);
     }
-    inline bool operator==(const Empty&) const {
-      return std::tie() == std::tie();
+    inline bool operator>(const Empty& _rhs) const {
+      return _rhs < *this;
     }
-    inline bool operator>(const Empty&) const {
-      return std::tie() > std::tie();
+    inline bool operator>=(const Empty& _rhs) const {
+      return !(*this < _rhs);
     }
-    inline bool operator>=(const Empty&) const {
-      return std::tie() >= std::tie();
+    inline bool operator<=(const Empty& _rhs) const {
+      return !(_rhs < *this);
     }
 
     static const ::ndk::parcelable_stability_t _aidl_stability = ::ndk::STABILITY_LOCAL;
     inline std::string toString() const {
-      std::ostringstream os;
-      os << "Empty{";
-      os << "}";
-      return os.str();
+      std::ostringstream _aidl_os;
+      _aidl_os << "Empty{";
+      _aidl_os << "}";
+      return _aidl_os.str();
     }
   };
   class CompilerChecks {
@@ -159,32 +159,32 @@ public:
       binder_status_t readFromParcel(const AParcel* parcel);
       binder_status_t writeToParcel(AParcel* parcel) const;
 
-      inline bool operator!=(const HasDeprecated& rhs) const {
-        return std::tie(deprecated) != std::tie(rhs.deprecated);
+      inline bool operator==(const HasDeprecated& _rhs) const {
+        return std::tie(deprecated) == std::tie(_rhs.deprecated);
       }
-      inline bool operator<(const HasDeprecated& rhs) const {
-        return std::tie(deprecated) < std::tie(rhs.deprecated);
+      inline bool operator<(const HasDeprecated& _rhs) const {
+        return std::tie(deprecated) < std::tie(_rhs.deprecated);
       }
-      inline bool operator<=(const HasDeprecated& rhs) const {
-        return std::tie(deprecated) <= std::tie(rhs.deprecated);
+      inline bool operator!=(const HasDeprecated& _rhs) const {
+        return !(*this == _rhs);
       }
-      inline bool operator==(const HasDeprecated& rhs) const {
-        return std::tie(deprecated) == std::tie(rhs.deprecated);
+      inline bool operator>(const HasDeprecated& _rhs) const {
+        return _rhs < *this;
       }
-      inline bool operator>(const HasDeprecated& rhs) const {
-        return std::tie(deprecated) > std::tie(rhs.deprecated);
+      inline bool operator>=(const HasDeprecated& _rhs) const {
+        return !(*this < _rhs);
       }
-      inline bool operator>=(const HasDeprecated& rhs) const {
-        return std::tie(deprecated) >= std::tie(rhs.deprecated);
+      inline bool operator<=(const HasDeprecated& _rhs) const {
+        return !(_rhs < *this);
       }
 
       static const ::ndk::parcelable_stability_t _aidl_stability = ::ndk::STABILITY_LOCAL;
       inline std::string toString() const {
-        std::ostringstream os;
-        os << "HasDeprecated{";
-        os << "deprecated: " << ::android::internal::ToString(deprecated);
-        os << "}";
-        return os.str();
+        std::ostringstream _aidl_os;
+        _aidl_os << "HasDeprecated{";
+        _aidl_os << "deprecated: " << ::android::internal::ToString(deprecated);
+        _aidl_os << "}";
+        return _aidl_os.str();
       }
     };
     #pragma clang diagnostic pop
@@ -250,23 +250,23 @@ public:
       binder_status_t readFromParcel(const AParcel* _parcel);
       binder_status_t writeToParcel(AParcel* _parcel) const;
 
-      inline bool operator!=(const UsingHasDeprecated& rhs) const {
-        return _value != rhs._value;
+      inline bool operator==(const UsingHasDeprecated& _rhs) const {
+        return _value == _rhs._value;
       }
-      inline bool operator<(const UsingHasDeprecated& rhs) const {
-        return _value < rhs._value;
+      inline bool operator<(const UsingHasDeprecated& _rhs) const {
+        return _value < _rhs._value;
       }
-      inline bool operator<=(const UsingHasDeprecated& rhs) const {
-        return _value <= rhs._value;
+      inline bool operator!=(const UsingHasDeprecated& _rhs) const {
+        return !(*this == _rhs);
       }
-      inline bool operator==(const UsingHasDeprecated& rhs) const {
-        return _value == rhs._value;
+      inline bool operator>(const UsingHasDeprecated& _rhs) const {
+        return _rhs < *this;
       }
-      inline bool operator>(const UsingHasDeprecated& rhs) const {
-        return _value > rhs._value;
+      inline bool operator>=(const UsingHasDeprecated& _rhs) const {
+        return !(*this < _rhs);
       }
-      inline bool operator>=(const UsingHasDeprecated& rhs) const {
-        return _value >= rhs._value;
+      inline bool operator<=(const UsingHasDeprecated& _rhs) const {
+        return !(_rhs < *this);
       }
 
       static const ::ndk::parcelable_stability_t _aidl_stability = ::ndk::STABILITY_LOCAL;
@@ -301,31 +301,31 @@ public:
         binder_status_t readFromParcel(const AParcel* parcel);
         binder_status_t writeToParcel(AParcel* parcel) const;
 
-        inline bool operator!=(const Nested&) const {
-          return std::tie() != std::tie();
+        inline bool operator==(const Nested&) const {
+          return std::tie() == std::tie();
         }
         inline bool operator<(const Nested&) const {
           return std::tie() < std::tie();
         }
-        inline bool operator<=(const Nested&) const {
-          return std::tie() <= std::tie();
+        inline bool operator!=(const Nested& _rhs) const {
+          return !(*this == _rhs);
         }
-        inline bool operator==(const Nested&) const {
-          return std::tie() == std::tie();
+        inline bool operator>(const Nested& _rhs) const {
+          return _rhs < *this;
         }
-        inline bool operator>(const Nested&) const {
-          return std::tie() > std::tie();
+        inline bool operator>=(const Nested& _rhs) const {
+          return !(*this < _rhs);
         }
-        inline bool operator>=(const Nested&) const {
-          return std::tie() >= std::tie();
+        inline bool operator<=(const Nested& _rhs) const {
+          return !(_rhs < *this);
         }
 
         static const ::ndk::parcelable_stability_t _aidl_stability = ::ndk::STABILITY_LOCAL;
         inline std::string toString() const {
-          std::ostringstream os;
-          os << "Nested{";
-          os << "}";
-          return os.str();
+          std::ostringstream _aidl_os;
+          _aidl_os << "Nested{";
+          _aidl_os << "}";
+          return _aidl_os.str();
         }
       };
       class INestedNoPrefixInterfaceDelegator;
@@ -423,49 +423,49 @@ public:
     binder_status_t readFromParcel(const AParcel* parcel);
     binder_status_t writeToParcel(AParcel* parcel) const;
 
-    inline bool operator!=(const CompilerChecks& rhs) const {
-      return std::tie(binder, nullable_binder, binder_array, nullable_binder_array, binder_list, nullable_binder_list, pfd, nullable_pfd, pfd_array, nullable_pfd_array, pfd_list, nullable_pfd_list, parcel, nullable_parcel, parcel_array, nullable_parcel_array, parcel_list, nullable_parcel_list) != std::tie(rhs.binder, rhs.nullable_binder, rhs.binder_array, rhs.nullable_binder_array, rhs.binder_list, rhs.nullable_binder_list, rhs.pfd, rhs.nullable_pfd, rhs.pfd_array, rhs.nullable_pfd_array, rhs.pfd_list, rhs.nullable_pfd_list, rhs.parcel, rhs.nullable_parcel, rhs.parcel_array, rhs.nullable_parcel_array, rhs.parcel_list, rhs.nullable_parcel_list);
+    inline bool operator==(const CompilerChecks& _rhs) const {
+      return std::tie(binder, nullable_binder, binder_array, nullable_binder_array, binder_list, nullable_binder_list, pfd, nullable_pfd, pfd_array, nullable_pfd_array, pfd_list, nullable_pfd_list, parcel, nullable_parcel, parcel_array, nullable_parcel_array, parcel_list, nullable_parcel_list) == std::tie(_rhs.binder, _rhs.nullable_binder, _rhs.binder_array, _rhs.nullable_binder_array, _rhs.binder_list, _rhs.nullable_binder_list, _rhs.pfd, _rhs.nullable_pfd, _rhs.pfd_array, _rhs.nullable_pfd_array, _rhs.pfd_list, _rhs.nullable_pfd_list, _rhs.parcel, _rhs.nullable_parcel, _rhs.parcel_array, _rhs.nullable_parcel_array, _rhs.parcel_list, _rhs.nullable_parcel_list);
     }
-    inline bool operator<(const CompilerChecks& rhs) const {
-      return std::tie(binder, nullable_binder, binder_array, nullable_binder_array, binder_list, nullable_binder_list, pfd, nullable_pfd, pfd_array, nullable_pfd_array, pfd_list, nullable_pfd_list, parcel, nullable_parcel, parcel_array, nullable_parcel_array, parcel_list, nullable_parcel_list) < std::tie(rhs.binder, rhs.nullable_binder, rhs.binder_array, rhs.nullable_binder_array, rhs.binder_list, rhs.nullable_binder_list, rhs.pfd, rhs.nullable_pfd, rhs.pfd_array, rhs.nullable_pfd_array, rhs.pfd_list, rhs.nullable_pfd_list, rhs.parcel, rhs.nullable_parcel, rhs.parcel_array, rhs.nullable_parcel_array, rhs.parcel_list, rhs.nullable_parcel_list);
+    inline bool operator<(const CompilerChecks& _rhs) const {
+      return std::tie(binder, nullable_binder, binder_array, nullable_binder_array, binder_list, nullable_binder_list, pfd, nullable_pfd, pfd_array, nullable_pfd_array, pfd_list, nullable_pfd_list, parcel, nullable_parcel, parcel_array, nullable_parcel_array, parcel_list, nullable_parcel_list) < std::tie(_rhs.binder, _rhs.nullable_binder, _rhs.binder_array, _rhs.nullable_binder_array, _rhs.binder_list, _rhs.nullable_binder_list, _rhs.pfd, _rhs.nullable_pfd, _rhs.pfd_array, _rhs.nullable_pfd_array, _rhs.pfd_list, _rhs.nullable_pfd_list, _rhs.parcel, _rhs.nullable_parcel, _rhs.parcel_array, _rhs.nullable_parcel_array, _rhs.parcel_list, _rhs.nullable_parcel_list);
     }
-    inline bool operator<=(const CompilerChecks& rhs) const {
-      return std::tie(binder, nullable_binder, binder_array, nullable_binder_array, binder_list, nullable_binder_list, pfd, nullable_pfd, pfd_array, nullable_pfd_array, pfd_list, nullable_pfd_list, parcel, nullable_parcel, parcel_array, nullable_parcel_array, parcel_list, nullable_parcel_list) <= std::tie(rhs.binder, rhs.nullable_binder, rhs.binder_array, rhs.nullable_binder_array, rhs.binder_list, rhs.nullable_binder_list, rhs.pfd, rhs.nullable_pfd, rhs.pfd_array, rhs.nullable_pfd_array, rhs.pfd_list, rhs.nullable_pfd_list, rhs.parcel, rhs.nullable_parcel, rhs.parcel_array, rhs.nullable_parcel_array, rhs.parcel_list, rhs.nullable_parcel_list);
+    inline bool operator!=(const CompilerChecks& _rhs) const {
+      return !(*this == _rhs);
     }
-    inline bool operator==(const CompilerChecks& rhs) const {
-      return std::tie(binder, nullable_binder, binder_array, nullable_binder_array, binder_list, nullable_binder_list, pfd, nullable_pfd, pfd_array, nullable_pfd_array, pfd_list, nullable_pfd_list, parcel, nullable_parcel, parcel_array, nullable_parcel_array, parcel_list, nullable_parcel_list) == std::tie(rhs.binder, rhs.nullable_binder, rhs.binder_array, rhs.nullable_binder_array, rhs.binder_list, rhs.nullable_binder_list, rhs.pfd, rhs.nullable_pfd, rhs.pfd_array, rhs.nullable_pfd_array, rhs.pfd_list, rhs.nullable_pfd_list, rhs.parcel, rhs.nullable_parcel, rhs.parcel_array, rhs.nullable_parcel_array, rhs.parcel_list, rhs.nullable_parcel_list);
+    inline bool operator>(const CompilerChecks& _rhs) const {
+      return _rhs < *this;
     }
-    inline bool operator>(const CompilerChecks& rhs) const {
-      return std::tie(binder, nullable_binder, binder_array, nullable_binder_array, binder_list, nullable_binder_list, pfd, nullable_pfd, pfd_array, nullable_pfd_array, pfd_list, nullable_pfd_list, parcel, nullable_parcel, parcel_array, nullable_parcel_array, parcel_list, nullable_parcel_list) > std::tie(rhs.binder, rhs.nullable_binder, rhs.binder_array, rhs.nullable_binder_array, rhs.binder_list, rhs.nullable_binder_list, rhs.pfd, rhs.nullable_pfd, rhs.pfd_array, rhs.nullable_pfd_array, rhs.pfd_list, rhs.nullable_pfd_list, rhs.parcel, rhs.nullable_parcel, rhs.parcel_array, rhs.nullable_parcel_array, rhs.parcel_list, rhs.nullable_parcel_list);
+    inline bool operator>=(const CompilerChecks& _rhs) const {
+      return !(*this < _rhs);
     }
-    inline bool operator>=(const CompilerChecks& rhs) const {
-      return std::tie(binder, nullable_binder, binder_array, nullable_binder_array, binder_list, nullable_binder_list, pfd, nullable_pfd, pfd_array, nullable_pfd_array, pfd_list, nullable_pfd_list, parcel, nullable_parcel, parcel_array, nullable_parcel_array, parcel_list, nullable_parcel_list) >= std::tie(rhs.binder, rhs.nullable_binder, rhs.binder_array, rhs.nullable_binder_array, rhs.binder_list, rhs.nullable_binder_list, rhs.pfd, rhs.nullable_pfd, rhs.pfd_array, rhs.nullable_pfd_array, rhs.pfd_list, rhs.nullable_pfd_list, rhs.parcel, rhs.nullable_parcel, rhs.parcel_array, rhs.nullable_parcel_array, rhs.parcel_list, rhs.nullable_parcel_list);
+    inline bool operator<=(const CompilerChecks& _rhs) const {
+      return !(_rhs < *this);
     }
 
     static const ::ndk::parcelable_stability_t _aidl_stability = ::ndk::STABILITY_LOCAL;
     inline std::string toString() const {
-      std::ostringstream os;
-      os << "CompilerChecks{";
-      os << "binder: " << ::android::internal::ToString(binder);
-      os << ", nullable_binder: " << ::android::internal::ToString(nullable_binder);
-      os << ", binder_array: " << ::android::internal::ToString(binder_array);
-      os << ", nullable_binder_array: " << ::android::internal::ToString(nullable_binder_array);
-      os << ", binder_list: " << ::android::internal::ToString(binder_list);
-      os << ", nullable_binder_list: " << ::android::internal::ToString(nullable_binder_list);
-      os << ", pfd: " << ::android::internal::ToString(pfd);
-      os << ", nullable_pfd: " << ::android::internal::ToString(nullable_pfd);
-      os << ", pfd_array: " << ::android::internal::ToString(pfd_array);
-      os << ", nullable_pfd_array: " << ::android::internal::ToString(nullable_pfd_array);
-      os << ", pfd_list: " << ::android::internal::ToString(pfd_list);
-      os << ", nullable_pfd_list: " << ::android::internal::ToString(nullable_pfd_list);
-      os << ", parcel: " << ::android::internal::ToString(parcel);
-      os << ", nullable_parcel: " << ::android::internal::ToString(nullable_parcel);
-      os << ", parcel_array: " << ::android::internal::ToString(parcel_array);
-      os << ", nullable_parcel_array: " << ::android::internal::ToString(nullable_parcel_array);
-      os << ", parcel_list: " << ::android::internal::ToString(parcel_list);
-      os << ", nullable_parcel_list: " << ::android::internal::ToString(nullable_parcel_list);
-      os << "}";
-      return os.str();
+      std::ostringstream _aidl_os;
+      _aidl_os << "CompilerChecks{";
+      _aidl_os << "binder: " << ::android::internal::ToString(binder);
+      _aidl_os << ", nullable_binder: " << ::android::internal::ToString(nullable_binder);
+      _aidl_os << ", binder_array: " << ::android::internal::ToString(binder_array);
+      _aidl_os << ", nullable_binder_array: " << ::android::internal::ToString(nullable_binder_array);
+      _aidl_os << ", binder_list: " << ::android::internal::ToString(binder_list);
+      _aidl_os << ", nullable_binder_list: " << ::android::internal::ToString(nullable_binder_list);
+      _aidl_os << ", pfd: " << ::android::internal::ToString(pfd);
+      _aidl_os << ", nullable_pfd: " << ::android::internal::ToString(nullable_pfd);
+      _aidl_os << ", pfd_array: " << ::android::internal::ToString(pfd_array);
+      _aidl_os << ", nullable_pfd_array: " << ::android::internal::ToString(nullable_pfd_array);
+      _aidl_os << ", pfd_list: " << ::android::internal::ToString(pfd_list);
+      _aidl_os << ", nullable_pfd_list: " << ::android::internal::ToString(nullable_pfd_list);
+      _aidl_os << ", parcel: " << ::android::internal::ToString(parcel);
+      _aidl_os << ", nullable_parcel: " << ::android::internal::ToString(nullable_parcel);
+      _aidl_os << ", parcel_array: " << ::android::internal::ToString(parcel_array);
+      _aidl_os << ", nullable_parcel_array: " << ::android::internal::ToString(nullable_parcel_array);
+      _aidl_os << ", parcel_list: " << ::android::internal::ToString(parcel_list);
+      _aidl_os << ", nullable_parcel_list: " << ::android::internal::ToString(nullable_parcel_list);
+      _aidl_os << "}";
+      return _aidl_os.str();
     }
   };
   enum : int32_t { CONSTANT = 42 };

@@ -35,33 +35,33 @@ public:
   binder_status_t readFromParcel(const AParcel* parcel);
   binder_status_t writeToParcel(AParcel* parcel) const;
 
-  inline bool operator!=(const RecursiveList& rhs) const {
-    return std::tie(value, next) != std::tie(rhs.value, rhs.next);
+  inline bool operator==(const RecursiveList& _rhs) const {
+    return std::tie(value, next) == std::tie(_rhs.value, _rhs.next);
   }
-  inline bool operator<(const RecursiveList& rhs) const {
-    return std::tie(value, next) < std::tie(rhs.value, rhs.next);
+  inline bool operator<(const RecursiveList& _rhs) const {
+    return std::tie(value, next) < std::tie(_rhs.value, _rhs.next);
   }
-  inline bool operator<=(const RecursiveList& rhs) const {
-    return std::tie(value, next) <= std::tie(rhs.value, rhs.next);
+  inline bool operator!=(const RecursiveList& _rhs) const {
+    return !(*this == _rhs);
   }
-  inline bool operator==(const RecursiveList& rhs) const {
-    return std::tie(value, next) == std::tie(rhs.value, rhs.next);
+  inline bool operator>(const RecursiveList& _rhs) const {
+    return _rhs < *this;
   }
-  inline bool operator>(const RecursiveList& rhs) const {
-    return std::tie(value, next) > std::tie(rhs.value, rhs.next);
+  inline bool operator>=(const RecursiveList& _rhs) const {
+    return !(*this < _rhs);
   }
-  inline bool operator>=(const RecursiveList& rhs) const {
-    return std::tie(value, next) >= std::tie(rhs.value, rhs.next);
+  inline bool operator<=(const RecursiveList& _rhs) const {
+    return !(_rhs < *this);
   }
 
   static const ::ndk::parcelable_stability_t _aidl_stability = ::ndk::STABILITY_LOCAL;
   inline std::string toString() const {
-    std::ostringstream os;
-    os << "RecursiveList{";
-    os << "value: " << ::android::internal::ToString(value);
-    os << ", next: " << ::android::internal::ToString(next);
-    os << "}";
-    return os.str();
+    std::ostringstream _aidl_os;
+    _aidl_os << "RecursiveList{";
+    _aidl_os << "value: " << ::android::internal::ToString(value);
+    _aidl_os << ", next: " << ::android::internal::ToString(next);
+    _aidl_os << "}";
+    return _aidl_os.str();
   }
 };
 }  // namespace tests

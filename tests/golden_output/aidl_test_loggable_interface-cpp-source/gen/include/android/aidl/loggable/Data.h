@@ -23,23 +23,23 @@ public:
   ::std::string str;
   ::android::aidl::loggable::Union nestedUnion;
   ::android::aidl::loggable::Enum nestedEnum = ::android::aidl::loggable::Enum::FOO;
-  inline bool operator!=(const Data& rhs) const {
-    return std::tie(num, str, nestedUnion, nestedEnum) != std::tie(rhs.num, rhs.str, rhs.nestedUnion, rhs.nestedEnum);
+  inline bool operator==(const Data& _rhs) const {
+    return std::tie(num, str, nestedUnion, nestedEnum) == std::tie(_rhs.num, _rhs.str, _rhs.nestedUnion, _rhs.nestedEnum);
   }
-  inline bool operator<(const Data& rhs) const {
-    return std::tie(num, str, nestedUnion, nestedEnum) < std::tie(rhs.num, rhs.str, rhs.nestedUnion, rhs.nestedEnum);
+  inline bool operator<(const Data& _rhs) const {
+    return std::tie(num, str, nestedUnion, nestedEnum) < std::tie(_rhs.num, _rhs.str, _rhs.nestedUnion, _rhs.nestedEnum);
   }
-  inline bool operator<=(const Data& rhs) const {
-    return std::tie(num, str, nestedUnion, nestedEnum) <= std::tie(rhs.num, rhs.str, rhs.nestedUnion, rhs.nestedEnum);
+  inline bool operator!=(const Data& _rhs) const {
+    return !(*this == _rhs);
   }
-  inline bool operator==(const Data& rhs) const {
-    return std::tie(num, str, nestedUnion, nestedEnum) == std::tie(rhs.num, rhs.str, rhs.nestedUnion, rhs.nestedEnum);
+  inline bool operator>(const Data& _rhs) const {
+    return _rhs < *this;
   }
-  inline bool operator>(const Data& rhs) const {
-    return std::tie(num, str, nestedUnion, nestedEnum) > std::tie(rhs.num, rhs.str, rhs.nestedUnion, rhs.nestedEnum);
+  inline bool operator>=(const Data& _rhs) const {
+    return !(*this < _rhs);
   }
-  inline bool operator>=(const Data& rhs) const {
-    return std::tie(num, str, nestedUnion, nestedEnum) >= std::tie(rhs.num, rhs.str, rhs.nestedUnion, rhs.nestedEnum);
+  inline bool operator<=(const Data& _rhs) const {
+    return !(_rhs < *this);
   }
 
   ::android::status_t readFromParcel(const ::android::Parcel* _aidl_parcel) final;
@@ -49,14 +49,14 @@ public:
     return DESCRIPTOR;
   }
   inline std::string toString() const {
-    std::ostringstream os;
-    os << "Data{";
-    os << "num: " << ::android::internal::ToString(num);
-    os << ", str: " << ::android::internal::ToString(str);
-    os << ", nestedUnion: " << ::android::internal::ToString(nestedUnion);
-    os << ", nestedEnum: " << ::android::internal::ToString(nestedEnum);
-    os << "}";
-    return os.str();
+    std::ostringstream _aidl_os;
+    _aidl_os << "Data{";
+    _aidl_os << "num: " << ::android::internal::ToString(num);
+    _aidl_os << ", str: " << ::android::internal::ToString(str);
+    _aidl_os << ", nestedUnion: " << ::android::internal::ToString(nestedUnion);
+    _aidl_os << ", nestedEnum: " << ::android::internal::ToString(nestedEnum);
+    _aidl_os << "}";
+    return _aidl_os.str();
   }
 };  // class Data
 }  // namespace loggable

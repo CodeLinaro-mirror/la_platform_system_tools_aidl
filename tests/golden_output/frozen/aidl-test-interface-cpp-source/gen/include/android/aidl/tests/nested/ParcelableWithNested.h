@@ -26,23 +26,23 @@ public:
     NOT_OK = 1,
   };
   ::android::aidl::tests::nested::ParcelableWithNested::Status status = ::android::aidl::tests::nested::ParcelableWithNested::Status::OK;
-  inline bool operator!=(const ParcelableWithNested& rhs) const {
-    return std::tie(status) != std::tie(rhs.status);
+  inline bool operator==(const ParcelableWithNested& _rhs) const {
+    return std::tie(status) == std::tie(_rhs.status);
   }
-  inline bool operator<(const ParcelableWithNested& rhs) const {
-    return std::tie(status) < std::tie(rhs.status);
+  inline bool operator<(const ParcelableWithNested& _rhs) const {
+    return std::tie(status) < std::tie(_rhs.status);
   }
-  inline bool operator<=(const ParcelableWithNested& rhs) const {
-    return std::tie(status) <= std::tie(rhs.status);
+  inline bool operator!=(const ParcelableWithNested& _rhs) const {
+    return !(*this == _rhs);
   }
-  inline bool operator==(const ParcelableWithNested& rhs) const {
-    return std::tie(status) == std::tie(rhs.status);
+  inline bool operator>(const ParcelableWithNested& _rhs) const {
+    return _rhs < *this;
   }
-  inline bool operator>(const ParcelableWithNested& rhs) const {
-    return std::tie(status) > std::tie(rhs.status);
+  inline bool operator>=(const ParcelableWithNested& _rhs) const {
+    return !(*this < _rhs);
   }
-  inline bool operator>=(const ParcelableWithNested& rhs) const {
-    return std::tie(status) >= std::tie(rhs.status);
+  inline bool operator<=(const ParcelableWithNested& _rhs) const {
+    return !(_rhs < *this);
   }
 
   ::android::status_t readFromParcel(const ::android::Parcel* _aidl_parcel) final;
@@ -52,11 +52,11 @@ public:
     return DESCRIPTOR;
   }
   inline std::string toString() const {
-    std::ostringstream os;
-    os << "ParcelableWithNested{";
-    os << "status: " << ::android::internal::ToString(status);
-    os << "}";
-    return os.str();
+    std::ostringstream _aidl_os;
+    _aidl_os << "ParcelableWithNested{";
+    _aidl_os << "status: " << ::android::internal::ToString(status);
+    _aidl_os << "}";
+    return _aidl_os.str();
   }
 };  // class ParcelableWithNested
 }  // namespace nested

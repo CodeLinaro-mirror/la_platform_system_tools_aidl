@@ -21,23 +21,23 @@ namespace tests {
 class CircularParcelable : public ::android::Parcelable {
 public:
   ::android::sp<::android::aidl::tests::ITestService> testService;
-  inline bool operator!=(const CircularParcelable& rhs) const {
-    return std::tie(testService) != std::tie(rhs.testService);
+  inline bool operator==(const CircularParcelable& _rhs) const {
+    return std::tie(testService) == std::tie(_rhs.testService);
   }
-  inline bool operator<(const CircularParcelable& rhs) const {
-    return std::tie(testService) < std::tie(rhs.testService);
+  inline bool operator<(const CircularParcelable& _rhs) const {
+    return std::tie(testService) < std::tie(_rhs.testService);
   }
-  inline bool operator<=(const CircularParcelable& rhs) const {
-    return std::tie(testService) <= std::tie(rhs.testService);
+  inline bool operator!=(const CircularParcelable& _rhs) const {
+    return !(*this == _rhs);
   }
-  inline bool operator==(const CircularParcelable& rhs) const {
-    return std::tie(testService) == std::tie(rhs.testService);
+  inline bool operator>(const CircularParcelable& _rhs) const {
+    return _rhs < *this;
   }
-  inline bool operator>(const CircularParcelable& rhs) const {
-    return std::tie(testService) > std::tie(rhs.testService);
+  inline bool operator>=(const CircularParcelable& _rhs) const {
+    return !(*this < _rhs);
   }
-  inline bool operator>=(const CircularParcelable& rhs) const {
-    return std::tie(testService) >= std::tie(rhs.testService);
+  inline bool operator<=(const CircularParcelable& _rhs) const {
+    return !(_rhs < *this);
   }
 
   ::android::status_t readFromParcel(const ::android::Parcel* _aidl_parcel) final;
@@ -47,11 +47,11 @@ public:
     return DESCRIPTOR;
   }
   inline std::string toString() const {
-    std::ostringstream os;
-    os << "CircularParcelable{";
-    os << "testService: " << ::android::internal::ToString(testService);
-    os << "}";
-    return os.str();
+    std::ostringstream _aidl_os;
+    _aidl_os << "CircularParcelable{";
+    _aidl_os << "testService: " << ::android::internal::ToString(testService);
+    _aidl_os << "}";
+    return _aidl_os.str();
   }
 };  // class CircularParcelable
 }  // namespace tests

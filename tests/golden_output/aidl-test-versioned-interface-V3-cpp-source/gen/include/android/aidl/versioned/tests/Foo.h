@@ -18,23 +18,23 @@ namespace tests {
 class Foo : public ::android::Parcelable {
 public:
   int32_t intDefault42 = 42;
-  inline bool operator!=(const Foo& rhs) const {
-    return std::tie(intDefault42) != std::tie(rhs.intDefault42);
+  inline bool operator==(const Foo& _rhs) const {
+    return std::tie(intDefault42) == std::tie(_rhs.intDefault42);
   }
-  inline bool operator<(const Foo& rhs) const {
-    return std::tie(intDefault42) < std::tie(rhs.intDefault42);
+  inline bool operator<(const Foo& _rhs) const {
+    return std::tie(intDefault42) < std::tie(_rhs.intDefault42);
   }
-  inline bool operator<=(const Foo& rhs) const {
-    return std::tie(intDefault42) <= std::tie(rhs.intDefault42);
+  inline bool operator!=(const Foo& _rhs) const {
+    return !(*this == _rhs);
   }
-  inline bool operator==(const Foo& rhs) const {
-    return std::tie(intDefault42) == std::tie(rhs.intDefault42);
+  inline bool operator>(const Foo& _rhs) const {
+    return _rhs < *this;
   }
-  inline bool operator>(const Foo& rhs) const {
-    return std::tie(intDefault42) > std::tie(rhs.intDefault42);
+  inline bool operator>=(const Foo& _rhs) const {
+    return !(*this < _rhs);
   }
-  inline bool operator>=(const Foo& rhs) const {
-    return std::tie(intDefault42) >= std::tie(rhs.intDefault42);
+  inline bool operator<=(const Foo& _rhs) const {
+    return !(_rhs < *this);
   }
 
   ::android::status_t readFromParcel(const ::android::Parcel* _aidl_parcel) final;
@@ -44,11 +44,11 @@ public:
     return DESCRIPTOR;
   }
   inline std::string toString() const {
-    std::ostringstream os;
-    os << "Foo{";
-    os << "intDefault42: " << ::android::internal::ToString(intDefault42);
-    os << "}";
-    return os.str();
+    std::ostringstream _aidl_os;
+    _aidl_os << "Foo{";
+    _aidl_os << "intDefault42: " << ::android::internal::ToString(intDefault42);
+    _aidl_os << "}";
+    return _aidl_os.str();
   }
 };  // class Foo
 }  // namespace tests

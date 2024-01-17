@@ -35,36 +35,36 @@ public:
   binder_status_t readFromParcel(const AParcel* parcel);
   binder_status_t writeToParcel(AParcel* parcel) const;
 
-  inline bool operator!=(const ExtendableParcelable& rhs) const {
-    return std::tie(a, b, ext, c, ext2) != std::tie(rhs.a, rhs.b, rhs.ext, rhs.c, rhs.ext2);
+  inline bool operator==(const ExtendableParcelable& _rhs) const {
+    return std::tie(a, b, ext, c, ext2) == std::tie(_rhs.a, _rhs.b, _rhs.ext, _rhs.c, _rhs.ext2);
   }
-  inline bool operator<(const ExtendableParcelable& rhs) const {
-    return std::tie(a, b, ext, c, ext2) < std::tie(rhs.a, rhs.b, rhs.ext, rhs.c, rhs.ext2);
+  inline bool operator<(const ExtendableParcelable& _rhs) const {
+    return std::tie(a, b, ext, c, ext2) < std::tie(_rhs.a, _rhs.b, _rhs.ext, _rhs.c, _rhs.ext2);
   }
-  inline bool operator<=(const ExtendableParcelable& rhs) const {
-    return std::tie(a, b, ext, c, ext2) <= std::tie(rhs.a, rhs.b, rhs.ext, rhs.c, rhs.ext2);
+  inline bool operator!=(const ExtendableParcelable& _rhs) const {
+    return !(*this == _rhs);
   }
-  inline bool operator==(const ExtendableParcelable& rhs) const {
-    return std::tie(a, b, ext, c, ext2) == std::tie(rhs.a, rhs.b, rhs.ext, rhs.c, rhs.ext2);
+  inline bool operator>(const ExtendableParcelable& _rhs) const {
+    return _rhs < *this;
   }
-  inline bool operator>(const ExtendableParcelable& rhs) const {
-    return std::tie(a, b, ext, c, ext2) > std::tie(rhs.a, rhs.b, rhs.ext, rhs.c, rhs.ext2);
+  inline bool operator>=(const ExtendableParcelable& _rhs) const {
+    return !(*this < _rhs);
   }
-  inline bool operator>=(const ExtendableParcelable& rhs) const {
-    return std::tie(a, b, ext, c, ext2) >= std::tie(rhs.a, rhs.b, rhs.ext, rhs.c, rhs.ext2);
+  inline bool operator<=(const ExtendableParcelable& _rhs) const {
+    return !(_rhs < *this);
   }
 
   static const ::ndk::parcelable_stability_t _aidl_stability = ::ndk::STABILITY_LOCAL;
   inline std::string toString() const {
-    std::ostringstream os;
-    os << "ExtendableParcelable{";
-    os << "a: " << ::android::internal::ToString(a);
-    os << ", b: " << ::android::internal::ToString(b);
-    os << ", ext: " << ::android::internal::ToString(ext);
-    os << ", c: " << ::android::internal::ToString(c);
-    os << ", ext2: " << ::android::internal::ToString(ext2);
-    os << "}";
-    return os.str();
+    std::ostringstream _aidl_os;
+    _aidl_os << "ExtendableParcelable{";
+    _aidl_os << "a: " << ::android::internal::ToString(a);
+    _aidl_os << ", b: " << ::android::internal::ToString(b);
+    _aidl_os << ", ext: " << ::android::internal::ToString(ext);
+    _aidl_os << ", c: " << ::android::internal::ToString(c);
+    _aidl_os << ", ext2: " << ::android::internal::ToString(ext2);
+    _aidl_os << "}";
+    return _aidl_os.str();
   }
 };
 }  // namespace extension

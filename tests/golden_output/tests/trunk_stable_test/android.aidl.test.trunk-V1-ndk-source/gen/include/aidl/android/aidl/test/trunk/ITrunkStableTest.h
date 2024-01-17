@@ -57,33 +57,33 @@ public:
     binder_status_t readFromParcel(const AParcel* parcel);
     binder_status_t writeToParcel(AParcel* parcel) const;
 
-    inline bool operator!=(const MyParcelable& rhs) const {
-      return std::tie(a, b) != std::tie(rhs.a, rhs.b);
+    inline bool operator==(const MyParcelable& _rhs) const {
+      return std::tie(a, b) == std::tie(_rhs.a, _rhs.b);
     }
-    inline bool operator<(const MyParcelable& rhs) const {
-      return std::tie(a, b) < std::tie(rhs.a, rhs.b);
+    inline bool operator<(const MyParcelable& _rhs) const {
+      return std::tie(a, b) < std::tie(_rhs.a, _rhs.b);
     }
-    inline bool operator<=(const MyParcelable& rhs) const {
-      return std::tie(a, b) <= std::tie(rhs.a, rhs.b);
+    inline bool operator!=(const MyParcelable& _rhs) const {
+      return !(*this == _rhs);
     }
-    inline bool operator==(const MyParcelable& rhs) const {
-      return std::tie(a, b) == std::tie(rhs.a, rhs.b);
+    inline bool operator>(const MyParcelable& _rhs) const {
+      return _rhs < *this;
     }
-    inline bool operator>(const MyParcelable& rhs) const {
-      return std::tie(a, b) > std::tie(rhs.a, rhs.b);
+    inline bool operator>=(const MyParcelable& _rhs) const {
+      return !(*this < _rhs);
     }
-    inline bool operator>=(const MyParcelable& rhs) const {
-      return std::tie(a, b) >= std::tie(rhs.a, rhs.b);
+    inline bool operator<=(const MyParcelable& _rhs) const {
+      return !(_rhs < *this);
     }
 
     static const ::ndk::parcelable_stability_t _aidl_stability = ::ndk::STABILITY_LOCAL;
     inline std::string toString() const {
-      std::ostringstream os;
-      os << "MyParcelable{";
-      os << "a: " << ::android::internal::ToString(a);
-      os << ", b: " << ::android::internal::ToString(b);
-      os << "}";
-      return os.str();
+      std::ostringstream _aidl_os;
+      _aidl_os << "MyParcelable{";
+      _aidl_os << "a: " << ::android::internal::ToString(a);
+      _aidl_os << ", b: " << ::android::internal::ToString(b);
+      _aidl_os << "}";
+      return _aidl_os.str();
     }
   };
   enum class MyEnum : int8_t {
@@ -154,23 +154,23 @@ public:
     binder_status_t readFromParcel(const AParcel* _parcel);
     binder_status_t writeToParcel(AParcel* _parcel) const;
 
-    inline bool operator!=(const MyUnion& rhs) const {
-      return _value != rhs._value;
+    inline bool operator==(const MyUnion& _rhs) const {
+      return _value == _rhs._value;
     }
-    inline bool operator<(const MyUnion& rhs) const {
-      return _value < rhs._value;
+    inline bool operator<(const MyUnion& _rhs) const {
+      return _value < _rhs._value;
     }
-    inline bool operator<=(const MyUnion& rhs) const {
-      return _value <= rhs._value;
+    inline bool operator!=(const MyUnion& _rhs) const {
+      return !(*this == _rhs);
     }
-    inline bool operator==(const MyUnion& rhs) const {
-      return _value == rhs._value;
+    inline bool operator>(const MyUnion& _rhs) const {
+      return _rhs < *this;
     }
-    inline bool operator>(const MyUnion& rhs) const {
-      return _value > rhs._value;
+    inline bool operator>=(const MyUnion& _rhs) const {
+      return !(*this < _rhs);
     }
-    inline bool operator>=(const MyUnion& rhs) const {
-      return _value >= rhs._value;
+    inline bool operator<=(const MyUnion& _rhs) const {
+      return !(_rhs < *this);
     }
 
     static const ::ndk::parcelable_stability_t _aidl_stability = ::ndk::STABILITY_LOCAL;
