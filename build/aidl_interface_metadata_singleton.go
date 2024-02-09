@@ -35,11 +35,12 @@ var (
 			`echo "\"types\": [${types}]," && ` +
 			`echo "\"hashes\": [${hashes}]," && ` +
 			`echo "\"has_development\": ${has_development}," && ` +
+			`echo "\"use_unfrozen\": ${use_unfrozen}," && ` +
 			`echo "\"versions\": [${versions}]" && ` +
 			`echo '}' ` +
 			`;} >> ${out}`,
 		Description: "AIDL metadata: ${out}",
-	}, "name", "stability", "types", "hashes", "vendor_available", "has_development", "versions")
+	}, "name", "stability", "types", "hashes", "vendor_available", "has_development", "use_unfrozen", "versions")
 
 	joinJsonObjectsToArrayRule = pctx.StaticRule("joinJsonObjectsToArrayRule", blueprint.RuleParams{
 		Rspfile:        "$out.rsp",
@@ -86,6 +87,7 @@ func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx androi
 		ComputedTypes  []string
 		HashFiles      []string
 		HasDevelopment android.WritablePath
+		UseUnfrozen    bool
 		Versions       []string
 	}
 
@@ -108,6 +110,7 @@ func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx androi
 			info.ComputedTypes = t.computedTypes
 			infoExt.VendorAvailable = t.properties.Vendor_available
 			info.Versions = t.getVersions()
+			info.UseUnfrozen = t.useUnfrozen(ctx)
 			moduleInfos[t.ModuleBase.Name()] = info
 			moduleInfosExt[t.ModuleBase.Name()] = infoExt
 		case *aidlGenRule:
@@ -148,18 +151,24 @@ func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx androi
 				")\" = \"1\" ]; then echo true; else echo false; fi)"
 		}
 
+		useUnfrozenValue := "false"
+		if info.UseUnfrozen {
+			useUnfrozenValue = "true"
+		}
+
 		ctx.Build(pctx, android.BuildParams{
 			Rule:      aidlMetadataRule,
 			Implicits: implicits,
 			Input:     info.HasDevelopment,
 			Output:    metadataPath,
 			Args: map[string]string{
-				"name":            name,
-				"stability":       info.Stability,
-				"types":           strings.Join(wrap(`\"`, info.ComputedTypes, `\"`), ", "),
-				"hashes":          readHashes,
-				"has_development": hasDevelopmentValue,
-				"versions":        strings.Join(info.Versions, ", "),
+				"name":             name,
+				"stability":        info.Stability,
+				"types":            strings.Join(wrap(`\"`, info.ComputedTypes, `\"`), ", "),
+				"hashes":           readHashes,
+				"has_development":  hasDevelopmentValue,
+				"use_unfrozen":     useUnfrozenValue,
+				"versions":         strings.Join(info.Versions, ", "),
 				"vendor_available": strconv.FormatBool(proptools.Bool(infoExt.VendorAvailable)),
 			},
 		})
