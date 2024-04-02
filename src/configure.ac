@@ -125,6 +125,7 @@ AC_ARG_WITH(aidl-headers,
          AS_HELP_STRING([--with-aidl-headers=DIR],
                  [Specify the location of the generate aidl headers]),
          [CPPFLAGS="$CPPFLAGS -I$withval"])
+AM_CONDITIONAL([BISON],[test x$BISON = xtrue])
 
 AC_SUBST(CFLAGS)
 AC_CONFIG_FILES([     \
