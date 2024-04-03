@@ -8,6 +8,10 @@
 #else
 #include "aidl_language_y.hh"
 #endif
+#ifdef BISON
+#define YYSTYPE yy::parser::value_type
+#define YYLTYPE yy::parser::location_type
+#endif
 #define YY_USER_ACTION yylloc->columns(yyleng);
 %}
 
