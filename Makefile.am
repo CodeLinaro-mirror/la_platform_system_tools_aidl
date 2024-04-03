@@ -64,6 +64,9 @@ libaidl_common_la_LIBADD := -lm -lpthread -lbase -lcutils
 #libaidl_common_la_LDFLAGS := -all-static
 endif
 
+if BISON
+libaidl_common_la_CPPFLAGS += -DBISON
+endif
 
 aidl_cpp_src_file := main_cpp.cpp
 
@@ -81,4 +84,5 @@ aidl_cpp_CFLAGS := $(AM_CFLAGS)  -DRECOVERY_API_VERSION=$(RECOVERY_API_VERSION)
 aidl_cpp_CPPFLAGS :=  $(AM_CPPFLAGS) -DRECOVERY_API_VERSION=$(RECOVERY_API_VERSION)
 aidl_cpp_LDADD := -lm -lpthread -lbase -lcutils ./libaidl_common.la
 endif
+
 bin_PROGRAMS = aidl_cpp
