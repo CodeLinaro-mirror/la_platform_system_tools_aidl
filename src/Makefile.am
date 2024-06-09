@@ -42,4 +42,7 @@ aidl_cpp_CFLAGS := $(AM_CFLAGS)  -DRECOVERY_API_VERSION=$(RECOVERY_API_VERSION)
 aidl_cpp_CPPFLAGS :=  $(AM_CPPFLAGS) -DRECOVERY_API_VERSION=$(RECOVERY_API_VERSION)
 aidl_cpp_LDADD := -lm -lpthread -lbase -lcutils -laidl_common
 endif
+if BISON
+aidl_cpp_CPPFLAGS += -DBISON
+endif
 bin_PROGRAMS = aidl_cpp

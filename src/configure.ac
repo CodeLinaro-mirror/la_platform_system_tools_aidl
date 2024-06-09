@@ -114,6 +114,7 @@ AM_CONDITIONAL(X86_64, [test "x$X86_64" = "xyes"])
 
 AM_CONDITIONAL(BUILD_HOST, [test "x$X86_64" = "xyes"])
 AM_CONDITIONAL(BUILD_DEVICE, [test "x$ARM$ARM64" != "xnono"])
+AM_CONDITIONAL([BISON],[test "x$BISON" = "xtrue"])
 
 AC_ARG_WITH([core-headers],
       AC_HELP_STRING([--with-core-headers=@<:@dir@:>@],
