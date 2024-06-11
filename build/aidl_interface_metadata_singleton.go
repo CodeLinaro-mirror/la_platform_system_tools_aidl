@@ -19,7 +19,7 @@ import (
 
 	"fmt"
 	"strings"
-
+	"strconv"
 	"github.com/google/blueprint"
 	"github.com/google/blueprint/proptools"
 )
@@ -30,6 +30,7 @@ var (
 			`echo '{' && ` +
 			`echo "\"name\": \"${name}\"," && ` +
 			`echo "\"stability\": \"${stability}\"," && ` +
+			`echo "\"vendor_available\": \"${vendor_available}\"," && ` +
 			`echo "\"types\": [${types}]," && ` +
 			`echo "\"hashes\": [${hashes}]," && ` +
 			`echo "\"has_development\": ${has_development}," && ` +
@@ -38,7 +39,7 @@ var (
 			`echo '}' ` +
 			`;} >> ${out}`,
 		Description: "AIDL metadata: ${out}",
-	}, "name", "stability", "types", "hashes", "has_development", "use_unfrozen", "versions")
+	}, "name", "stability", "types", "hashes", "vendor_available", "has_development", "use_unfrozen", "versions")
 
 	joinJsonObjectsToArrayRule = pctx.StaticRule("joinJsonObjectsToArrayRule", blueprint.RuleParams{
 		Rspfile:        "$out.rsp",
@@ -89,8 +90,13 @@ func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx androi
 		Versions       []string
 	}
 
+	type ModuleInfoExt struct {
+               VendorAvailable   *bool
+        }
+
 	// name -> ModuleInfo
 	moduleInfos := map[string]ModuleInfo{}
+	moduleInfosExt := map[string]ModuleInfoExt{}
 	ctx.VisitDirectDeps(func(m android.Module) {
 		if !m.ExportedToMake() {
 			return
@@ -99,11 +105,14 @@ func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx androi
 		switch t := m.(type) {
 		case *aidlInterface:
 			info := moduleInfos[t.ModuleBase.Name()]
+			infoExt := moduleInfosExt[t.ModuleBase.Name()]
 			info.Stability = proptools.StringDefault(t.properties.Stability, "")
 			info.ComputedTypes = t.computedTypes
+			infoExt.VendorAvailable = t.properties.Vendor_available
 			info.Versions = t.getVersions()
 			info.UseUnfrozen = t.useUnfrozen(ctx)
 			moduleInfos[t.ModuleBase.Name()] = info
+			moduleInfosExt[t.ModuleBase.Name()] = infoExt
 		case *aidlGenRule:
 			info := moduleInfos[t.properties.BaseName]
 			if t.hashFile != nil {
@@ -121,6 +130,7 @@ func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx androi
 	var metadataOutputs android.Paths
 	for _, name := range android.SortedKeys(moduleInfos) {
 		info := moduleInfos[name]
+		infoExt := moduleInfosExt[name]
 		metadataPath := android.PathForModuleOut(ctx, "metadata_"+name)
 		metadataOutputs = append(metadataOutputs, metadataPath)
 
@@ -159,6 +169,7 @@ func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx androi
 				"has_development": hasDevelopmentValue,
 				"use_unfrozen":    useUnfrozenValue,
 				"versions":        strings.Join(info.Versions, ", "),
+				"vendor_available":  strconv.FormatBool(proptools.Bool(infoExt.VendorAvailable)),
 			},
 		})
 	}
