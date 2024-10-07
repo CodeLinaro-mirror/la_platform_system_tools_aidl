@@ -21,7 +21,7 @@ import (
 	"strings"
 
 	"github.com/google/blueprint"
-	"github.com/google/blueprint/proptools"
+        "github.com/google/blueprint/proptools"
 )
 
 var (
@@ -58,17 +58,19 @@ var (
 )
 
 func init() {
-	android.RegisterModuleType("aidl_interfaces_metadata", aidlInterfacesMetadataSingletonFactory)
+	android.InitRegistrationContext.RegisterSingletonModuleType("aidl_interfaces_metadata", aidlInterfacesMetadataSingletonFactory)
 }
 
-func aidlInterfacesMetadataSingletonFactory() android.Module {
+func aidlInterfacesMetadataSingletonFactory() android.SingletonModule {
 	i := &aidlInterfacesMetadataSingleton{}
 	android.InitAndroidModule(i)
 	return i
 }
 
 type aidlInterfacesMetadataSingleton struct {
-	android.ModuleBase
+	android.SingletonModuleBase
+
+	output android.WritablePath
 }
 
 func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx android.ModuleContext) {
@@ -76,6 +78,13 @@ func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx androi
 		ctx.PropertyErrorf("name", "must be %s", aidlMetadataSingletonName)
 		return
 	}
+
+	// The rule to build the output file will be defined in GenerateSingletonBuildActions
+	m.output = android.PathForModuleOut(ctx, "aidl_metadata.json")
+	ctx.SetOutputFiles(android.Paths{m.output}, "")
+}
+
+func (m *aidlInterfacesMetadataSingleton) GenerateSingletonBuildActions(ctx android.SingletonContext) {
 
 	type ModuleInfo struct {
 		Stability      string
@@ -92,21 +101,28 @@ func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx androi
 	// name -> ModuleInfo
 	moduleInfos := map[string]ModuleInfo{}
 	moduleInfosExt := map[string]ModuleInfoExt{}
-	ctx.VisitDirectDeps(func(m android.Module) {
+	ctx.VisitAllModules(func(m android.Module) {
 		if !m.ExportedToMake() {
 			return
 		}
 
 		switch t := m.(type) {
 		case *aidlInterface:
-			apiInfo := expectOtherModuleProvider(ctx, t, aidlApiProvider)
+			apiInfo, ok := android.OtherModuleProvider(ctx, t, aidlApiProvider)
+			if !ok {
+				ctx.ModuleErrorf(t, "Expected to provide an aidlApiProvider")
+			}
+			interfaceInfo, ok := android.OtherModuleProvider(ctx, t, aidlInterfaceProvider)
+			if !ok {
+				ctx.ModuleErrorf(t, "Expected to provide an aidlInterfaceProvider")
+			}
 			info := moduleInfos[t.ModuleBase.Name()]
+			info.Stability = interfaceInfo.Stability
+			info.ComputedTypes = interfaceInfo.ComputedTypes
+			info.Versions = interfaceInfo.Versions
+			info.UseUnfrozen = interfaceInfo.UseUnfrozen
 			infoExt := moduleInfosExt[t.ModuleBase.Name()]
-			info.Stability = proptools.StringDefault(t.properties.Stability, "")
-			info.ComputedTypes = t.computedTypes
 			infoExt.VendorAvailable = t.properties.Vendor_available
-			info.Versions = t.getVersions()
-			info.UseUnfrozen = t.useUnfrozen(ctx)
 			info.HasDevelopment = apiInfo.HasDevelopment
 			moduleInfos[t.ModuleBase.Name()] = info
 			moduleInfosExt[t.ModuleBase.Name()] = infoExt
@@ -123,7 +139,7 @@ func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx androi
 	for _, name := range android.SortedKeys(moduleInfos) {
 		info := moduleInfos[name]
 		infoExt := moduleInfosExt[name]
-		metadataPath := android.PathForModuleOut(ctx, "metadata_"+name)
+		metadataPath := android.PathForOutput(ctx, m.Name(), "metadata_"+name)
 		metadataOutputs = append(metadataOutputs, metadataPath)
 
 		// There is one aidlGenRule per-version per-backend. If we had
@@ -166,16 +182,12 @@ func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx androi
 		})
 	}
 
-	output := android.PathForModuleOut(ctx, "aidl_metadata.json")
-
 	ctx.Build(pctx, android.BuildParams{
 		Rule:   joinJsonObjectsToArrayRule,
 		Inputs: metadataOutputs,
-		Output: output,
+		Output: m.output,
 		Args: map[string]string{
 			"files": strings.Join(metadataOutputs.Strings(), " "),
 		},
 	})
-
-	ctx.SetOutputFiles(android.Paths{output}, "")
 }
