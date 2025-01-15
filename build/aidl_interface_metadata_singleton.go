@@ -93,7 +93,7 @@ func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx androi
 	moduleInfos := map[string]ModuleInfo{}
 
 	moduleInfosExt := map[string]ModuleInfoExt{}
-	ctx.VisitAllModules(func(m android.Module) {
+	ctx.VisitDirectDeps(func(m android.Module) {
 
 		if !m.ExportedToMake() {
 			return
@@ -104,11 +104,10 @@ func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx androi
 			apiInfo := expectOtherModuleProvider(ctx, t, aidlApiProvider)
 			info := moduleInfos[t.ModuleBase.Name()]
 			infoExt := moduleInfosExt[t.ModuleBase.Name()]
-			infoExt.VendorAvailable = t.properties.Vendor_available
-			info.Stability = interfaceInfo.Stability
-			info.ComputedTypes = interfaceInfo.ComputedTypes
-			info.Versions = interfaceInfo.Versions
-			info.UseUnfrozen = interfaceInfo.UseUnfrozen
+			info.Stability = proptools.StringDefault(t.properties.Stability, "")
+			info.ComputedTypes = t.computedTypes
+			info.Versions = t.getVersions()
+			info.UseUnfrozen = t.useUnfrozen(ctx)
 			info.HasDevelopment = apiInfo.HasDevelopment
 			moduleInfos[t.ModuleBase.Name()] = info
 			moduleInfosExt[t.ModuleBase.Name()] = infoExt
@@ -125,7 +124,7 @@ func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx androi
 	for _, name := range android.SortedKeys(moduleInfos) {
 		info := moduleInfos[name]
 		//infoExt := moduleInfosExt[name]
-		metadataPath := android.PathForOutput(ctx, m.Name(), "metadata_"+name)
+		metadataPath := android.PathForModuleOut(ctx, "metadata_"+name)
 		metadataOutputs = append(metadataOutputs, metadataPath)
 
 		// There is one aidlGenRule per-version per-backend. If we had
