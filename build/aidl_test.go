@@ -186,7 +186,7 @@ func _testAidl(t *testing.T, bp string, customizers ...android.FixturePreparer) 
 		android.FixtureRegisterWithContext(func(ctx android.RegistrationContext) {
 			ctx.RegisterModuleType("aidl_interface", AidlInterfaceFactory)
 			ctx.RegisterModuleType("aidl_interface_defaults", AidlInterfaceDefaultsFactory)
-			ctx.RegisterSingletonModuleType("aidl_interfaces_metadata", aidlInterfacesMetadataSingletonFactory)
+			ctx.RegisterModuleType("aidl_interfaces_metadata", aidlInterfacesMetadataSingletonFactory)
 			ctx.RegisterModuleType("rust_defaults", func() android.Module {
 				return rust.DefaultsFactory()
 			})
@@ -1328,7 +1328,7 @@ func TestImports(t *testing.T) {
 	rustcRule := ctx.ModuleForTests("foo-V1-rust", nativeRustVariant).Rule("rustc")
 	libFlags = rustcRule.Args["libFlags"]
 	libBar = filepath.Join("out", "soong", ".intermediates", "bar.1-V1-rust", nativeRustVariant, "unstripped", "libbar_1_V1.dylib.so")
-	libBarFlag := "--extern bar_1=" + libBar
+	libBarFlag := "--extern force:bar_1=" + libBar
 	if !strings.Contains(libFlags, libBarFlag) {
 		t.Errorf("%q is not found in %q", libBarFlag, libFlags)
 	}
