@@ -20,12 +20,11 @@
 #include <algorithm>
 #include <cctype>
 #include <cstring>
+#include <format>
 #include <memory>
-#include <random>
 #include <set>
 #include <string>
 
-#include <android-base/format.h>
 #include <android-base/stringprintf.h>
 #include <android-base/strings.h>
 
@@ -35,7 +34,6 @@
 
 #include "aidl_typenames.h"
 #include "logging.h"
-#include "os.h"
 
 using android::base::Join;
 using android::base::StringPrintf;
@@ -183,8 +181,9 @@ void GenerateClientTransaction(CodeWriter& out, const AidlTypenames& typenames,
   }
   out.Write("%s.markForBinder(remoteStrong());\n", kDataVarName);
 
-  // Even if we're oneway, the transact method still takes a parcel.
-  out.Write("%s %s;\n", kAndroidParcelLiteral, kReplyVarName);
+  if (!method.IsOneway()) {
+    out.Write("%s %s;\n", kAndroidParcelLiteral, kReplyVarName);
+  }
 
   // Declare the status_t variable we need for error handling.
   out.Write("%s %s = %s;\n", kAndroidStatusLiteral, kAndroidStatusVarName, kAndroidStatusOk);
@@ -239,8 +238,9 @@ void GenerateClientTransaction(CodeWriter& out, const AidlTypenames& typenames,
   if (method.IsOneway()) flags.push_back("::android::IBinder::FLAG_ONEWAY");
   if (interface.IsSensitiveData()) flags.push_back("::android::IBinder::FLAG_CLEAR_BUF");
 
-  out.Write("%s = remote()->transact(%s, %s, &%s, %s);\n", kAndroidStatusVarName,
-            GetTransactionIdFor(bn_name, method).c_str(), kDataVarName, kReplyVarName,
+  out.Write("%s = remote()->transact(%s, %s, %s%s, %s);\n", kAndroidStatusVarName,
+            GetTransactionIdFor(bn_name, method).c_str(), kDataVarName,
+            method.IsOneway() ? "" : "&", method.IsOneway() ? "nullptr" : kReplyVarName,
             flags.empty() ? "0" : Join(flags, " | ").c_str());
 
   // If the method is not implemented in the remote side, try to call the
@@ -499,7 +499,7 @@ void GenerateServerTransaction(CodeWriter& out, const AidlInterface& interface,
   }
 
   // Deserialize each "in" parameter to the transaction.
-  for (const auto& a: method.GetArguments()) {
+  for (const auto& a : method.GetArguments()) {
     // Deserialization looks roughly like:
     //     _aidl_ret_status = _aidl_data.ReadInt32(&in_param_name);
     //     if (_aidl_ret_status != ::android::OK) { break; }
@@ -719,11 +719,11 @@ void GenerateInterfaceSource(CodeWriter& out, const AidlInterface& interface,
   EnterNamespace(out, interface);
 
   if (auto parent = interface.GetParentType(); parent) {
-    out << fmt::format("DO_NOT_DIRECTLY_USE_ME_IMPLEMENT_META_NESTED_INTERFACE({}, {}, \"{}\")\n",
+    out << std::format("DO_NOT_DIRECTLY_USE_ME_IMPLEMENT_META_NESTED_INTERFACE({}, {}, \"{}\")\n",
                        GetQualifiedName(*parent, ClassNames::MAYBE_INTERFACE),
                        ClassName(interface, ClassNames::BASE), interface.GetDescriptor());
   } else {
-    out << fmt::format("DO_NOT_DIRECTLY_USE_ME_IMPLEMENT_META_INTERFACE({}, \"{}\")\n",
+    out << std::format("DO_NOT_DIRECTLY_USE_ME_IMPLEMENT_META_INTERFACE({}, \"{}\")\n",
                        ClassName(interface, ClassNames::BASE), interface.GetDescriptor());
   }
 
@@ -855,7 +855,7 @@ void GenerateServerClassDecl(CodeWriter& out, const AidlInterface& interface,
         << ";\n";
   }
   out << "explicit " << bn_name << "();\n";
-  out << fmt::format("{} onTransact(uint32_t {}, const {}& {}, {}* {}, uint32_t {}) override;\n",
+  out << std::format("{} onTransact(uint32_t {}, const {}& {}, {}* {}, uint32_t {}) override;\n",
                      kAndroidStatusLiteral, kCodeVarName, kAndroidParcelLiteral, kDataVarName,
                      kAndroidParcelLiteral, kReplyVarName, kFlagsVarName);
   if (options.Version() > 0) {
@@ -1035,6 +1035,7 @@ void GenerateInterfaceClassDecl(CodeWriter& out, const AidlInterface& interface,
   out << "DECLARE_META_INTERFACE(" << ClassName(interface, ClassNames::BASE) << ")\n";
   if (options.Version() > 0) {
     if (options.IsLatestUnfrozenVersion()) {
+      out << kDowngradeComment;
       out << "static inline const int32_t VERSION = true ? "
           << std::to_string(options.PreviousVersion()) << " : " << std::to_string(options.Version())
           << ";\n";
@@ -1188,12 +1189,12 @@ ParcelWriterContext GetParcelWriterContext(const AidlTypenames& typenames) {
       .status_bad = kAndroidStatusBadValue,
       .read_func =
           [&](CodeWriter& out, const string& var, const AidlTypeSpecifier& type) {
-            out << fmt::format("{}->{}({})", kParcelVarName, ParcelReadMethodOf(type, typenames),
+            out << std::format("{}->{}({})", kParcelVarName, ParcelReadMethodOf(type, typenames),
                                ParcelReadCastOf(type, typenames, "&" + var));
           },
       .write_func =
           [&](CodeWriter& out, const string& value, const AidlTypeSpecifier& type) {
-            out << fmt::format("{}->{}({})", kParcelVarName, ParcelWriteMethodOf(type, typenames),
+            out << std::format("{}->{}({})", kParcelVarName, ParcelWriteMethodOf(type, typenames),
                                ParcelWriteCastOf(type, typenames, value));
           },
   };
