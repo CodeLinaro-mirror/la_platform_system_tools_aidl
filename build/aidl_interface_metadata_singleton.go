@@ -80,7 +80,7 @@ func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx androi
 		Stability      string
 		ComputedTypes  []string
 		HashFiles      []string
-		HasDevelopment android.WritablePath
+		HasDevelopment android.Path
 		UseUnfrozen    bool
 		Versions       []string
 	}
@@ -99,6 +99,7 @@ func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx androi
 
 		switch t := m.(type) {
 		case *aidlInterface:
+			apiInfo := expectOtherModuleProvider(ctx, t, aidlApiProvider)
 			info := moduleInfos[t.ModuleBase.Name()]
 			infoExt := moduleInfosExt[t.ModuleBase.Name()]
 			info.Stability = proptools.StringDefault(t.properties.Stability, "")
@@ -106,6 +107,7 @@ func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx androi
 			infoExt.VendorAvailable = t.properties.Vendor_available
 			info.Versions = t.getVersions()
 			info.UseUnfrozen = t.useUnfrozen(ctx)
+			info.HasDevelopment = apiInfo.HasDevelopment
 			moduleInfos[t.ModuleBase.Name()] = info
 			moduleInfosExt[t.ModuleBase.Name()] = infoExt
 		case *aidlGenRule:
@@ -114,12 +116,7 @@ func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx androi
 				info.HashFiles = append(info.HashFiles, t.hashFile.String())
 			}
 			moduleInfos[t.properties.BaseName] = info
-		case *aidlApi:
-			info := moduleInfos[t.properties.BaseName]
-			info.HasDevelopment = t.hasDevelopment
-			moduleInfos[t.properties.BaseName] = info
 		}
-
 	})
 
 	var metadataOutputs android.Paths
