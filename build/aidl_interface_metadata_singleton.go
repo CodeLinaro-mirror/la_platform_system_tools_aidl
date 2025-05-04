@@ -15,13 +15,13 @@
 package aidl
 
 import (
-	"android/soong/android"
-
 	"strconv"
 	"strings"
 
 	"github.com/google/blueprint"
 	"github.com/google/blueprint/proptools"
+
+	"android/soong/android"
 )
 
 var (
@@ -92,30 +92,30 @@ func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx androi
 	// name -> ModuleInfo
 	moduleInfos := map[string]ModuleInfo{}
 	moduleInfosExt := map[string]ModuleInfoExt{}
-	ctx.VisitDirectDeps(func(m android.Module) {
-		if !m.ExportedToMake() {
+	ctx.VisitDirectDepsProxy(func(m android.ModuleProxy) {
+		if info := android.OtherModulePointerProviderOrDefault(ctx, m, android.CommonModuleInfoProvider); !info.ExportedToMake {
 			return
 		}
 
-		switch t := m.(type) {
-		case *aidlInterface:
-			apiInfo := expectOtherModuleProvider(ctx, t, aidlApiProvider)
-			info := moduleInfos[t.ModuleBase.Name()]
-			info.Stability = proptools.StringDefault(t.properties.Stability, "")
-			info.ComputedTypes = t.computedTypes
-			info.Versions = t.getVersions()
-			info.UseUnfrozen = t.useUnfrozen(ctx)
-			infoExt := moduleInfosExt[t.ModuleBase.Name()]
-			infoExt.VendorAvailable = t.properties.Vendor_available
+		if ifaceInfo, ok := android.OtherModuleProvider(ctx, m, AidlInterfaceInfoProvider); ok {
+			apiInfo := expectOtherModuleProvider(ctx, m, aidlApiProvider)
+			info := moduleInfos[ifaceInfo.Name]
+			info.Stability = ifaceInfo.Stability
+			info.ComputedTypes = ifaceInfo.ComputedTypes
+			info.Versions = ifaceInfo.Versions
+			info.UseUnfrozen = ifaceInfo.UseUnfrozen
+			infoExt := moduleInfosExt[ifaceInfo.Name]
+			var alwaysFalse bool
+			infoExt.VendorAvailable = &alwaysFalse // t.properties.Vendor_available
 			info.HasDevelopment = apiInfo.HasDevelopment
-			moduleInfos[t.ModuleBase.Name()] = info
-			moduleInfosExt[t.ModuleBase.Name()] = infoExt
-		case *aidlGenRule:
-			info := moduleInfos[t.properties.BaseName]
-			if t.hashFile != nil {
-				info.HashFiles = append(info.HashFiles, t.hashFile.String())
+			moduleInfos[ifaceInfo.Name] = info
+			moduleInfosExt[ifaceInfo.Name] = infoExt
+		} else if genruleInfo, ok := android.OtherModuleProvider(ctx, m, AidlGenruleInfoProvider); ok {
+			info := moduleInfos[genruleInfo.BaseName]
+			if genruleInfo.HashFile != nil {
+				info.HashFiles = append(info.HashFiles, genruleInfo.HashFile.String())
 			}
-			moduleInfos[t.properties.BaseName] = info
+			moduleInfos[genruleInfo.BaseName] = info
 		}
 	})
 
