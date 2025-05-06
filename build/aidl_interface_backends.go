@@ -107,12 +107,6 @@ func addCppLibrary(mctx android.DefaultableHookContext, i *aidlInterface, versio
 		nonAppProps := imageProperties{
 			Cflags: []string{"-DBINDER_STABILITY_SUPPORT"},
 		}
-		if genTrace {
-			sharedLibDependency = append(sharedLibDependency, "libandroid")
-			nonAppProps.Exclude_shared_libs = []string{"libandroid"}
-			nonAppProps.Header_libs = []string{"libandroid_aidltrace"}
-			nonAppProps.Shared_libs = []string{"libcutils"}
-		}
 		targetProp.Platform = nonAppProps
 		targetProp.Vendor = nonAppProps
 		targetProp.Product = nonAppProps
@@ -541,7 +535,7 @@ func (g *aidlImplementationGenerator) DepsMutator(ctx android.BottomUpMutatorCon
 func (g *aidlImplementationGenerator) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 }
 
-func (g *aidlImplementationGenerator) GenerateImplementation(ctx android.TopDownMutatorContext) {
+func (g *aidlImplementationGenerator) GenerateImplementation(ctx android.BottomUpMutatorContext) {
 	imports := wrap("", getImportsWithVersion(ctx, g.properties.AidlInterfaceName, g.properties.Version), "-"+g.properties.Lang)
 	if g.properties.Lang == langJava {
 		if p, ok := g.properties.ModuleProperties[0].(*javaProperties); ok {
