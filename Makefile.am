@@ -46,13 +46,13 @@ if USE_GLIB
 libaidl_common_la_SOURCES += $(c_sources) $(h_sources)
 libaidl_common_la_CFLAGS := $(AM_CFLAGS) $(UE_CFLAGS) -DUSE_GLIB @GLIB_CFLAGS@
 libaidl_common_la_CPPFLAGS := $(AM_CPPFLAGS) -DUSE_GLIB @GLIB_CFLAGS@
-libaidl_common_la_LIBADD := -lm -lpthread -lbase -lcutils @GLIB_LIBS@
+libaidl_common_la_LIBADD := -lm -lpthread -lbase -llog -lcutils @GLIB_LIBS@
 libaidl_common_la_LDFLAGS := -shared -version-info 1:0:0
 else
 libaidl_common_la_SOURCES += $(c_sources) $(h_sources)
 libaidl_common_la_CFLAGS := $(AM_CFLAGS)
 libaidl_common_la_CPPFLAGS := $(AM_CPPFLAGS)
-libaidl_common_la_LIBADD := -lm -lpthread -lbase -lcutils
+libaidl_common_la_LIBADD := -lm -lpthread -lbase -llog -lcutils
 libaidl_common_la_LDFLAGS := -shared -version-info 1:0:0
 endif
 
