@@ -104,11 +104,6 @@ public class ArrayOfInterfaces implements android.os.Parcelable
       }
       @Override public boolean onTransact(int code, android.os.Parcel data, android.os.Parcel reply, int flags) throws android.os.RemoteException
       {
-        java.lang.String descriptor = DESCRIPTOR;
-        if (code == INTERFACE_TRANSACTION) {
-          reply.writeString(descriptor);
-          return true;
-        }
         switch (code)
         {
           default:
@@ -117,7 +112,7 @@ public class ArrayOfInterfaces implements android.os.Parcelable
           }
         }
       }
-      private static class Proxy implements android.aidl.tests.ArrayOfInterfaces.IEmptyInterface
+      private static final class Proxy implements android.aidl.tests.ArrayOfInterfaces.IEmptyInterface
       {
         private android.os.IBinder mRemote;
         Proxy(android.os.IBinder remote)
@@ -128,7 +123,7 @@ public class ArrayOfInterfaces implements android.os.Parcelable
         {
           return mRemote;
         }
-        public java.lang.String getInterfaceDescriptor()
+        public final java.lang.String getInterfaceDescriptor()
         {
           return DESCRIPTOR;
         }
@@ -206,13 +201,8 @@ public class ArrayOfInterfaces implements android.os.Parcelable
       }
       @Override public boolean onTransact(int code, android.os.Parcel data, android.os.Parcel reply, int flags) throws android.os.RemoteException
       {
-        java.lang.String descriptor = DESCRIPTOR;
         if (code >= android.os.IBinder.FIRST_CALL_TRANSACTION && code <= android.os.IBinder.LAST_CALL_TRANSACTION) {
-          data.enforceInterface(descriptor);
-        }
-        if (code == INTERFACE_TRANSACTION) {
-          reply.writeString(descriptor);
-          return true;
+          data.enforceInterface(DESCRIPTOR);
         }
         switch (code)
         {
@@ -265,7 +255,7 @@ public class ArrayOfInterfaces implements android.os.Parcelable
         }
         return true;
       }
-      private static class Proxy implements android.aidl.tests.ArrayOfInterfaces.IMyInterface
+      private static final class Proxy implements android.aidl.tests.ArrayOfInterfaces.IMyInterface
       {
         private android.os.IBinder mRemote;
         Proxy(android.os.IBinder remote)
@@ -276,7 +266,7 @@ public class ArrayOfInterfaces implements android.os.Parcelable
         {
           return mRemote;
         }
-        public java.lang.String getInterfaceDescriptor()
+        public final java.lang.String getInterfaceDescriptor()
         {
           return DESCRIPTOR;
         }

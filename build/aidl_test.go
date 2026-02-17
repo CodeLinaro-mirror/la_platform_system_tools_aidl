@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -1196,6 +1197,7 @@ func TestNativeOutputIsAlwaysVersioned(t *testing.T) {
 					enabled: true,
 				},
 			},
+			split_all_variants: true,
 		}
 	`)
 	// Even though there is no version, generated modules have version(V1) unless it isn't an unstable interface.
@@ -1219,6 +1221,7 @@ func TestNativeOutputIsAlwaysVersioned(t *testing.T) {
 					enabled: true,
 				},
 			},
+			split_all_variants: true,
 		}
 	`, withFiles(map[string][]byte{
 		"aidl_api/foo/1/foo.1.aidl": nil,
@@ -1255,7 +1258,7 @@ func TestImports(t *testing.T) {
 			],
 			imports: [
 				"bar",
-			]
+			],
 		}
 	`)
 
@@ -1342,6 +1345,7 @@ func TestImports(t *testing.T) {
 		aidl_interface {
 			name: "foo",
 			defaults: ["foo-defaults"],
+			split_all_variants: true,
 		}
 		aidl_interface {
 			name: "bar.1",
@@ -1513,6 +1517,7 @@ func TestRecoveryAvailable(t *testing.T) {
 			name: "myiface",
 			recovery_available: true,
 			srcs: ["IFoo.aidl"],
+			split_all_variants: true,
 		}
 	`)
 	ctx.ModuleForTests(t, "myiface-V1-ndk", "android_recovery_arm64_armv8-a_shared")
@@ -2409,4 +2414,61 @@ func TestAidlUseUnfrozenOverrideTrue(t *testing.T) {
 	android.AssertStringDoesNotContain(t, "Unfrozen interfaces should not have -previous_api_dir set when overriding the RELEASE_AIDL_USE_UNFROZEN flag",
 		rule.Args["optionalFlags"],
 		"-previous")
+}
+
+func TestAidlInterfaceIdeInfoModuleType(t *testing.T) {
+	t.Parallel()
+	bp := `
+	aidl_interface {
+		name: "foo",
+		srcs: ["IFoo.aidl"],
+		backend: { java: { enabled: true } },
+	}`
+	ctx, _ := testAidl(t, bp, setReleaseEnv())
+	module := ctx.ModuleForTests(t, "foo-V1-java", "android_common").Module()
+	ideInfo := getIdeInfo(ctx, module)
+	android.AssertStringEquals(t, "IdeInfo.ModuleType should be equal to", "aidl_interface", ideInfo.ModuleType)
+}
+
+func TestAidlInterfaceIdeInfoAidlSrcs(t *testing.T) {
+	t.Parallel()
+	bp := `
+	filegroup {
+		name: "foo_aidl_srcs",
+		srcs: ["IFoo.aidl"],
+	}
+	aidl_interface {
+		name: "foo",
+		srcs: [":foo_aidl_srcs", "IBar.aidl"],
+		backend: { java: { enabled: true } },
+	}`
+	ctx, _ := testAidl(t, bp, setReleaseEnv())
+	module := ctx.ModuleForTests(t, "foo-V1-java", "android_common").Module()
+	ideInfo := getIdeInfo(ctx, module)
+	expected := []string{"IFoo.aidl", "IBar.aidl"}
+	if !reflect.DeepEqual(ideInfo.Aidl.Srcs, expected) {
+		t.Errorf("IdeInfo.Aidl.Srcs Imported_aars = %v, want %v", ideInfo.Aidl.Srcs, expected)
+	}
+}
+
+func TestAidlInterfaceIdeInfoAidlStability(t *testing.T) {
+	t.Parallel()
+	bp := `
+	aidl_interface {
+		name: "foo",
+		srcs: ["IFoo.aidl", "IBar.aidl"],
+		stability: "vintf",
+		backend: { java: { enabled: true } },
+	}`
+	ctx, _ := testAidl(t, bp, setReleaseEnv())
+	module := ctx.ModuleForTests(t, "foo-V1-java", "android_common").Module()
+	ideInfo := getIdeInfo(ctx, module)
+	android.AssertStringEquals(t, "IdeInfo.Aidl.Stability should be equal to", "vintf", ideInfo.Aidl.Stability)
+}
+
+func getIdeInfo(ctx android.OtherModuleProviderContext, module android.Module) android.IdeInfo {
+	if info, ok := android.OtherModuleProvider(ctx, module, android.CommonModuleInfoProvider); ok && info.IdeInfo != nil {
+		return *info.IdeInfo
+	}
+	return android.IdeInfo{}
 }

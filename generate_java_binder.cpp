@@ -124,6 +124,9 @@ StubClass::StubClass(const AidlInterface* interfaceType, const Options& options)
   all_method_count = 0;  // Will be set when outlining may be enabled.
 
   this->comment = "/** Local-side IPC implementation stub class. */";
+  if (interfaceType->IsDeprecated()) {
+    this->annotations.push_back("@Deprecated");
+  }
   this->modifiers = PUBLIC | ABSTRACT | STATIC;
   this->what = Class::CLASS;
   this->type = interfaceType->GetCanonicalName() + ".Stub";
@@ -212,26 +215,24 @@ void StubClass::Finish() {
     ifStatement->statements = std::make_shared<StatementBlock>();
     ifStatement->statements->Add(std::make_shared<MethodCall>(
         this->transact_data, "enforceInterface",
-        std::vector<std::shared_ptr<Expression>>{this->GetTransactDescriptor(nullptr)}));
+        std::vector<std::shared_ptr<Expression>>{
+            std::make_shared<LiteralExpression>("DESCRIPTOR")}));
     transact_statements->Add(ifStatement);
   }
 
   // Build the if/else chain for the meta methods. There at most 3 different
   // statements so if/else is more efficient than a switch statement.
   // Meta transactions are looked up prior to user-defined transactions.
-  AIDL_FATAL_IF(this->transact_if_statements_meta.size() == 0, AIDL_LOCATION_HERE)
-      << "Expecting to have meta methods and found none.";
-  AIDL_FATAL_IF(this->transact_if_statements_meta.size() > 3, AIDL_LOCATION_HERE)
-      << "Expecting to have at most 3 meta methods and found "
-      << this->transact_if_statements_meta.size();
-  auto ifStatement = this->transact_if_statements_meta[0];
-  std::shared_ptr<IfStatement> currentIfStatement = ifStatement;
-  for (size_t i = 1; i < transact_if_statements_meta.size(); i++) {
-    currentIfStatement->elseif = this->transact_if_statements_meta[i];
-    currentIfStatement = currentIfStatement->elseif;
+  if (this->transact_if_statements_meta.size() > 0) {
+    auto ifStatement = this->transact_if_statements_meta[0];
+    std::shared_ptr<IfStatement> currentIfStatement = ifStatement;
+    for (size_t i = 1; i < transact_if_statements_meta.size(); i++) {
+      currentIfStatement->elseif = this->transact_if_statements_meta[i];
+      currentIfStatement = currentIfStatement->elseif;
+    }
+    transact_statements->Add(ifStatement);
   }
 
-  transact_statements->Add(ifStatement);
   transact_statements->Add(this->transact_switch_user);
 
   // getTransactionName
@@ -254,30 +255,8 @@ void StubClass::Finish() {
 // The the expression for the interface's descriptor to be used when
 // generating code for the given method. Null is acceptable for method
 // and stands for synthetic cases.
-std::shared_ptr<Expression> StubClass::GetTransactDescriptor(const AidlMethod* method) {
-  if (transact_outline) {
-    if (method != nullptr) {
-      // When outlining, each outlined method needs its own literal.
-      if (outline_methods.count(method) != 0) {
-        return std::make_shared<LiteralExpression>("DESCRIPTOR");
-      }
-    } else {
-      // Synthetic case. A small number is assumed. Use its own descriptor
-      // if there are only synthetic cases.
-      if (outline_methods.size() == all_method_count) {
-        return std::make_shared<LiteralExpression>("DESCRIPTOR");
-      }
-    }
-  }
-
-  // When not outlining, store the descriptor literal into a local variable, in
-  // an effort to save const-string instructions in each switch case.
-  if (transact_descriptor == nullptr) {
-    transact_descriptor = std::make_shared<Variable>("java.lang.String", "descriptor");
-    transact_statements->Add(std::make_shared<VariableDeclaration>(
-        transact_descriptor, std::make_shared<LiteralExpression>("DESCRIPTOR")));
-  }
-  return transact_descriptor;
+std::shared_ptr<Expression> StubClass::GetTransactDescriptor(const AidlMethod* /*method*/) {
+  return std::make_shared<LiteralExpression>("DESCRIPTOR");
 }
 
 void StubClass::MakeConstructors(const AidlInterface* interfaceType) {
@@ -387,7 +366,10 @@ class ProxyClass : public Class {
 };
 
 ProxyClass::ProxyClass(const AidlInterface* interfaceType, const Options& options) : Class() {
-  this->modifiers = PRIVATE | STATIC;
+  if (interfaceType->IsDeprecated()) {
+    this->annotations.push_back("@Deprecated");
+  }
+  this->modifiers = PRIVATE | STATIC | FINAL;
   this->what = Class::CLASS;
   this->type = interfaceType->GetCanonicalName() + ".Stub.Proxy";
   this->interfaces.push_back(interfaceType->GetCanonicalName());
@@ -752,6 +734,9 @@ static void GenerateProxyMethod(CodeWriter& out, const AidlInterface& iface,
   bool is_void = method.GetType().GetName() == "void";
 
   out << GenerateComments(method);
+  for (const auto& a : JavaAnnotationsFor(method, AnnotationPlacement::SUBCLASS)) {
+    out << a << "\n";
+  }
   out << "@Override public " << JavaSignatureOf(method.GetType()) << " " << method.GetName() << "("
       << ArgList(method, FormatArgForDecl) << ") throws android.os.RemoteException\n{\n";
   out.Indent();
@@ -1035,18 +1020,9 @@ static void GenerateMethods(const AidlInterface& iface, const AidlMethod& method
 static void GenerateInterfaceDescriptors(const Options& options, const AidlInterface* iface,
                                          Class* interface, std::shared_ptr<StubClass> stub,
                                          std::shared_ptr<ProxyClass> proxy) {
-  // the interface descriptor transaction handler
-  auto ifStatement = std::make_shared<IfStatement>();
-  ifStatement->expression = std::make_shared<LiteralExpression>("code == INTERFACE_TRANSACTION");
-  ifStatement->statements->Add(std::make_shared<MethodCall>(
-      stub->transact_reply, "writeString",
-      std::vector<std::shared_ptr<Expression>>{stub->GetTransactDescriptor(nullptr)}));
-  ifStatement->statements->Add(std::make_shared<ReturnStatement>(TRUE_VALUE));
-  stub->transact_if_statements_meta.push_back(ifStatement);
-
   // and the proxy-side method returning the descriptor directly
   auto getDesc = std::make_shared<Method>();
-  getDesc->modifiers = PUBLIC;
+  getDesc->modifiers = PUBLIC | FINAL;
   getDesc->returnType = "java.lang.String";
   getDesc->name = "getInterfaceDescriptor";
   getDesc->statements = std::make_shared<StatementBlock>();
@@ -1125,6 +1101,7 @@ static shared_ptr<ClassElement> GenerateDefaultImplMethod(const AidlMethod& meth
   default_method->modifiers = PUBLIC | OVERRIDE;
   default_method->returnType = JavaSignatureOf(method.GetType());
   default_method->name = method.GetName();
+  default_method->annotations = JavaAnnotationsFor(method, AnnotationPlacement::SUBCLASS);
   default_method->statements = std::make_shared<StatementBlock>();
   for (const auto& arg : method.GetArguments()) {
     default_method->parameters.push_back(
@@ -1144,6 +1121,9 @@ static shared_ptr<Class> GenerateDefaultImplClass(const AidlInterface& iface,
                                                   const Options& options) {
   auto default_class = std::make_shared<Class>();
   default_class->comment = "/** Default implementation for " + iface.GetName() + ". */";
+  if (iface.IsDeprecated()) {
+    default_class->annotations.push_back("@Deprecated");
+  }
   default_class->modifiers = PUBLIC | STATIC;
   default_class->what = Class::CLASS;
   default_class->type = iface.GetCanonicalName() + ".Default";
@@ -1193,6 +1173,7 @@ static shared_ptr<ClassElement> GenerateDelegatorMethod(const AidlMethod& method
   delegator_method->modifiers = PUBLIC | OVERRIDE;
   delegator_method->returnType = JavaSignatureOf(method.GetType());
   delegator_method->name = method.GetName();
+  delegator_method->annotations = JavaAnnotationsFor(method, AnnotationPlacement::SUBCLASS);
   delegator_method->statements = std::make_shared<StatementBlock>();
   std::vector<std::string> argNames;
   for (const auto& arg : method.GetArguments()) {
@@ -1216,6 +1197,9 @@ static shared_ptr<Class> GenerateDelegatorClass(const AidlInterface& iface,
                                                 const Options& options) {
   auto delegator_class = std::make_shared<Class>();
   delegator_class->comment = "/** Delegator implementation for " + iface.GetName() + ". */";
+  if (iface.IsDeprecated()) {
+    delegator_class->annotations.push_back("@Deprecated");
+  }
   delegator_class->modifiers = PUBLIC | STATIC;
   delegator_class->what = Class::CLASS;
   delegator_class->type = iface.GetCanonicalName() + ".Delegator";

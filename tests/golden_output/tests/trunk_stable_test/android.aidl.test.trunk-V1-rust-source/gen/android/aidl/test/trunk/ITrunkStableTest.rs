@@ -82,6 +82,7 @@ impl BnTrunkStableTest {
     }
     impl<T, R> binder::Interface for Wrapper<T, R> where T: binder::Interface, R: Send + Sync + 'static {
       fn as_binder(&self) -> binder::SpIBinder { self._inner.as_binder() }
+      #[cfg(feature = "std")]
       fn dump(&self, _writer: &mut dyn std::io::Write, _args: &[&std::ffi::CStr]) -> std::result::Result<(), binder::StatusCode> { self._inner.dump(_writer, _args) }
     }
     impl<T, R> ITrunkStableTest for Wrapper<T, R>
@@ -471,7 +472,7 @@ pub mod r#MyEnum {
   #![allow(non_upper_case_globals)]
   use binder::declare_binder_enum;
   declare_binder_enum! {
-    #[repr(C, align(1))]
+    #[repr(align(1))]
     r#MyEnum : [i8; 3] {
       r#ZERO = 0,
       r#ONE = 1,
@@ -531,7 +532,7 @@ pub mod r#MyUnion {
     #![allow(non_upper_case_globals)]
     use binder::declare_binder_enum;
     declare_binder_enum! {
-      #[repr(C, align(4))]
+      #[repr(align(4))]
       r#Tag : [i32; 2] {
         r#a = 0,
         r#b = 1,
@@ -610,6 +611,7 @@ pub mod r#IMyCallback {
       }
       impl<T, R> binder::Interface for Wrapper<T, R> where T: binder::Interface, R: Send + Sync + 'static {
         fn as_binder(&self) -> binder::SpIBinder { self._inner.as_binder() }
+        #[cfg(feature = "std")]
         fn dump(&self, _writer: &mut dyn std::io::Write, _args: &[&std::ffi::CStr]) -> std::result::Result<(), binder::StatusCode> { self._inner.dump(_writer, _args) }
       }
       impl<T, R> IMyCallback for Wrapper<T, R>

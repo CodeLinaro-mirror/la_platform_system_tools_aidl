@@ -80,13 +80,8 @@ public interface IProtected extends android.os.IInterface
     }
     @Override public boolean onTransact(int code, android.os.Parcel data, android.os.Parcel reply, int flags) throws android.os.RemoteException
     {
-      java.lang.String descriptor = DESCRIPTOR;
       if (code >= android.os.IBinder.FIRST_CALL_TRANSACTION && code <= android.os.IBinder.LAST_CALL_TRANSACTION) {
-        data.enforceInterface(descriptor);
-      }
-      if (code == INTERFACE_TRANSACTION) {
-        reply.writeString(descriptor);
-        return true;
+        data.enforceInterface(DESCRIPTOR);
       }
       switch (code)
       {
@@ -106,7 +101,7 @@ public interface IProtected extends android.os.IInterface
       }
       return true;
     }
-    private static class Proxy implements android.aidl.tests.permission.platform.IProtected
+    private static final class Proxy implements android.aidl.tests.permission.platform.IProtected
     {
       private android.os.IBinder mRemote;
       Proxy(android.os.IBinder remote)
@@ -117,7 +112,7 @@ public interface IProtected extends android.os.IInterface
       {
         return mRemote;
       }
-      public java.lang.String getInterfaceDescriptor()
+      public final java.lang.String getInterfaceDescriptor()
       {
         return DESCRIPTOR;
       }

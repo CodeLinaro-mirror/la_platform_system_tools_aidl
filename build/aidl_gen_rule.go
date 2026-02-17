@@ -91,6 +91,7 @@ type AidlGenruleInfo struct {
 	HashFile android.Path
 	OutDir   android.Path
 	Outputs  android.Paths
+	Srcs     android.Paths
 }
 
 var AidlGenruleInfoProvider = blueprint.NewProvider[AidlGenruleInfo]()
@@ -137,7 +138,6 @@ type aidlGenRule struct {
 	genOutputs    android.WritablePaths
 }
 
-var _ android.SourceFileProducer = (*aidlGenRule)(nil)
 var _ genrule.SourceFileGenerator = (*aidlGenRule)(nil)
 
 func (g *aidlGenRule) aidlInterface(ctx android.BaseModuleContext) AidlInterfaceInfo {
@@ -177,6 +177,11 @@ func (g *aidlGenRule) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 		g.genHeaderDeps = append(g.genHeaderDeps, headers...)
 	}
 
+	ctx.SetOutputFiles(g.genOutputs.Paths(), "")
+	// This is for the genrule aidl-golden-test-build-hook-gen to
+	// be able to check the generated header files for changes
+	ctx.SetOutputFiles(g.genHeaderDeps, "headers")
+
 	// This is to clean genOutDir before generating any file
 	ctx.Build(pctx, android.BuildParams{
 		Rule:   aidlDirPrepareRule,
@@ -199,6 +204,7 @@ func (g *aidlGenRule) GenerateAndroidBuildActions(ctx android.ModuleContext) {
 		HashFile: g.hashFile,
 		OutDir:   g.genOutDir,
 		Outputs:  g.genOutputs.Paths(),
+		Srcs:     srcs,
 	})
 }
 
@@ -389,10 +395,6 @@ func (g *aidlGenRule) generateBuildActionsForSingleAidl(ctx android.ModuleContex
 }
 
 func (g *aidlGenRule) GeneratedSourceFiles() android.Paths {
-	return g.genOutputs.Paths()
-}
-
-func (g *aidlGenRule) Srcs() android.Paths {
 	return g.genOutputs.Paths()
 }
 

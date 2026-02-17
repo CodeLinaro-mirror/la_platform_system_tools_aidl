@@ -77,6 +77,7 @@ pub mod r#IEmptyInterface {
       }
       impl<T, R> binder::Interface for Wrapper<T, R> where T: binder::Interface, R: Send + Sync + 'static {
         fn as_binder(&self) -> binder::SpIBinder { self._inner.as_binder() }
+        #[cfg(feature = "std")]
         fn dump(&self, _writer: &mut dyn std::io::Write, _args: &[&std::ffi::CStr]) -> std::result::Result<(), binder::StatusCode> { self._inner.dump(_writer, _args) }
       }
       impl<T, R> IEmptyInterface for Wrapper<T, R>
@@ -170,6 +171,7 @@ pub mod r#IMyInterface {
       }
       impl<T, R> binder::Interface for Wrapper<T, R> where T: binder::Interface, R: Send + Sync + 'static {
         fn as_binder(&self) -> binder::SpIBinder { self._inner.as_binder() }
+        #[cfg(feature = "std")]
         fn dump(&self, _writer: &mut dyn std::io::Write, _args: &[&std::ffi::CStr]) -> std::result::Result<(), binder::StatusCode> { self._inner.dump(_writer, _args) }
       }
       impl<T, R> IMyInterface for Wrapper<T, R>
@@ -414,7 +416,7 @@ pub mod r#MyUnion {
     #![allow(non_upper_case_globals)]
     use binder::declare_binder_enum;
     declare_binder_enum! {
-      #[repr(C, align(4))]
+      #[repr(align(4))]
       r#Tag : [i32; 4] {
         r#iface = 0,
         r#nullable_iface = 1,

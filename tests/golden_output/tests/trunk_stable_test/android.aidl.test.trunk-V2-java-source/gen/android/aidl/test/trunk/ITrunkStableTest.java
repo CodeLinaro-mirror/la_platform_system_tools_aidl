@@ -126,15 +126,10 @@ public interface ITrunkStableTest extends android.os.IInterface
     }
     @Override public boolean onTransact(int code, android.os.Parcel data, android.os.Parcel reply, int flags) throws android.os.RemoteException
     {
-      java.lang.String descriptor = DESCRIPTOR;
       if (code >= android.os.IBinder.FIRST_CALL_TRANSACTION && code <= android.os.IBinder.LAST_CALL_TRANSACTION) {
-        data.enforceInterface(descriptor);
+        data.enforceInterface(DESCRIPTOR);
       }
-      if (code == INTERFACE_TRANSACTION) {
-        reply.writeString(descriptor);
-        return true;
-      }
-      else if (code == TRANSACTION_getInterfaceVersion) {
+      if (code == TRANSACTION_getInterfaceVersion) {
         reply.writeNoException();
         reply.writeInt(getInterfaceVersion());
         return true;
@@ -202,7 +197,7 @@ public interface ITrunkStableTest extends android.os.IInterface
       }
       return true;
     }
-    private static class Proxy implements android.aidl.test.trunk.ITrunkStableTest
+    private static final class Proxy implements android.aidl.test.trunk.ITrunkStableTest
     {
       private android.os.IBinder mRemote;
       Proxy(android.os.IBinder remote)
@@ -215,7 +210,7 @@ public interface ITrunkStableTest extends android.os.IInterface
       {
         return mRemote;
       }
-      public java.lang.String getInterfaceDescriptor()
+      public final java.lang.String getInterfaceDescriptor()
       {
         return DESCRIPTOR;
       }
@@ -710,15 +705,10 @@ public interface ITrunkStableTest extends android.os.IInterface
       }
       @Override public boolean onTransact(int code, android.os.Parcel data, android.os.Parcel reply, int flags) throws android.os.RemoteException
       {
-        java.lang.String descriptor = DESCRIPTOR;
         if (code >= android.os.IBinder.FIRST_CALL_TRANSACTION && code <= android.os.IBinder.LAST_CALL_TRANSACTION) {
-          data.enforceInterface(descriptor);
+          data.enforceInterface(DESCRIPTOR);
         }
-        if (code == INTERFACE_TRANSACTION) {
-          reply.writeString(descriptor);
-          return true;
-        }
-        else if (code == TRANSACTION_getInterfaceVersion) {
+        if (code == TRANSACTION_getInterfaceVersion) {
           reply.writeNoException();
           reply.writeInt(getInterfaceVersion());
           return true;
@@ -777,7 +767,7 @@ public interface ITrunkStableTest extends android.os.IInterface
         }
         return true;
       }
-      private static class Proxy implements android.aidl.test.trunk.ITrunkStableTest.IMyCallback
+      private static final class Proxy implements android.aidl.test.trunk.ITrunkStableTest.IMyCallback
       {
         private android.os.IBinder mRemote;
         Proxy(android.os.IBinder remote)
@@ -790,7 +780,7 @@ public interface ITrunkStableTest extends android.os.IInterface
         {
           return mRemote;
         }
-        public java.lang.String getInterfaceDescriptor()
+        public final java.lang.String getInterfaceDescriptor()
         {
           return DESCRIPTOR;
         }

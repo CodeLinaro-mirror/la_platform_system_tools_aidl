@@ -35,6 +35,7 @@ public interface ITestService extends android.os.IInterface
      * @deprecated to make sure we have something in system/tools/aidl which does a compile check
      *     of deprecated and make sure this is reflected in goldens
      */
+    @Deprecated
     @Override public void Deprecated() throws android.os.RemoteException
     {
     }
@@ -349,6 +350,7 @@ public interface ITestService extends android.os.IInterface
      * @deprecated to make sure we have something in system/tools/aidl which does a compile check
      *     of deprecated and make sure this is reflected in goldens
      */
+    @Deprecated
     @Override public void Deprecated() throws android.os.RemoteException
     {
       mImpl.Deprecated();
@@ -975,13 +977,8 @@ public interface ITestService extends android.os.IInterface
     }
     @Override public boolean onTransact(int code, android.os.Parcel data, android.os.Parcel reply, int flags) throws android.os.RemoteException
     {
-      java.lang.String descriptor = DESCRIPTOR;
       if (code >= android.os.IBinder.FIRST_CALL_TRANSACTION && code <= android.os.IBinder.LAST_CALL_TRANSACTION) {
-        data.enforceInterface(descriptor);
-      }
-      if (code == INTERFACE_TRANSACTION) {
-        reply.writeString(descriptor);
-        return true;
+        data.enforceInterface(DESCRIPTOR);
       }
       switch (code)
       {
@@ -1870,7 +1867,7 @@ public interface ITestService extends android.os.IInterface
       }
       return true;
     }
-    private static class Proxy implements android.aidl.tests.ITestService
+    private static final class Proxy implements android.aidl.tests.ITestService
     {
       private android.os.IBinder mRemote;
       Proxy(android.os.IBinder remote)
@@ -1881,7 +1878,7 @@ public interface ITestService extends android.os.IInterface
       {
         return mRemote;
       }
-      public java.lang.String getInterfaceDescriptor()
+      public final java.lang.String getInterfaceDescriptor()
       {
         return DESCRIPTOR;
       }
@@ -1919,6 +1916,7 @@ public interface ITestService extends android.os.IInterface
        * @deprecated to make sure we have something in system/tools/aidl which does a compile check
        *     of deprecated and make sure this is reflected in goldens
        */
+      @Deprecated
       @Override public void Deprecated() throws android.os.RemoteException
       {
         android.os.Parcel _data = android.os.Parcel.obtain(asBinder());
@@ -3821,11 +3819,6 @@ public interface ITestService extends android.os.IInterface
         }
         @Override public boolean onTransact(int code, android.os.Parcel data, android.os.Parcel reply, int flags) throws android.os.RemoteException
         {
-          java.lang.String descriptor = DESCRIPTOR;
-          if (code == INTERFACE_TRANSACTION) {
-            reply.writeString(descriptor);
-            return true;
-          }
           switch (code)
           {
             default:
@@ -3834,7 +3827,7 @@ public interface ITestService extends android.os.IInterface
             }
           }
         }
-        private static class Proxy implements android.aidl.tests.ITestService.CompilerChecks.Foo
+        private static final class Proxy implements android.aidl.tests.ITestService.CompilerChecks.Foo
         {
           private android.os.IBinder mRemote;
           Proxy(android.os.IBinder remote)
@@ -3845,7 +3838,7 @@ public interface ITestService extends android.os.IInterface
           {
             return mRemote;
           }
-          public java.lang.String getInterfaceDescriptor()
+          public final java.lang.String getInterfaceDescriptor()
           {
             return DESCRIPTOR;
           }
@@ -4110,13 +4103,8 @@ public interface ITestService extends android.os.IInterface
         }
         @Override public boolean onTransact(int code, android.os.Parcel data, android.os.Parcel reply, int flags) throws android.os.RemoteException
         {
-          java.lang.String descriptor = DESCRIPTOR;
           if (code >= android.os.IBinder.FIRST_CALL_TRANSACTION && code <= android.os.IBinder.LAST_CALL_TRANSACTION) {
-            data.enforceInterface(descriptor);
-          }
-          if (code == INTERFACE_TRANSACTION) {
-            reply.writeString(descriptor);
-            return true;
+            data.enforceInterface(DESCRIPTOR);
           }
           switch (code)
           {
@@ -4133,7 +4121,7 @@ public interface ITestService extends android.os.IInterface
           }
           return true;
         }
-        private static class Proxy implements android.aidl.tests.ITestService.CompilerChecks.NoPrefixInterface
+        private static final class Proxy implements android.aidl.tests.ITestService.CompilerChecks.NoPrefixInterface
         {
           private android.os.IBinder mRemote;
           Proxy(android.os.IBinder remote)
@@ -4144,7 +4132,7 @@ public interface ITestService extends android.os.IInterface
           {
             return mRemote;
           }
-          public java.lang.String getInterfaceDescriptor()
+          public final java.lang.String getInterfaceDescriptor()
           {
             return DESCRIPTOR;
           }
@@ -4278,13 +4266,8 @@ public interface ITestService extends android.os.IInterface
           }
           @Override public boolean onTransact(int code, android.os.Parcel data, android.os.Parcel reply, int flags) throws android.os.RemoteException
           {
-            java.lang.String descriptor = DESCRIPTOR;
             if (code >= android.os.IBinder.FIRST_CALL_TRANSACTION && code <= android.os.IBinder.LAST_CALL_TRANSACTION) {
-              data.enforceInterface(descriptor);
-            }
-            if (code == INTERFACE_TRANSACTION) {
-              reply.writeString(descriptor);
-              return true;
+              data.enforceInterface(DESCRIPTOR);
             }
             switch (code)
             {
@@ -4301,7 +4284,7 @@ public interface ITestService extends android.os.IInterface
             }
             return true;
           }
-          private static class Proxy implements android.aidl.tests.ITestService.CompilerChecks.NoPrefixInterface.NestedNoPrefixInterface
+          private static final class Proxy implements android.aidl.tests.ITestService.CompilerChecks.NoPrefixInterface.NestedNoPrefixInterface
           {
             private android.os.IBinder mRemote;
             Proxy(android.os.IBinder remote)
@@ -4312,7 +4295,7 @@ public interface ITestService extends android.os.IInterface
             {
               return mRemote;
             }
-            public java.lang.String getInterfaceDescriptor()
+            public final java.lang.String getInterfaceDescriptor()
             {
               return DESCRIPTOR;
             }

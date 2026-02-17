@@ -12,6 +12,7 @@ package android.aidl.tests;
 public interface IDeprecated extends android.os.IInterface
 {
   /** Default implementation for IDeprecated. */
+  @Deprecated
   public static class Default implements android.aidl.tests.IDeprecated
   {
     @Override
@@ -20,6 +21,7 @@ public interface IDeprecated extends android.os.IInterface
     }
   }
   /** Local-side IPC implementation stub class. */
+  @Deprecated
   public static abstract class Stub extends android.os.Binder implements android.aidl.tests.IDeprecated
   {
     /** Construct the stub and attach it to the interface. */
@@ -65,11 +67,6 @@ public interface IDeprecated extends android.os.IInterface
     }
     @Override public boolean onTransact(int code, android.os.Parcel data, android.os.Parcel reply, int flags) throws android.os.RemoteException
     {
-      java.lang.String descriptor = DESCRIPTOR;
-      if (code == INTERFACE_TRANSACTION) {
-        reply.writeString(descriptor);
-        return true;
-      }
       switch (code)
       {
         default:
@@ -78,7 +75,8 @@ public interface IDeprecated extends android.os.IInterface
         }
       }
     }
-    private static class Proxy implements android.aidl.tests.IDeprecated
+    @Deprecated
+    private static final class Proxy implements android.aidl.tests.IDeprecated
     {
       private android.os.IBinder mRemote;
       Proxy(android.os.IBinder remote)
@@ -89,7 +87,7 @@ public interface IDeprecated extends android.os.IInterface
       {
         return mRemote;
       }
-      public java.lang.String getInterfaceDescriptor()
+      public final java.lang.String getInterfaceDescriptor()
       {
         return DESCRIPTOR;
       }

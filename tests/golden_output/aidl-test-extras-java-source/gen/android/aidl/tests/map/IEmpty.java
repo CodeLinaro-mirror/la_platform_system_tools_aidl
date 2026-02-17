@@ -63,11 +63,6 @@ public interface IEmpty extends android.os.IInterface
     }
     @Override public boolean onTransact(int code, android.os.Parcel data, android.os.Parcel reply, int flags) throws android.os.RemoteException
     {
-      java.lang.String descriptor = DESCRIPTOR;
-      if (code == INTERFACE_TRANSACTION) {
-        reply.writeString(descriptor);
-        return true;
-      }
       switch (code)
       {
         default:
@@ -76,7 +71,7 @@ public interface IEmpty extends android.os.IInterface
         }
       }
     }
-    private static class Proxy implements android.aidl.tests.map.IEmpty
+    private static final class Proxy implements android.aidl.tests.map.IEmpty
     {
       private android.os.IBinder mRemote;
       Proxy(android.os.IBinder remote)
@@ -87,7 +82,7 @@ public interface IEmpty extends android.os.IInterface
       {
         return mRemote;
       }
-      public java.lang.String getInterfaceDescriptor()
+      public final java.lang.String getInterfaceDescriptor()
       {
         return DESCRIPTOR;
       }
