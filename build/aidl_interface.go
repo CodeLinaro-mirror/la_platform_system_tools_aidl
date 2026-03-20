@@ -59,7 +59,6 @@ var (
 func init() {
 	pctx.Import("android/soong/android")
 	pctx.HostBinToolVariable("aidlCmd", "aidl")
-	pctx.HostBinToolVariable("aidlHashGen", "aidl_hash_gen")
 	pctx.SourcePathVariable("aidlToJniCmd", "system/tools/aidl/build/aidl_to_jni.py")
 	pctx.SourcePathVariable("aidlRustGlueCmd", "system/tools/aidl/build/aidl_rust_glue.py")
 	android.RegisterModuleType("aidl_interface", AidlInterfaceFactory)
@@ -663,8 +662,10 @@ func (i *aidlInterface) genTrace(lang string) bool {
 	case langCpp:
 		ver = i.properties.Backend.Cpp.Gen_trace
 		if ver == nil {
-			// Enable tracing for all cpp backends by default
-			ver = proptools.BoolPtr(true)
+			// b/394661050:Disable tracing inside AIDL generated code for all cpp backends by
+			// default. code to function names is still generated and it is used for
+			// tracing inside libbinder.
+			ver = proptools.BoolPtr(false)
 		}
 	case langJava:
 		ver = i.properties.Backend.Java.Gen_trace
