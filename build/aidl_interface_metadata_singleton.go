@@ -39,7 +39,13 @@ var (
 			`echo '}' ` +
 			`;} >> ${out}`,
 		Description: "AIDL metadata: ${out}",
-		SandboxDisabled: true,
+		CommandDepsTools: []blueprint.HostTool{
+			android.Echo,
+			android.Cat,
+			android.Sed,
+			android.Rm,
+			android.Tr,
+		},
 	}, "name", "stability", "types", "hashes", "vendor_available", "has_development", "use_unfrozen", "versions")
 
 	joinJsonObjectsToArrayRule = pctx.StaticRule("joinJsonObjectsToArrayRule", blueprint.RuleParams{
@@ -54,8 +60,13 @@ var (
 			"done && " +
 			// Remove the last comma, replacing it with the closing bracket.
 			"sed -i '$$d' ${out} && echo ']' >> ${out}",
-		Description:     "Joining JSON objects into array ${out}",
-		SandboxDisabled: true,
+		Description: "Joining JSON objects into array ${out}",
+		CommandDepsTools: []blueprint.HostTool{
+			android.Echo,
+			android.Cat,
+			android.Sed,
+			android.Rm,
+		},
 	}, "files")
 )
 
@@ -74,8 +85,8 @@ type aidlInterfacesMetadataSingleton struct {
 }
 
 func (m *aidlInterfacesMetadataSingleton) GenerateAndroidBuildActions(ctx android.ModuleContext) {
-	if m.Name() != aidlMetadataSingletonName {
-		ctx.PropertyErrorf("name", "must be %s", aidlMetadataSingletonName)
+	if m.Name() != aidlMetadataSingletonName || ctx.ModuleDir() != "system/tools/aidl/build" {
+		ctx.PropertyErrorf("name", "There must only be 1 aidl_interfaces_metadata module called %q in system/tools/aidl/build", aidlMetadataSingletonName)
 		return
 	}
 
