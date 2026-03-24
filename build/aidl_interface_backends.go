@@ -188,7 +188,7 @@ func addCppLibrary(mctx android.DefaultableHookContext, i *aidlInterface, versio
 			Lang:     lang,
 			Flags:    aidlFlags,
 		},
-	})
+	}, &struct{ Target_bundle *string }{Target_bundle: commonProperties.Target_bundle})
 
 	return cppModuleGen
 }
