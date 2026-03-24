@@ -1,6 +1,6 @@
 /*
  * This file is auto-generated.  DO NOT MODIFY.
- * Using: out/host/linux-x86/bin/aidl --lang=cpp -Weverything -Wno-missing-permission-annotation -Werror -t --min_sdk_version current --ninja -d out/soong/.intermediates/system/tools/aidl/aidl-test-interface-cpp-source/gen/staging/android/aidl/tests/ITestService.cpp.d -h out/soong/.intermediates/system/tools/aidl/aidl-test-interface-cpp-source/gen/include/staging -o out/soong/.intermediates/system/tools/aidl/aidl-test-interface-cpp-source/gen/staging -Nsystem/tools/aidl/tests system/tools/aidl/tests/android/aidl/tests/ITestService.aidl
+ * Using: out/host/linux-x86/bin/aidl --lang=cpp -Weverything -Wno-missing-permission-annotation -Werror --min_sdk_version current --ninja -d out/soong/.intermediates/system/tools/aidl/aidl-test-interface-cpp-source/gen/staging/android/aidl/tests/ITestService.cpp.d -h out/soong/.intermediates/system/tools/aidl/aidl-test-interface-cpp-source/gen/include/staging -o out/soong/.intermediates/system/tools/aidl/aidl-test-interface-cpp-source/gen/staging -Nsystem/tools/aidl/tests system/tools/aidl/tests/android/aidl/tests/ITestService.aidl
  *
  * DO NOT CHECK THIS FILE INTO A CODE TREE (e.g. git, etc..).
  * ALWAYS GENERATE THIS FILE FROM UPDATED AIDL COMPILER
@@ -70,6 +70,7 @@ class LIBBINDER_EXPORTED ITestService : public ::android::IInterface {
 public:
   typedef ITestServiceDelegator DefaultDelegator;
   DECLARE_META_INTERFACE(TestService)
+  static inline const int32_t VERSION = 12;
   class LIBBINDER_EXPORTED Empty : public ::android::Parcelable {
   public:
     inline bool operator==(const Empty&) const {
@@ -621,6 +622,7 @@ public:
   virtual ::android::binder::Status GetCppJavaTests(::android::sp<::android::IBinder>* _aidl_return) = 0;
   virtual ::android::binder::Status getBackendType(::android::aidl::tests::BackendType* _aidl_return) = 0;
   virtual ::android::binder::Status GetCircular(::android::aidl::tests::CircularParcelable* cp, ::android::sp<::android::aidl::tests::ICircular>* _aidl_return) = 0;
+  virtual int32_t getInterfaceVersion() = 0;
 };  // class ITestService
 
 class LIBBINDER_EXPORTED ITestServiceDefault : public ITestService {
@@ -840,6 +842,9 @@ public:
   }
   ::android::binder::Status GetCircular(::android::aidl::tests::CircularParcelable* /*cp*/, ::android::sp<::android::aidl::tests::ICircular>* /*_aidl_return*/) override {
     return ::android::binder::Status::fromStatusT(::android::UNKNOWN_TRANSACTION);
+  }
+  int32_t getInterfaceVersion() override {
+    return 0;
   }
 };  // class ITestServiceDefault
 }  // namespace tests
