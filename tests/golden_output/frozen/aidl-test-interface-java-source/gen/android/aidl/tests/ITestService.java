@@ -3607,6 +3607,11 @@ public interface ITestService extends android.os.IInterface
     static final int TRANSACTION_getBackendType = (android.os.IBinder.FIRST_CALL_TRANSACTION + 69);
     static final int TRANSACTION_GetCircular = (android.os.IBinder.FIRST_CALL_TRANSACTION + 70);
     static final int TRANSACTION_getInterfaceVersion = (android.os.IBinder.FIRST_CALL_TRANSACTION + 16777214);
+    /** @hide */
+    public int getMaxTransactionId()
+    {
+      return 16777214;
+    }
   }
   /** @hide */
   public static final java.lang.String DESCRIPTOR = "android.aidl.tests.ITestService";
@@ -4096,6 +4101,11 @@ public interface ITestService extends android.os.IInterface
             return DESCRIPTOR;
           }
         }
+        /** @hide */
+        public int getMaxTransactionId()
+        {
+          return 0;
+        }
       }
       /** @hide */
       public static final java.lang.String DESCRIPTOR = "android.aidl.tests.ITestService.CompilerChecks.Foo";
@@ -4400,6 +4410,11 @@ public interface ITestService extends android.os.IInterface
           }
         }
         static final int TRANSACTION_foo = (android.os.IBinder.FIRST_CALL_TRANSACTION + 0);
+        /** @hide */
+        public int getMaxTransactionId()
+        {
+          return 0;
+        }
       }
       /** @hide */
       public static final java.lang.String DESCRIPTOR = "android.aidl.tests.ITestService.CompilerChecks.NoPrefixInterface";
@@ -4558,6 +4573,11 @@ public interface ITestService extends android.os.IInterface
             }
           }
           static final int TRANSACTION_foo = (android.os.IBinder.FIRST_CALL_TRANSACTION + 0);
+          /** @hide */
+          public int getMaxTransactionId()
+          {
+            return 0;
+          }
         }
         /** @hide */
         public static final java.lang.String DESCRIPTOR = "android.aidl.tests.ITestService.CompilerChecks.NoPrefixInterface.NestedNoPrefixInterface";

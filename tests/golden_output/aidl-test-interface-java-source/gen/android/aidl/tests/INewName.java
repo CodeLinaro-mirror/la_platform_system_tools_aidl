@@ -124,6 +124,11 @@ public interface INewName extends android.os.IInterface
       }
     }
     static final int TRANSACTION_RealName = (android.os.IBinder.FIRST_CALL_TRANSACTION + 0);
+    /** @hide */
+    public int getMaxTransactionId()
+    {
+      return 0;
+    }
   }
   /** @hide */
   public static final java.lang.String DESCRIPTOR = "android.aidl.tests.IOldName";

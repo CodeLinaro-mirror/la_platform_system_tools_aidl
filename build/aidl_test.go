@@ -85,7 +85,6 @@ func _testAidl(t *testing.T, bp string, customizers ...android.FixturePreparer) 
 		java.PrepareForTestWithJavaDefaultModules,
 		genrule.PrepareForTestWithGenRuleBuildComponents,
 		android.PrepareForTestWithNamespace,
-		android.PrepareForTestWithHostTools("aidl"),
 	)
 
 	bp = bp + `

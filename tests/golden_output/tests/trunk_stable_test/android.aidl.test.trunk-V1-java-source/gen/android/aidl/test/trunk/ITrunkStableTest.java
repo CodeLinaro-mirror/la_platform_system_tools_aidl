@@ -318,6 +318,11 @@ public interface ITrunkStableTest extends android.os.IInterface
     static final int TRANSACTION_callMyCallback = (android.os.IBinder.FIRST_CALL_TRANSACTION + 3);
     static final int TRANSACTION_getInterfaceVersion = (android.os.IBinder.FIRST_CALL_TRANSACTION + 16777214);
     static final int TRANSACTION_getInterfaceHash = (android.os.IBinder.FIRST_CALL_TRANSACTION + 16777213);
+    /** @hide */
+    public int getMaxTransactionId()
+    {
+      return 16777214;
+    }
   }
   /** @hide */
   public static final java.lang.String DESCRIPTOR = "android$aidl$test$trunk$ITrunkStableTest".replace('$', '.');
@@ -788,6 +793,11 @@ public interface ITrunkStableTest extends android.os.IInterface
       static final int TRANSACTION_repeatUnion = (android.os.IBinder.FIRST_CALL_TRANSACTION + 2);
       static final int TRANSACTION_getInterfaceVersion = (android.os.IBinder.FIRST_CALL_TRANSACTION + 16777214);
       static final int TRANSACTION_getInterfaceHash = (android.os.IBinder.FIRST_CALL_TRANSACTION + 16777213);
+      /** @hide */
+      public int getMaxTransactionId()
+      {
+        return 16777214;
+      }
     }
     /** @hide */
     public static final java.lang.String DESCRIPTOR = "android$aidl$test$trunk$ITrunkStableTest$IMyCallback".replace('$', '.');
