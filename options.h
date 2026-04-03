@@ -240,6 +240,8 @@ class Options final {
  private:
   Options() = default;
 
+  bool AddInputFile(const char* file);
+
   const string myname_;
   std::string raw_args_;
   Language language_ = Language::UNSPECIFIED;

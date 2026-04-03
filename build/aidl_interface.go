@@ -383,6 +383,10 @@ type CommonNativeBackendProperties struct {
 	// about the transactions.
 	// Default: false
 	Gen_log *bool
+
+	// Name of a cc_library_bundle module that bundles this. Clients will use the bundle library
+	// instead of this.
+	Target_bundle *string
 }
 
 type DumpApiProperties struct {
