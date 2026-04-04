@@ -300,15 +300,6 @@ Options Options::PlusImportDir(const std::string& import_dir) const {
   return copy;
 }
 
-bool Options::AddInputFile(const char* file) {
-  if (file && !*file) {
-    error_message_ << "Input file is empty" << endl;
-    return false;
-  }
-  input_files_.emplace_back(file);
-  return true;
-}
-
 Options::Options(int argc, const char* const raw_argv[], Options::Language default_lang)
     : myname_(argc >= 1 ? raw_argv[0] : "aidl"),
       raw_args_(ComputeRawArgs(argc, raw_argv)),
@@ -527,7 +518,7 @@ Options::Options(int argc, const char* const raw_argv[], Options::Language defau
       return;
     }
     if (language_ == Options::Language::JAVA || language_ == Options::Language::RUST) {
-      if (!AddInputFile(argv[optind++])) return;
+      input_files_.emplace_back(argv[optind++]);
       if (argc - optind >= 1) {
         output_file_ = argv[optind++];
       } else if (output_dir_.empty()) {
@@ -543,7 +534,7 @@ Options::Options(int argc, const char* const raw_argv[], Options::Language defau
         output_file_ += (language_ == Options::Language::JAVA) ? ".java" : ".rs";
       }
     } else if (IsCppOutput()) {
-      if (!AddInputFile(argv[optind++])) return;
+      input_files_.emplace_back(argv[optind++]);
       if (argc - optind < 2) {
         error_message_ << "No HEADER_DIR or OUTPUT." << endl;
         return;
@@ -577,7 +568,7 @@ Options::Options(int argc, const char* const raw_argv[], Options::Language defau
       }
     }
     while (optind < argc) {
-      if (!AddInputFile(argv[optind++])) return;
+      input_files_.emplace_back(argv[optind++]);
     }
   }
 
