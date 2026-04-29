@@ -567,9 +567,8 @@ static void GenerateStubCode(const AidlMethod& method, bool oneway,
       auto if_statement = std::make_shared<IfStatement>();
       if_statement->expression = std::make_shared<LiteralExpression>("true");
       if_statement->statements = std::make_shared<StatementBlock>();
-      if_statement->statements->Add(
-          std::make_shared<LiteralExpression>("throw new android.os.RemoteException(\"Method " +
-                                              method.GetName() + " is unimplemented.\")"));
+      if_statement->statements->Add(std::make_shared<LiteralExpression>(
+          "throw new android.os.RemoteException(\"Unimplemented\")"));
       statements->Add(if_statement);
     }
     for (const std::unique_ptr<AidlArgument>& arg : method.GetArguments()) {
@@ -743,8 +742,7 @@ static void GenerateProxyMethod(CodeWriter& out, const AidlInterface& iface,
 
   if (method.IsNew() && ShouldForceDowngradeFor(CommunicationSide::WRITE)) {
     out << "if (true) {\n";
-    out << "  throw new android.os.RemoteException(\"Method " + method.GetName() +
-               " is unimplemented.\");\n";
+    out << "  throw new android.os.RemoteException(\"Unimplemented\");\n";
     out << "}\n";
   }
 
@@ -813,8 +811,7 @@ static void GenerateProxyMethod(CodeWriter& out, const AidlInterface& iface,
     // TODO(b/274144762): we shouldn't have different behavior for versioned interfaces
     // also this set to false for all exceptions, not just unimplemented methods.
     // However, this is done now for backwards compatibility.
-    out << "throw new android.os.RemoteException(\"Method " << method.GetName()
-        << " is unimplemented.\");\n";
+    out << "throw new android.os.RemoteException(\"Unimplemented\");\n";
     out.Dedent();
     out << "}\n";
   }
@@ -1249,18 +1246,6 @@ static shared_ptr<Class> GenerateDelegatorClass(const AidlInterface& iface,
   return delegator_class;
 }
 
-static shared_ptr<ClassElement> GenerateMaxTransactionId(int max_transaction_id) {
-  auto getMaxTransactionId = std::make_shared<Method>();
-  getMaxTransactionId->comment = "/** @hide */";
-  getMaxTransactionId->modifiers = PUBLIC;
-  getMaxTransactionId->returnType = "int";
-  getMaxTransactionId->name = "getMaxTransactionId";
-  getMaxTransactionId->statements = std::make_shared<StatementBlock>();
-  getMaxTransactionId->statements->Add(std::make_shared<ReturnStatement>(
-      std::make_shared<LiteralExpression>(std::to_string(max_transaction_id))));
-  return getMaxTransactionId;
-}
-
 std::unique_ptr<Class> GenerateInterfaceClass(const AidlInterface* iface,
                                               const AidlTypenames& typenames,
                                               const Options& options) {
@@ -1337,11 +1322,6 @@ std::unique_ptr<Class> GenerateInterfaceClass(const AidlInterface* iface,
   for (const auto& item : iface->GetMethods()) {
     GenerateMethods(*iface, *item, interface.get(), stub, proxy, item->GetId(), typenames, options);
     max_transaction_id = std::max(max_transaction_id, item->GetId());
-  }
-
-  // getMaxTransactionId
-  if (options.GenTransactionNames() || options.GenTraces()) {
-    stub->elements.push_back(GenerateMaxTransactionId(max_transaction_id));
   }
 
   // all the nested types
