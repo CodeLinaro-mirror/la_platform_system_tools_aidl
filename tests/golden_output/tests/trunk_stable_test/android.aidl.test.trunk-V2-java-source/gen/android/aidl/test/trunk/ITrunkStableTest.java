@@ -224,7 +224,7 @@ public interface ITrunkStableTest extends android.os.IInterface
           _data.writeTypedObject(input, 0);
           boolean _status = mRemote.transact(Stub.TRANSACTION_repeatParcelable, _data, _reply, 0);
           if (!_status) {
-            throw new android.os.RemoteException("Method repeatParcelable is unimplemented.");
+            throw new android.os.RemoteException("Unimplemented");
           }
           _reply.readException();
           _result = _reply.readTypedObject(android.aidl.test.trunk.ITrunkStableTest.MyParcelable.CREATOR);
@@ -245,7 +245,7 @@ public interface ITrunkStableTest extends android.os.IInterface
           _data.writeByte(input);
           boolean _status = mRemote.transact(Stub.TRANSACTION_repeatEnum, _data, _reply, 0);
           if (!_status) {
-            throw new android.os.RemoteException("Method repeatEnum is unimplemented.");
+            throw new android.os.RemoteException("Unimplemented");
           }
           _reply.readException();
           _result = _reply.readByte();
@@ -266,7 +266,7 @@ public interface ITrunkStableTest extends android.os.IInterface
           _data.writeTypedObject(input, 0);
           boolean _status = mRemote.transact(Stub.TRANSACTION_repeatUnion, _data, _reply, 0);
           if (!_status) {
-            throw new android.os.RemoteException("Method repeatUnion is unimplemented.");
+            throw new android.os.RemoteException("Unimplemented");
           }
           _reply.readException();
           _result = _reply.readTypedObject(android.aidl.test.trunk.ITrunkStableTest.MyUnion.CREATOR);
@@ -286,7 +286,7 @@ public interface ITrunkStableTest extends android.os.IInterface
           _data.writeStrongInterface(cb);
           boolean _status = mRemote.transact(Stub.TRANSACTION_callMyCallback, _data, _reply, 0);
           if (!_status) {
-            throw new android.os.RemoteException("Method callMyCallback is unimplemented.");
+            throw new android.os.RemoteException("Unimplemented");
           }
           _reply.readException();
         }
@@ -305,7 +305,7 @@ public interface ITrunkStableTest extends android.os.IInterface
           _data.writeTypedObject(input, 0);
           boolean _status = mRemote.transact(Stub.TRANSACTION_repeatOtherParcelable, _data, _reply, 0);
           if (!_status) {
-            throw new android.os.RemoteException("Method repeatOtherParcelable is unimplemented.");
+            throw new android.os.RemoteException("Unimplemented");
           }
           _reply.readException();
           _result = _reply.readTypedObject(android.aidl.test.trunk.ITrunkStableTest.MyOtherParcelable.CREATOR);
@@ -358,11 +358,6 @@ public interface ITrunkStableTest extends android.os.IInterface
     static final int TRANSACTION_repeatOtherParcelable = (android.os.IBinder.FIRST_CALL_TRANSACTION + 4);
     static final int TRANSACTION_getInterfaceVersion = (android.os.IBinder.FIRST_CALL_TRANSACTION + 16777214);
     static final int TRANSACTION_getInterfaceHash = (android.os.IBinder.FIRST_CALL_TRANSACTION + 16777213);
-    /** @hide */
-    public int getMaxTransactionId()
-    {
-      return 16777214;
-    }
   }
   /** @hide */
   public static final java.lang.String DESCRIPTOR = "android$aidl$test$trunk$ITrunkStableTest".replace('$', '.');
@@ -794,7 +789,7 @@ public interface ITrunkStableTest extends android.os.IInterface
             _data.writeTypedObject(input, 0);
             boolean _status = mRemote.transact(Stub.TRANSACTION_repeatParcelable, _data, _reply, 0);
             if (!_status) {
-              throw new android.os.RemoteException("Method repeatParcelable is unimplemented.");
+              throw new android.os.RemoteException("Unimplemented");
             }
             _reply.readException();
             _result = _reply.readTypedObject(android.aidl.test.trunk.ITrunkStableTest.MyParcelable.CREATOR);
@@ -815,7 +810,7 @@ public interface ITrunkStableTest extends android.os.IInterface
             _data.writeByte(input);
             boolean _status = mRemote.transact(Stub.TRANSACTION_repeatEnum, _data, _reply, 0);
             if (!_status) {
-              throw new android.os.RemoteException("Method repeatEnum is unimplemented.");
+              throw new android.os.RemoteException("Unimplemented");
             }
             _reply.readException();
             _result = _reply.readByte();
@@ -836,7 +831,7 @@ public interface ITrunkStableTest extends android.os.IInterface
             _data.writeTypedObject(input, 0);
             boolean _status = mRemote.transact(Stub.TRANSACTION_repeatUnion, _data, _reply, 0);
             if (!_status) {
-              throw new android.os.RemoteException("Method repeatUnion is unimplemented.");
+              throw new android.os.RemoteException("Unimplemented");
             }
             _reply.readException();
             _result = _reply.readTypedObject(android.aidl.test.trunk.ITrunkStableTest.MyUnion.CREATOR);
@@ -857,7 +852,7 @@ public interface ITrunkStableTest extends android.os.IInterface
             _data.writeTypedObject(input, 0);
             boolean _status = mRemote.transact(Stub.TRANSACTION_repeatOtherParcelable, _data, _reply, 0);
             if (!_status) {
-              throw new android.os.RemoteException("Method repeatOtherParcelable is unimplemented.");
+              throw new android.os.RemoteException("Unimplemented");
             }
             _reply.readException();
             _result = _reply.readTypedObject(android.aidl.test.trunk.ITrunkStableTest.MyOtherParcelable.CREATOR);
@@ -909,11 +904,6 @@ public interface ITrunkStableTest extends android.os.IInterface
       static final int TRANSACTION_repeatOtherParcelable = (android.os.IBinder.FIRST_CALL_TRANSACTION + 3);
       static final int TRANSACTION_getInterfaceVersion = (android.os.IBinder.FIRST_CALL_TRANSACTION + 16777214);
       static final int TRANSACTION_getInterfaceHash = (android.os.IBinder.FIRST_CALL_TRANSACTION + 16777213);
-      /** @hide */
-      public int getMaxTransactionId()
-      {
-        return 16777214;
-      }
     }
     /** @hide */
     public static final java.lang.String DESCRIPTOR = "android$aidl$test$trunk$ITrunkStableTest$IMyCallback".replace('$', '.');
